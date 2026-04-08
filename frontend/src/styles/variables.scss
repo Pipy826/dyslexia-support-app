@@ -1,0 +1,51 @@
+// 全局样式变量 - 参照原型图设计规范
+// 配色系统
+$text-main: #374151;    // 深灰色主字体
+$text-sub: #6B7280;     // 浅灰色副字体
+$bg-main: #FFFFFF;       // 主背景白
+$bg-sub: #F9FAFB;       // 极浅灰背景
+
+// 主题色
+$primary-blue: #3B82F6;    // 点缀蓝 - 主要按钮
+$success-green: #10B981;    // 点缀绿 - 成功/良好状态
+$warning-orange: #F59E0B;   // 点缀橘黄 - 风险/待办/偏弱
+$accent-red: #EF4444;       // 点缀红 - 警示/错题/高风险
+$star-yellow: #F59E0B;      // 星星黄
+
+// 儿童端额外配色
+$child-primary: $primary-blue;
+$child-success: $success-green;
+$child-accent: $accent-red;
+$child-bg: $bg-main;
+
+// 家长端配色
+$parent-primary: $primary-blue;
+$parent-secondary: $success-green;
+$parent-bg: $bg-main;
+$parent-text: $text-main;
+
+// 圆角规范 (原型图规范)
+$border-radius-sm: 24rpx;    // rounded-2xl
+$border-radius-md: 32rpx;     // rounded-3xl
+$border-radius-lg: 48rpx;     // rounded-[24px]
+$border-radius-xl: 64rpx;     // rounded-[32px]
+
+// 阴影规范 (极简风格)
+$shadow-card: 0 4rpx 20rpx rgba(0, 0, 0, 0.03);   // card-shadow 极简阴影
+$shadow-sm: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+$shadow-md: 0 8rpx 32rpx rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 25rpx 50rpx -12rpx rgba(0, 0, 0, 0.1);
+
+// 按钮阴影
+$shadow-blue-btn: 0 4rpx 12rpx rgba(59, 130, 246, 0.2);
+$shadow-green-btn: 0 4rpx 12rpx rgba(16, 185, 129, 0.2);
+
+// 风险等级颜色
+$risk-low: $success-green;      // 低风险/良好
+$risk-medium: $warning-orange;   // 中风险/需关注/偏弱
+$risk-high: $accent-red;        // 高风险/警示
+
+// 布局尺寸
+$nav-height: 168rpx;           // 底部导航高度 (84px * 2)
+$top-safe-area: 96rpx;         // 顶部安全区 (48px * 2)
+$content-padding: 48rpx;        // 内容区内边距 (24px * 2)

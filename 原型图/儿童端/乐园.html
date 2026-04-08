@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>儿童端 - 挑战筛查</title>
+    <!-- 使用 Tailwind CSS 进行快速、简约的样式构建 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Phosphor Icons 作为儿童友好的图标库 -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* 自定义主题颜色与基础样式，避免使用纯黑，使用深灰替代 */
+        :root {
+            --text-main: #374151; /* 深灰色字体 */
+            --text-sub: #6B7280;  /* 浅灰色字体 */
+            --bg-main: #FFFFFF;   /* 主背景白 */
+            --bg-sub: #F9FAFB;    /* 次背景极浅灰 */
+            --primary-blue: #3B82F6; /* 点缀蓝 - 主要按钮 */
+            --success-green: #10B981;/* 点缀绿 - 成功/准备 */
+            --accent-red: #EF4444;   /* 点缀红 - 强调/错题提示 */
+            --star-yellow: #F59E0B;  /* 星星黄 */
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5; /* 桌面端背景色，用于衬托手机边框 */
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none; /* 防止儿童误触选中文本 */
+            -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+        }
+
+        /* 模拟手机App容器 */
+        #app-container {
+            width: 100%;
+            max-width: 430px; /* iPhone 14 Pro Max 宽度 */
+            height: 100vh;
+            max-height: 932px;
+            background-color: var(--bg-main);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (min-width: 480px) {
+            #app-container {
+                height: 90vh;
+                border-radius: 40px; /* 桌面端显示圆角模拟手机 */
+                border: 8px solid #E5E7EB;
+            }
+        }
+
+        /* 页面切换动画 */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-main);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.4s ease, opacity 0.4s ease;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 20;
+        }
+
+        .screen.slide-in-right {
+            transform: translateX(100%);
+        }
+        .screen.active.slide-in-right {
+            transform: translateX(0);
+        }
+
+        .screen.slide-out-left {
+            transform: translateX(-100%);
+        }
+
+        /* 动画类 */
+        .bounce { animation: bounce 2s infinite; }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-15px); }
+            60% { transform: translateY(-7px); }
+        }
+
+        .pop-in { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 选项卡片样式 */
+        .option-card {
+            background-color: var(--bg-main);
+            border: 2px solid #E5E7EB;
+            border-radius: 24px;
+            transition: all 0.2s;
+        }
+        .option-card:active {
+            transform: scale(0.95);
+        }
+        .option-card.selected {
+            border-color: var(--primary-blue);
+            background-color: #EFF6FF;
+            color: var(--primary-blue);
+        }
+        .option-card.correct {
+            border-color: var(--success-green);
+            background-color: #ECFDF5;
+            color: var(--success-green);
+        }
+        .option-card.wrong {
+            border-color: var(--accent-red);
+            background-color: #FEF2F2;
+            color: var(--accent-red);
+        }
+
+        /* 隐藏滚动条 */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <!-- ==================== 页面 1：首页 (Home Screen) ==================== -->
+    <div id="screen-home" class="screen active slide-in-right">
+        <!-- 顶部信息 -->
+        <div class="px-6 pt-12 pb-4 flex justify-between items-center bg-white z-10">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex justify-center items-center text-2xl font-bold">
+                    <i class="ph ph-user-circle"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-gray-700">你好，小明</h1>
+                    <p class="text-sm text-gray-500">准备好今天的挑战了吗？</p>
+                </div>
+            </div>
+            <div class="w-10 h-10 rounded-full bg-gray-50 flex justify-center items-center text-gray-400">
+                <i class="ph ph-bell text-xl"></i>
+            </div>
+        </div>
+
+        <!-- 核心内容区 -->
+        <div class="flex-1 flex flex-col justify-center items-center px-6 pb-20">
+            <!-- 占位插画 (用 CSS 绘制简约图形替代图片) -->
+            <div class="w-48 h-48 mb-8 relative bounce">
+                <div class="absolute inset-0 bg-blue-50 rounded-[40px] transform rotate-3"></div>
+                <div class="absolute inset-0 bg-white rounded-[40px] shadow-sm border border-gray-100 flex justify-center items-center flex-col">
+                    <i class="ph-fill ph-rocket-launch text-6xl text-blue-400 mb-2"></i>
+                    <div class="flex gap-1">
+                        <span class="w-2 h-2 rounded-full bg-red-400"></span>
+                        <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-gray-700 mb-2">语言探险之旅</h2>
+            <p class="text-gray-500 text-center mb-10 px-4">完成挑战，收集小星星，看看你的超能力！</p>
+
+            <!-- 开始筛查按钮 -->
+            <button onclick="navTo('screen-prep')" class="w-full bg-blue-500 text-white rounded-3xl py-4 text-xl font-bold shadow-lg shadow-blue-500/30 active:scale-95 transition-transform flex justify-center items-center gap-2">
+                <i class="ph-fill ph-play-circle text-2xl"></i> 开始挑战
+            </button>
+            
+            <p class="text-xs text-gray-400 mt-4"><i class="ph ph-info"></i> 家长辅助提示：请让孩子在安静环境下独立完成</p>
+        </div>
+
+        <!-- 底部导航 (儿童端极简双导航) -->
+        <div class="absolute bottom-0 w-full h-20 bg-white border-t border-gray-100 flex justify-around items-center px-6 pb-4">
+            <div class="flex flex-col items-center gap-1 text-blue-500 cursor-pointer" onclick="navTo('screen-home')">
+                <i class="ph-fill ph-game-controller text-2xl"></i>
+                <span class="text-xs font-bold">挑战</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 cursor-pointer" onclick="navTo('screen-training')">
+                <i class="ph ph-shapes text-2xl"></i>
+                <span class="text-xs font-medium">训练乐园</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 2：准备页 (Preparation Screen) ==================== -->
+    <div id="screen-prep" class="screen slide-in-right">
+        <div class="px-6 pt-12 pb-4">
+            <button onclick="navTo('screen-home')" class="w-10 h-10 rounded-full bg-gray-50 flex justify-center items-center text-gray-500">
+                <i class="ph ph-arrow-left text-xl"></i>
+            </button>
+        </div>
+
+        <div class="flex-1 flex flex-col justify-center items-center px-8 pb-12">
+            <h2 class="text-2xl font-bold text-gray-700 mb-10">挑战前的小准备</h2>
+            
+            <div class="w-full flex flex-col gap-6 mb-12">
+                <div class="flex items-center gap-4 p-4 rounded-2xl bg-blue-50">
+                    <div class="w-12 h-12 rounded-full bg-white flex justify-center items-center text-blue-500 text-2xl shadow-sm">
+                        <i class="ph-fill ph-headphones"></i>
+                    </div>
+                    <div class="text-gray-700 font-medium text-lg">找一个安静的地方</div>
+                </div>
+                <div class="flex items-center gap-4 p-4 rounded-2xl bg-green-50">
+                    <div class="w-12 h-12 rounded-full bg-white flex justify-center items-center text-green-500 text-2xl shadow-sm">
+                        <i class="ph-fill ph-eye"></i>
+                    </div>
+                    <div class="text-gray-700 font-medium text-lg">仔细看，认真听</div>
+                </div>
+                <div class="flex items-center gap-4 p-4 rounded-2xl bg-red-50">
+                    <div class="w-12 h-12 rounded-full bg-white flex justify-center items-center text-red-400 text-2xl shadow-sm">
+                        <i class="ph-fill ph-hand-palm"></i>
+                    </div>
+                    <div class="text-gray-700 font-medium text-lg">不用害怕答错哦</div>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full bg-green-500 text-white rounded-3xl py-4 text-xl font-bold shadow-lg shadow-green-500/30 active:scale-95 transition-transform">
+                我准备好了！
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 3：游戏筛查页 (Game Screen) ==================== -->
+    <div id="screen-game" class="screen slide-in-right bg-[#F9FAFB]">
+        <!-- 游戏顶部：进度条与退出 -->
+        <div class="px-6 pt-12 pb-4 flex items-center justify-between gap-4 bg-white rounded-b-3xl shadow-sm">
+            <button onclick="confirmExit()" class="text-gray-400 p-1">
+                <i class="ph ph-x text-2xl"></i>
+            </button>
+            <div class="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden relative">
+                <div id="progress-bar" class="absolute top-0 left-0 h-full bg-green-400 rounded-full transition-all duration-500" style="width: 0%;"></div>
+            </div>
+            <div class="text-blue-500 font-bold" id="progress-text">1/2</div>
+        </div>
+
+        <!-- 游戏核心区域 -->
+        <div class="flex-1 flex flex-col items-center px-6 pt-8 pb-10 overflow-y-auto" id="game-content">
+            <!-- 题目由 JS 动态渲染 -->
+        </div>
+
+        <!-- 底部操作区 -->
+        <div class="px-6 pb-10 pt-4 bg-[#F9FAFB]">
+            <button id="next-btn" onclick="handleNext()" class="w-full bg-gray-200 text-gray-400 rounded-3xl py-4 text-xl font-bold transition-all pointer-events-none">
+                选好了
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 4：奖励反馈页 (Reward Screen) ==================== -->
+    <div id="screen-reward" class="screen slide-in-right">
+        <div class="flex-1 flex flex-col justify-center items-center px-6 pb-20">
+            <!-- 星星动画区 -->
+            <div class="flex justify-center items-end gap-2 mb-8 h-32">
+                <div class="text-5xl text-yellow-400 pop-in" style="animation-delay: 0.1s; opacity:0;"><i class="ph-fill ph-star"></i></div>
+                <div class="text-7xl text-yellow-400 pop-in pb-4" style="animation-delay: 0.3s; opacity:0;"><i class="ph-fill ph-star"></i></div>
+                <div class="text-5xl text-yellow-400 pop-in" style="animation-delay: 0.5s; opacity:0;"><i class="ph-fill ph-star"></i></div>
+            </div>
+
+            <h2 class="text-3xl font-bold text-gray-700 mb-4 pop-in" style="animation-delay: 0.7s; opacity:0;">太棒啦！</h2>
+            <p class="text-lg text-gray-500 text-center mb-12 pop-in" style="animation-delay: 0.8s; opacity:0;">你完成了所有的挑战<br>获得了 3 颗探险之星</p>
+
+            <button onclick="finishGame()" class="w-full bg-blue-500 text-white rounded-3xl py-4 text-xl font-bold shadow-lg shadow-blue-500/30 active:scale-95 transition-transform pop-in" style="animation-delay: 1s; opacity:0;">
+                回到首页
+            </button>
+            <p class="text-xs text-gray-400 mt-6 pop-in" style="animation-delay: 1.1s; opacity:0;">（结果已自动发送给爸爸妈妈）</p>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 5：训练乐园页 (Training Park Screen) ==================== -->
+    <div id="screen-training" class="screen slide-in-right bg-white">
+        <!-- 顶部信息 -->
+        <div class="px-6 pt-12 pb-4 flex justify-between items-center bg-white z-10 sticky top-0">
+            <h1 class="text-2xl font-bold text-gray-700">训练乐园</h1>
+            <div class="flex items-center gap-1 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100">
+                <i class="ph-fill ph-star text-yellow-400 text-lg"></i>
+                <span class="text-sm font-bold text-yellow-600">12 颗</span>
+            </div>
+        </div>
+
+        <!-- 核心内容区 -->
+        <div class="flex-1 overflow-y-auto px-6 pb-24">
+            
+            <!-- 今日进度模块 -->
+            <div class="bg-blue-50 rounded-3xl p-5 mb-6 shadow-sm border border-blue-100">
+                <div class="flex justify-between items-end mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-700">今日任务</h2>
+                        <p class="text-xs text-gray-500 mt-1">完成任务获得小星星哦！</p>
+                    </div>
+                    <span class="text-2xl font-extrabold text-blue-500">1<span class="text-base text-blue-300">/3</span></span>
+                </div>
+                <div class="h-3.5 bg-white rounded-full overflow-hidden border border-blue-100">
+                    <div class="h-full bg-blue-400 rounded-full transition-all duration-500" style="width: 33%;"></div>
+                </div>
+            </div>
+
+            <!-- 任务列表 -->
+            <div class="flex flex-col gap-4">
+                
+                <!-- 任务1 (已完成) -->
+                <div class="bg-white border-2 border-green-100 rounded-3xl p-4 flex items-center gap-4 opacity-70">
+                    <div class="w-14 h-14 rounded-2xl bg-green-50 flex justify-center items-center text-green-500 text-3xl shrink-0">
+                        <i class="ph-fill ph-check-circle"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold text-gray-700">火眼金睛</h3>
+                        <p class="text-xs text-gray-400">找出不一样的字</p>
+                    </div>
+                    <button class="px-4 py-2 bg-gray-100 text-gray-400 font-bold rounded-xl text-sm shrink-0" disabled>
+                        已完成
+                    </button>
+                </div>
+
+                <!-- 任务2 (待完成) -->
+                <div class="bg-white border-2 border-gray-100 shadow-sm rounded-3xl p-4 flex items-center gap-4 relative overflow-hidden transition-transform active:scale-95">
+                    <div class="absolute top-0 right-0 bg-red-400 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">推荐</div>
+                    <div class="w-14 h-14 rounded-2xl bg-blue-50 flex justify-center items-center text-blue-500 text-3xl shrink-0">
+                        <i class="ph-fill ph-puzzle-piece"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold text-gray-700">拼字小达人</h3>
+                        <p class="text-xs text-gray-400">把字拼完整</p>
+                    </div>
+                    <!-- 直接复用 startGame 函数体验互动 -->
+                    <button onclick="startGame()" class="px-4 py-2 bg-blue-500 text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/30 shrink-0">
+                        去完成
+                    </button>
+                </div>
+
+                <!-- 任务3 (待完成) -->
+                <div class="bg-white border-2 border-gray-100 shadow-sm rounded-3xl p-4 flex items-center gap-4 transition-transform active:scale-95">
+                    <div class="w-14 h-14 rounded-2xl bg-orange-50 flex justify-center items-center text-orange-400 text-3xl shrink-0">
+                        <i class="ph-fill ph-book-open-text"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold text-gray-700">故事大王</h3>
+                        <p class="text-xs text-gray-400">读句子选图片</p>
+                    </div>
+                    <button onclick="startGame()" class="px-4 py-2 bg-blue-500 text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/30 shrink-0">
+                        去完成
+                    </button>
+                </div>
+
+            </div>
+            
+            <!-- 成就系统 -->
+            <div class="mt-8 mb-4">
+                <h3 class="text-md font-bold text-gray-700 mb-4 px-1">我的成就</h3>
+                <div class="flex gap-3">
+                    <div class="flex-1 bg-white rounded-2xl p-4 flex flex-col items-center justify-center border border-gray-100 shadow-sm">
+                        <i class="ph-fill ph-medal text-4xl text-gray-300 mb-2"></i>
+                        <span class="text-xs font-bold text-gray-400">连胜3天</span>
+                    </div>
+                    <div class="flex-1 bg-white rounded-2xl p-4 flex flex-col items-center justify-center border border-gray-100 shadow-sm">
+                        <i class="ph-fill ph-trophy text-4xl text-yellow-400 mb-2"></i>
+                        <span class="text-xs font-bold text-gray-600">拼字新手</span>
+                    </div>
+                    <div class="flex-1 bg-white rounded-2xl p-4 flex flex-col items-center justify-center border border-gray-100 shadow-sm">
+                        <i class="ph-fill ph-crown text-4xl text-gray-200 mb-2"></i>
+                        <span class="text-xs font-bold text-gray-400">待解锁</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 底部导航 (儿童端极简双导航 - 训练乐园激活态) -->
+        <div class="absolute bottom-0 w-full h-20 bg-white border-t border-gray-100 flex justify-around items-center px-6 pb-4">
+            <div class="flex flex-col items-center gap-1 text-gray-400 cursor-pointer" onclick="navTo('screen-home')">
+                <i class="ph ph-game-controller text-2xl"></i>
+                <span class="text-xs font-medium">挑战</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-blue-500 cursor-pointer" onclick="navTo('screen-training')">
+                <i class="ph-fill ph-shapes text-2xl"></i>
+                <span class="text-xs font-bold">训练乐园</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- 退出确认弹窗 (简约风格) -->
+<div id="exit-modal" class="absolute inset-0 bg-black/40 z-50 flex justify-center items-center hidden opacity-0 transition-opacity">
+    <div class="bg-white w-[80%] max-w-sm rounded-[32px] p-6 flex flex-col items-center transform scale-95 transition-transform" id="exit-modal-content">
+        <div class="w-16 h-16 bg-red-50 rounded-full flex justify-center items-center text-red-400 text-3xl mb-4">
+            <i class="ph-fill ph-warning-circle"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-700 mb-2">要休息一下吗？</h3>
+        <p class="text-gray-500 text-center text-sm mb-6">现在的进度会保存哦，下次可以继续挑战。</p>
+        <div class="w-full flex flex-col gap-3">
+            <button onclick="navTo('screen-home'); hideModal();" class="w-full bg-white border-2 border-gray-200 text-gray-600 rounded-2xl py-3 font-bold active:bg-gray-50">
+                退出挑战
+            </button>
+            <button onclick="hideModal()" class="w-full bg-blue-500 text-white rounded-2xl py-3 font-bold shadow-md shadow-blue-500/20 active:scale-95">
+                继续挑战
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 路由与页面切换逻辑 ---
+    let currentScreen = 'screen-home';
+
+    function navTo(targetId) {
+        // 移除当前页面的 active
+        const current = document.getElementById(currentScreen);
+        current.classList.remove('active');
+        
+        // 切换回首页时，添加轻微滑出动画
+        if(targetId === 'screen-home' && currentScreen !== 'screen-reward' && currentScreen !== 'screen-training') {
+            current.classList.add('slide-out-left');
+            setTimeout(() => current.classList.remove('slide-out-left'), 400);
+        }
+
+        // 激活目标页面
+        const target = document.getElementById(targetId);
+        target.classList.add('active');
+        
+        currentScreen = targetId;
+    }
+
+    // --- 弹窗逻辑 ---
+    function confirmExit() {
+        const modal = document.getElementById('exit-modal');
+        const content = document.getElementById('exit-modal-content');
+        modal.classList.remove('hidden');
+        // 触发重绘
+        void modal.offsetWidth;
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+    }
+
+    function hideModal() {
+        const modal = document.getElementById('exit-modal');
+        const content = document.getElementById('exit-modal-content');
+        modal.classList.add('opacity-0');
+        content.classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+
+    // --- 游戏/筛查核心逻辑 ---
+    // 模拟数据：视觉辨识任务 & 拼字阅读任务
+    const questions = [
+        {
+            type: 'visual',
+            title: '请找出不一样的字',
+            instruction: '仔细看，哪个字和大家不一样呢？',
+            options: ['大', '大', '太', '大'],
+            correctIndex: 2
+        },
+        {
+            type: 'comprehension',
+            title: '看图选词',
+            instruction: '小狗在干什么？选出正确的词语。',
+            imageIcon: 'ph-dog', // 用图标代替图片
+            options: ['睡觉', '跑步'],
+            correctIndex: 1
+        }
+    ];
+
+    let currentQuestionIndex = 0;
+    let selectedOptionIndex = null;
+
+    function startGame() {
+        currentQuestionIndex = 0;
+        selectedOptionIndex = null;
+        renderQuestion();
+        navTo('screen-game');
+    }
+
+    function renderQuestion() {
+        const q = questions[currentQuestionIndex];
+        const container = document.getElementById('game-content');
+        selectedOptionIndex = null;
+        
+        // 更新进度条
+        const progressPercent = ((currentQuestionIndex) / questions.length) * 100;
+        document.getElementById('progress-bar').style.width = progressPercent + '%';
+        document.getElementById('progress-text').innerText = `${currentQuestionIndex + 1}/${questions.length}`;
+
+        // 重置按钮状态
+        const nextBtn = document.getElementById('next-btn');
+        nextBtn.className = "w-full bg-gray-200 text-gray-400 rounded-3xl py-4 text-xl font-bold transition-all pointer-events-none";
+        nextBtn.innerText = "选好了";
+
+        // 构建题目HTML
+        let html = `
+            <div class="flex items-center gap-2 mb-2">
+                <button class="w-8 h-8 rounded-full bg-blue-100 text-blue-500 flex justify-center items-center" onclick="playAudio()">
+                    <i class="ph-fill ph-speaker-high"></i>
+                </button>
+                <h3 class="text-2xl font-bold text-gray-700">${q.title}</h3>
+            </div>
+            <p class="text-gray-500 mb-8 text-center">${q.instruction}</p>
+        `;
+
+        // 如果有图片/图标
+        if (q.imageIcon) {
+            html += `
+                <div class="w-32 h-32 bg-white rounded-3xl border-2 border-gray-100 shadow-sm flex justify-center items-center mb-8">
+                    <i class="ph ${q.imageIcon} text-6xl text-gray-600"></i>
+                </div>
+            `;
+        }
+
+        // 构建选项（视觉题网格，阅读题列表）
+        const gridClass = q.type === 'visual' ? 'grid grid-cols-2 gap-4 w-full max-w-[280px]' : 'flex flex-col gap-4 w-full';
+        const cardClass = q.type === 'visual' ? 'aspect-square text-5xl font-bold flex justify-center items-center' : 'p-5 text-2xl font-bold flex justify-center items-center';
+
+        html += `<div class="${gridClass}" id="options-container">`;
+        
+        q.options.forEach((opt, index) => {
+            html += `
+                <div class="option-card ${cardClass} cursor-pointer" onclick="selectOption(${index})">
+                    ${opt}
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    // 播放提示音效（模拟）
+    function playAudio() {
+        const icon = document.querySelector('.ph-speaker-high');
+        icon.classList.add('text-blue-700', 'scale-110');
+        setTimeout(() => icon.classList.remove('text-blue-700', 'scale-110'), 200);
+        // 实际开发中此处调用 audio.play()
+    }
+
+    function selectOption(index) {
+        selectedOptionIndex = index;
+        const options = document.querySelectorAll('.option-card');
+        options.forEach((opt, i) => {
+            if (i === index) {
+                opt.classList.add('selected');
+            } else {
+                opt.classList.remove('selected');
+            }
+        });
+
+        // 激活下一步按钮
+        const nextBtn = document.getElementById('next-btn');
+        nextBtn.className = "w-full bg-blue-500 text-white rounded-3xl py-4 text-xl font-bold shadow-lg shadow-blue-500/30 active:scale-95 transition-transform";
+    }
+
+    function handleNext() {
+        if (selectedOptionIndex === null) return;
+
+        // 在这里可以处理数据的采集（对应需求文档 4.6 数据提交模块）
+        // const q = questions[currentQuestionIndex];
+        // const isCorrect = selectedOptionIndex === q.correctIndex;
+        // console.log(`Question ${currentQuestionIndex}: Selected ${selectedOptionIndex}, Correct: ${isCorrect}`);
+
+        // 为儿童端提供即时轻度反馈（可选：选项变绿或红）
+        // 此处为了无压感，直接进入下一题或结算
+
+        if (currentQuestionIndex < questions.length - 1) {
+            currentQuestionIndex++;
+            renderQuestion();
+        } else {
+            // 完成所有题目，更新最后进度并跳转奖励页
+            document.getElementById('progress-bar').style.width = '100%';
+            setTimeout(() => {
+                navTo('screen-reward');
+                // 重新触发奖励页的动画
+                const rewardScreen = document.getElementById('screen-reward');
+                const popIns = rewardScreen.querySelectorAll('.pop-in');
+                popIns.forEach(el => {
+                    el.style.animation = 'none';
+                    void el.offsetWidth; // trigger reflow
+                    el.style.animation = null;
+                });
+            }, 300);
+        }
+    }
+
+    function finishGame() {
+        // 完成后返回首页
+        navTo('screen-home');
+    }
+
+</script>
+</body>
+</html>

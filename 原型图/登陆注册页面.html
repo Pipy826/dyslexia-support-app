@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>家长端 - 读写能力智能支持系统</title>
+    <!-- 引入 Tailwind CSS 进行极简样式构建 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Phosphor Icons (轻量、现代的图标库) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* 家长端极简风格变量 */
+        :root {
+            --text-main: #374151; /* 深灰色主字体 */
+            --text-sub: #6B7280;  /* 浅灰色副字体 */
+            --bg-main: #FFFFFF;   /* 极简主白 */
+            --bg-sub: #F9FAFB;    /* 极浅灰背景 */
+            --primary-blue: #3B82F6; /* 点缀蓝 - 主要动作/强调 */
+            --success-green: #10B981;/* 点缀绿 - 良好/完成状态 */
+            --warning-orange: #F59E0B; /* 点缀橘黄 - 风险/待办 */
+            --accent-red: #EF4444;   /* 点缀红 - 警示/错题 */
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5; 
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent; 
+        }
+
+        /* 移动端 App 模拟容器 */
+        #app-container {
+            width: 100%;
+            max-width: 430px; 
+            height: 100vh;
+            max-height: 932px;
+            background-color: var(--bg-main);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (min-width: 480px) {
+            #app-container {
+                height: 90vh;
+                border-radius: 40px; 
+                border: 8px solid #F3F4F6;
+            }
+        }
+
+        /* 页面切换控制 */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-sub);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 20;
+        }
+
+        /* 隐藏滚动条 */
+        ::-webkit-scrollbar { display: none; }
+
+        /* 卡片极简阴影 */
+        .card-shadow {
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+        }
+
+        /* 输入框聚焦态 */
+        input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* 隐藏单选原生样式 */
+        input[type="radio"] {
+            display: none;
+        }
+        input[type="radio"]:checked + div {
+            background-color: #EFF6FF;
+            border-color: #3B82F6;
+            color: #3B82F6;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+
+    <!-- ==================== 页面 0.1：家长端 - 登录/注册页 ==================== -->
+    <!-- 设为 active 成为初始页面 -->
+    <div id="screen-login" class="screen active overflow-y-auto bg-white px-8 pb-10">
+        
+        <div class="mt-16 mb-10 flex flex-col items-center">
+            <div class="w-20 h-20 bg-blue-50 rounded-[28px] flex justify-center items-center text-blue-500 mb-6 shadow-sm border border-blue-100">
+                <i class="ph-fill ph-leaf text-4xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">读写能力智能支持</h1>
+            <p class="text-sm text-gray-500">早发现 · 可解释 · 可干预</p>
+        </div>
+
+        <!-- 登录/注册方式切换标签 -->
+        <div id="login-tabs" class="flex gap-6 mb-6 px-2">
+            <span id="tab-code" onclick="switchLoginMode('code')" class="text-lg font-bold text-gray-800 cursor-pointer relative transition-colors">
+                <span id="tab-code-text">验证码登录</span>
+                <div id="line-code" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-1 bg-blue-500 rounded-full transition-opacity"></div>
+            </span>
+            <span id="tab-pwd" onclick="switchLoginMode('pwd')" class="text-lg font-bold text-gray-400 cursor-pointer relative transition-colors">
+                <span id="tab-pwd-text">密码登录</span>
+                <div id="line-pwd" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-4 h-1 bg-blue-500 rounded-full opacity-0 transition-opacity"></div>
+            </span>
+        </div>
+
+        <!-- 表单容器：验证码登录 -->
+        <div id="form-code" class="flex flex-col gap-5 mb-6">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-phone text-gray-400 text-lg"></i>
+                </div>
+                <input type="tel" id="login-phone" placeholder="请输入手机号码" maxlength="11" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+            <div class="relative flex gap-3">
+                <div class="relative flex-1">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="ph-fill ph-shield-check text-gray-400 text-lg"></i>
+                    </div>
+                    <input type="number" id="login-code" placeholder="输入验证码" maxlength="6" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm text-gray-800 placeholder-gray-400 transition-all">
+                </div>
+                <button class="w-28 bg-blue-50 text-blue-500 rounded-2xl text-xs font-bold active:bg-blue-100 transition-colors shrink-0 border border-blue-100">
+                    获取验证码
+                </button>
+            </div>
+        </div>
+
+        <!-- 表单容器：密码登录 -->
+        <div id="form-pwd" class="flex flex-col gap-5 mb-6 hidden">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-user text-gray-400 text-lg"></i>
+                </div>
+                <input type="text" id="login-account" placeholder="手机号 / 用户名" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-lock-key text-gray-400 text-lg"></i>
+                </div>
+                <input type="password" id="login-pwd" placeholder="请输入登录密码" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-12 text-sm text-gray-800 placeholder-gray-400 transition-all">
+                <div class="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-gray-400 hover:text-gray-600">
+                    <i class="ph-fill ph-eye-slash text-lg"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 表单容器：注册新账号 (手机号) -->
+        <div id="form-register-phone" class="flex flex-col gap-5 mb-6 hidden">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-phone text-gray-400 text-lg"></i>
+                </div>
+                <input type="tel" id="reg-phone" placeholder="请输入手机号码" maxlength="11" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+            <div class="relative flex gap-3">
+                <div class="relative flex-1">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="ph-fill ph-shield-check text-gray-400 text-lg"></i>
+                    </div>
+                    <input type="number" id="reg-code" placeholder="输入验证码" maxlength="6" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm text-gray-800 placeholder-gray-400 transition-all">
+                </div>
+                <button class="w-28 bg-blue-50 text-blue-500 rounded-2xl text-xs font-bold active:bg-blue-100 transition-colors shrink-0 border border-blue-100">
+                    获取验证码
+                </button>
+            </div>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-lock-key text-gray-400 text-lg"></i>
+                </div>
+                <input type="password" id="reg-pwd" placeholder="请设置登录密码" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-12 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+        </div>
+
+        <!-- 表单容器：注册新账号 (账号密码) -->
+        <div id="form-register-account" class="flex flex-col gap-5 mb-6 hidden">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-user text-gray-400 text-lg"></i>
+                </div>
+                <input type="text" id="reg-acc-username" placeholder="请设置用户名 (作为登录账号)" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-4 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-lock-key text-gray-400 text-lg"></i>
+                </div>
+                <input type="password" id="reg-acc-pwd" placeholder="请设置登录密码" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-12 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="ph-fill ph-check-circle text-gray-400 text-lg"></i>
+                </div>
+                <input type="password" id="reg-acc-pwd-confirm" placeholder="请再次输入密码确认" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-12 pr-12 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+        </div>
+
+        <!-- 协议勾选 -->
+        <div class="flex items-start gap-2 mb-8 px-1">
+            <div class="relative flex items-center mt-0.5 cursor-pointer" onclick="toggleAgreement()">
+                <div id="agree-checkbox" class="w-4 h-4 rounded-full border-2 border-gray-300 flex justify-center items-center transition-colors">
+                    <i class="ph-bold ph-check text-[10px] text-white opacity-0 transition-opacity" id="agree-check-icon"></i>
+                </div>
+            </div>
+            <p id="agree-text" class="text-xs text-gray-400 leading-relaxed">
+                我已阅读并同意 <span class="text-blue-500 cursor-pointer">《用户服务协议》</span> 和 <span class="text-blue-500 cursor-pointer">《隐私政策》</span>，未注册手机号将自动创建账号。
+            </p>
+        </div>
+
+        <!-- 登录/注册动作按钮 -->
+        <button id="auth-main-btn" onclick="handleAuthAction()" class="w-full bg-blue-500 text-white rounded-2xl py-4 text-base font-bold shadow-md shadow-blue-500/30 active:scale-95 transition-transform flex justify-center items-center gap-2">
+            登 录
+        </button>
+
+        <!-- 切换入口 -->
+        <div class="text-center mt-6">
+            <span id="auth-switch-text" class="text-sm text-gray-500">还没有账号？ <span class="text-blue-500 font-bold cursor-pointer" onclick="toggleRegisterMode()">立即注册</span></span>
+        </div>
+
+        <!-- 第三方快捷登录 (极简点缀) -->
+        <div id="third-party-login" class="mt-12 flex flex-col items-center">
+            <div class="flex items-center gap-4 w-full mb-6">
+                <div class="flex-1 h-px bg-gray-100"></div>
+                <span class="text-xs text-gray-400">其他方式登录</span>
+                <div class="flex-1 h-px bg-gray-100"></div>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-green-50 text-green-500 flex justify-center items-center text-2xl cursor-pointer hover:bg-green-100 transition-colors">
+                <i class="ph-fill ph-wechat-logo"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 0.2：家长端 - 创建儿童档案 ==================== -->
+    <div id="screen-profile-create" class="screen overflow-y-auto bg-white px-6 pb-10">
+        
+        <div class="mt-12 mb-8">
+            <div class="w-10 h-10 rounded-full bg-gray-50 flex justify-center items-center text-gray-500 cursor-pointer mb-6" onclick="navTo('screen-login')">
+                <i class="ph ph-arrow-left text-lg"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">创建儿童档案</h1>
+            <p class="text-sm text-gray-500">为了推荐最精准的评估与训练计划，请完善信息。</p>
+        </div>
+
+        <!-- 极简表单 -->
+        <div class="flex flex-col gap-6 mb-10">
+            
+            <!-- 头像选择 (模拟) -->
+            <div class="flex flex-col items-center mb-2">
+                <div class="w-20 h-20 rounded-full bg-blue-100 border-2 border-white shadow-sm flex justify-center items-center text-blue-500 relative mb-3">
+                    <i class="ph-fill ph-user text-3xl"></i>
+                    <div class="absolute bottom-0 right-0 w-6 h-6 bg-white rounded-full flex justify-center items-center shadow-sm">
+                        <i class="ph-fill ph-camera text-blue-500 text-[10px]"></i>
+                    </div>
+                </div>
+                <span class="text-xs text-gray-400">点击上传头像</span>
+            </div>
+
+            <!-- 姓名/昵称 -->
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2 px-1">孩子姓名 / 昵称</label>
+                <input type="text" placeholder="例如：小明" class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3.5 px-4 text-sm text-gray-800 placeholder-gray-400 transition-all">
+            </div>
+
+            <!-- 性别选择 -->
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2 px-1">性别</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="gender" value="boy" checked>
+                        <div class="border border-gray-100 bg-gray-50 rounded-2xl py-3 text-center text-sm font-medium text-gray-500 transition-colors flex items-center justify-center gap-2">
+                            <i class="ph-fill ph-gender-male text-lg"></i> 男孩
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="gender" value="girl">
+                        <div class="border border-gray-100 bg-gray-50 rounded-2xl py-3 text-center text-sm font-medium text-gray-500 transition-colors flex items-center justify-center gap-2">
+                            <i class="ph-fill ph-gender-female text-lg text-pink-400"></i> 女孩
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 年级阶段选择 -->
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2 px-1">当前年级阶段</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="grade" value="pre">
+                        <div class="border border-gray-100 bg-gray-50 rounded-xl py-2 text-center text-xs font-medium text-gray-500 transition-colors">学龄前</div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="grade" value="1" checked>
+                        <div class="border border-gray-100 bg-gray-50 rounded-xl py-2 text-center text-xs font-medium text-gray-500 transition-colors">一年级</div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="grade" value="2">
+                        <div class="border border-gray-100 bg-gray-50 rounded-xl py-2 text-center text-xs font-medium text-gray-500 transition-colors">二年级</div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="grade" value="3">
+                        <div class="border border-gray-100 bg-gray-50 rounded-xl py-2 text-center text-xs font-medium text-gray-500 transition-colors">三年级</div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="grade" value="4">
+                        <div class="border border-gray-100 bg-gray-50 rounded-xl py-2 text-center text-xs font-medium text-gray-500 transition-colors">四年级</div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="grade" value="5+">
+                        <div class="border border-gray-100 bg-gray-50 rounded-xl py-2 text-center text-xs font-medium text-gray-500 transition-colors">五/六年级</div>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- 是否发现困难 -->
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mt-2">
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" class="mt-0.5 w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500">
+                    <span class="text-xs text-gray-600 leading-relaxed">
+                        我已经观察到孩子在识字、拼写或阅读方面存在一定的困难或抗拒情绪。（勾选后系统将调整筛查侧重点）
+                    </span>
+                </label>
+            </div>
+
+        </div>
+
+        <button onclick="finishProfileCreation()" class="w-full bg-blue-500 text-white rounded-2xl py-4 text-base font-bold shadow-md shadow-blue-500/30 active:scale-95 transition-transform">
+            完成创建，进入首页
+        </button>
+    </div>
+
+    <!-- ==================== 页面 1：家长端首页 ==================== -->
+    <div id="screen-home" class="screen overflow-y-auto pb-24">
+        <!-- 顶部信息栏 -->
+        <div class="bg-white px-6 pt-12 pb-4 sticky top-0 z-30">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <!-- 头像区域，点击可切换档案 -->
+                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex justify-center items-center font-bold border border-blue-100 cursor-pointer">
+                        明
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-800">晚上好，小明妈妈</h1>
+                        <p class="text-xs text-gray-500 flex items-center gap-1">
+                            当前档案：小明 (7岁) <i class="ph ph-caret-down"></i>
+                        </p>
+                    </div>
+                </div>
+                <div class="relative w-10 h-10 rounded-full bg-gray-50 flex justify-center items-center text-gray-500 cursor-pointer">
+                    <i class="ph ph-bell text-xl"></i>
+                    <span class="absolute top-2 right-2 w-2 h-2 bg-red-400 rounded-full"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 mt-4">
+            <!-- 核心引导卡片：发起首次筛查提示 -->
+            <div class="bg-white rounded-[24px] p-6 border border-gray-100 card-shadow relative overflow-hidden mb-6">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-blue-50 rounded-full opacity-50"></div>
+                <div class="relative z-10">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="ph-fill ph-sparkle text-blue-500"></i>
+                        <span class="text-xs font-bold text-blue-500 tracking-wider">系统建议</span>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">初步能力筛查</h2>
+                    <p class="text-sm text-gray-500 mb-5 leading-relaxed">小明尚未进行全面的读写能力筛查，建议抽出15分钟了解孩子的现状，生成定制专属干预计划。</p>
+                    <button onclick="navTo('screen-screening')" class="w-full bg-blue-500 text-white rounded-2xl py-3.5 text-sm font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-transform">
+                        立即发起筛查
+                    </button>
+                </div>
+            </div>
+
+            <!-- 四宫格快捷入口 -->
+            <div class="grid grid-cols-4 gap-4 mb-8">
+                <div class="flex flex-col items-center gap-2 cursor-pointer" onclick="navTo('screen-report')">
+                    <div class="w-14 h-14 bg-white rounded-2xl flex justify-center items-center card-shadow border border-gray-50 text-blue-500">
+                        <i class="ph ph-file-text text-2xl"></i>
+                    </div>
+                    <span class="text-xs font-medium text-gray-600">评估报告</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 cursor-pointer" onclick="navTo('screen-training')">
+                    <div class="w-14 h-14 bg-white rounded-2xl flex justify-center items-center card-shadow border border-gray-50 text-green-500">
+                        <i class="ph ph-shapes text-2xl"></i>
+                    </div>
+                    <span class="text-xs font-medium text-gray-600">训练计划</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 cursor-pointer">
+                    <div class="w-14 h-14 bg-white rounded-2xl flex justify-center items-center card-shadow border border-gray-50 text-orange-400">
+                        <i class="ph ph-trend-up text-2xl"></i>
+                    </div>
+                    <span class="text-xs font-medium text-gray-600">成长记录</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 cursor-pointer" onclick="showAiModal()">
+                    <div class="w-14 h-14 bg-white rounded-2xl flex justify-center items-center card-shadow border border-gray-50 text-purple-500">
+                        <i class="ph ph-robot text-2xl"></i>
+                    </div>
+                    <span class="text-xs font-medium text-gray-600">AI问答</span>
+                </div>
+            </div>
+
+            <!-- 近期动态模块 -->
+            <div class="mb-4 flex justify-between items-end">
+                <h3 class="text-lg font-bold text-gray-800">近期动态</h3>
+                <span class="text-xs text-gray-400 cursor-pointer">查看全部</span>
+            </div>
+            
+            <div class="flex flex-col gap-3">
+                <!-- 动态卡片 1 -->
+                <div class="bg-white p-4 rounded-[20px] border border-gray-100 flex gap-4 items-center">
+                    <div class="w-10 h-10 rounded-full bg-blue-50 flex justify-center items-center text-blue-500 shrink-0">
+                        <i class="ph-fill ph-info"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-bold text-gray-700">完成档案创建</h4>
+                        <p class="text-xs text-gray-500 mt-0.5">今天 09:30</p>
+                    </div>
+                    <div class="text-xs text-blue-500 font-medium bg-blue-50 px-2 py-1 rounded-md">
+                        已就绪
+                    </div>
+                </div>
+
+                <!-- 动态卡片 2 -->
+                <div class="bg-white p-4 rounded-[20px] border border-gray-100 flex gap-4 items-center opacity-60">
+                    <div class="w-10 h-10 rounded-full bg-gray-50 flex justify-center items-center text-gray-400 shrink-0">
+                        <i class="ph-fill ph-book-open"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-bold text-gray-700">了解读写障碍表现</h4>
+                        <p class="text-xs text-gray-500 mt-0.5">昨天 20:15</p>
+                    </div>
+                    <div class="text-xs text-gray-400 font-medium">
+                        阅读文章
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 (5个入口) -->
+        <div class="absolute bottom-0 left-0 w-full h-[84px] bg-white border-t border-gray-100 flex justify-around items-center px-2 pb-4 z-40">
+            <div class="flex flex-col items-center gap-1 text-blue-500 cursor-pointer">
+                <i class="ph-fill ph-house text-[22px]"></i>
+                <span class="text-[10px] font-bold">首页</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-screening')">
+                <i class="ph ph-scan text-[22px]"></i>
+                <span class="text-[10px] font-medium">筛查</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-report')">
+                <i class="ph ph-chart-pie-slice text-[22px]"></i>
+                <span class="text-[10px] font-medium">报告</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-training')">
+                <i class="ph ph-shapes text-[22px]"></i>
+                <span class="text-[10px] font-medium">训练</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-profile')">
+                <i class="ph ph-user text-[22px]"></i>
+                <span class="text-[10px] font-medium">我的</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 2：家长端 - 筛查管理页 ==================== -->
+    <div id="screen-screening" class="screen overflow-y-auto pb-24 bg-white">
+        <!-- 极简头部 -->
+        <div class="bg-white px-6 pt-12 pb-4 sticky top-0 z-30 flex items-center justify-between">
+            <h1 class="text-xl font-bold text-gray-800">能力筛查</h1>
+            <i class="ph ph-question text-xl text-gray-400 cursor-pointer"></i>
+        </div>
+
+        <div class="px-6 mt-2">
+            <!-- 筛查对象信息区 -->
+            <div class="flex items-center gap-4 bg-gray-50 rounded-2xl p-4 mb-8">
+                <div class="w-12 h-12 rounded-full bg-white flex justify-center items-center text-gray-400 shadow-sm">
+                    <i class="ph-fill ph-user text-2xl"></i>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500 mb-0.5">当前评测对象</div>
+                    <div class="font-bold text-gray-700">小明 <span class="text-xs font-normal text-gray-500 ml-2">一年级 / 7岁</span></div>
+                </div>
+                <div class="ml-auto text-blue-500 text-sm font-medium cursor-pointer">切换</div>
+            </div>
+
+            <!-- 发起筛查动作区 -->
+            <h3 class="text-lg font-bold text-gray-800 mb-4">开始新筛查</h3>
+            <div class="bg-white rounded-[24px] border border-gray-200 card-shadow p-6 mb-10">
+                <div class="flex gap-4 mb-6">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 flex justify-center items-center shrink-0">
+                        <i class="ph-fill ph-game-controller text-2xl"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 mb-1">综合读写能力初筛</h4>
+                        <p class="text-xs text-gray-500 leading-relaxed">通过拼写、视觉辨识、阅读理解等互动游戏，全面评估孩子的基础能力状态。</p>
+                    </div>
+                </div>
+
+                <!-- 家长须知 -->
+                <div class="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-100">
+                    <div class="text-xs font-bold text-gray-600 mb-2 flex items-center gap-1">
+                        <i class="ph-fill ph-warning-circle text-orange-400"></i> 家长准备须知
+                    </div>
+                    <ul class="text-xs text-gray-500 space-y-2">
+                        <li class="flex gap-2 items-start"><div class="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0"></div> 耗时约 10-15 分钟，请确保时间充足。</li>
+                        <li class="flex gap-2 items-start"><div class="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0"></div> 找一个安静、无打扰的环境。</li>
+                        <li class="flex gap-2 items-start text-orange-500"><div class="w-1 h-1 rounded-full bg-orange-400 mt-1.5 shrink-0"></div> 评测过程中请让孩子独立完成，家长切勿提示答案。</li>
+                    </ul>
+                </div>
+
+                <!-- 发起按钮 -->
+                <button onclick="showHandoverModal()" class="w-full bg-blue-500 text-white rounded-2xl py-3.5 text-sm font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-transform">
+                    进入儿童端开始筛查
+                </button>
+            </div>
+
+            <!-- 历史记录区 -->
+            <div class="mb-4 flex justify-between items-end">
+                <h3 class="text-lg font-bold text-gray-800">历史筛查记录</h3>
+            </div>
+            
+            <div class="bg-white p-4 rounded-[20px] border border-gray-100 flex justify-between items-center mb-3 cursor-pointer hover:bg-gray-50 transition-colors" onclick="navTo('screen-report')">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-blue-50 flex justify-center items-center text-blue-500">
+                        <i class="ph-fill ph-file-text"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-700">首次综合能力初筛</h4>
+                        <p class="text-xs text-gray-500 mt-1">今天 10:15 完成</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="text-xs text-orange-500 font-medium bg-orange-50 px-2 py-1 rounded-md">中度关注</div>
+                    <i class="ph ph-caret-right text-gray-300"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 (5个入口) -->
+        <div class="absolute bottom-0 left-0 w-full h-[84px] bg-white border-t border-gray-100 flex justify-around items-center px-2 pb-4 z-40">
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-home')">
+                <i class="ph ph-house text-[22px]"></i>
+                <span class="text-[10px] font-medium">首页</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-blue-500 cursor-pointer">
+                <i class="ph-fill ph-scan text-[22px]"></i>
+                <span class="text-[10px] font-bold">筛查</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-report')">
+                <i class="ph ph-chart-pie-slice text-[22px]"></i>
+                <span class="text-[10px] font-medium">报告</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-training')">
+                <i class="ph ph-shapes text-[22px]"></i>
+                <span class="text-[10px] font-medium">训练</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-profile')">
+                <i class="ph ph-user text-[22px]"></i>
+                <span class="text-[10px] font-medium">我的</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 3：家长端 - 评估报告页 ==================== -->
+    <div id="screen-report" class="screen overflow-y-auto pb-24 bg-gray-50">
+        <!-- 极简头部 -->
+        <div class="bg-white px-6 pt-12 pb-4 sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 shadow-sm">
+            <h1 class="text-xl font-bold text-gray-800">评估报告</h1>
+            <!-- AI咨询悬浮入口 -->
+            <button onclick="showAiModal()" class="flex items-center gap-1 bg-purple-50 text-purple-600 px-3 py-1.5 rounded-full text-xs font-bold border border-purple-100 active:scale-95 transition-transform">
+                <i class="ph-fill ph-robot"></i> 问问AI
+            </button>
+        </div>
+
+        <div class="px-6 mt-6">
+            <!-- 总体结论卡片 -->
+            <div class="bg-white rounded-[24px] border border-gray-100 card-shadow p-6 mb-6">
+                <p class="text-xs text-gray-500 mb-2">生成时间：今天 10:15</p>
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-1.5 h-6 bg-orange-400 rounded-full"></div>
+                    <h2 class="text-2xl font-bold text-gray-800">中风险 / 需关注</h2>
+                </div>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    经过全面行为数据分析，小明在<span class="font-bold text-orange-500">拼写稳定性</span>与<span class="font-bold text-orange-500">视觉辨识</span>维度表现出一定困难。这并非学习态度问题，建议在家庭中开展针对性干预训练。
+                </p>
+            </div>
+
+            <!-- 能力维度表现 -->
+            <h3 class="text-lg font-bold text-gray-800 mb-4 px-1">能力多维剖析</h3>
+            <div class="bg-white rounded-[24px] border border-gray-100 card-shadow p-6 mb-6 space-y-5">
+                
+                <!-- 维度：视觉辨识 (弱项) -->
+                <div>
+                    <div class="flex justify-between items-end mb-1">
+                        <span class="text-sm font-bold text-gray-700">视觉辨识能力</span>
+                        <span class="text-xs font-bold text-orange-500">偏弱</span>
+                    </div>
+                    <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-orange-400 rounded-full" style="width: 40%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1.5">易混淆形近字，扫视容易漏字。</p>
+                </div>
+
+                <!-- 维度：拼写能力 (弱项) -->
+                <div>
+                    <div class="flex justify-between items-end mb-1">
+                        <span class="text-sm font-bold text-gray-700">拼写输出能力</span>
+                        <span class="text-xs font-bold text-orange-500">偏弱</span>
+                    </div>
+                    <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-orange-400 rounded-full" style="width: 45%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1.5">作答犹豫期长，部件颠倒发生率高。</p>
+                </div>
+
+                <!-- 维度：阅读理解 (正常) -->
+                <div>
+                    <div class="flex justify-between items-end mb-1">
+                        <span class="text-sm font-bold text-gray-700">阅读理解能力</span>
+                        <span class="text-xs font-bold text-green-500">良好</span>
+                    </div>
+                    <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-green-400 rounded-full" style="width: 80%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1.5">能准确提取语句核心信息。</p>
+                </div>
+
+                <!-- 维度：注意力 (正常) -->
+                <div>
+                    <div class="flex justify-between items-end mb-1">
+                        <span class="text-sm font-bold text-gray-700">任务注意力</span>
+                        <span class="text-xs font-bold text-green-500">良好</span>
+                    </div>
+                    <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-green-400 rounded-full" style="width: 75%"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1.5">能够持续完成15分钟连续任务。</p>
+                </div>
+            </div>
+
+            <!-- 家长建议与解释区 -->
+            <h3 class="text-lg font-bold text-gray-800 mb-4 px-1">结果怎么看？</h3>
+            <div class="bg-blue-50 rounded-[24px] border border-blue-100 p-6 mb-8 relative">
+                <i class="ph-fill ph-lightbulb text-4xl text-blue-200 absolute top-4 right-4"></i>
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="ph-fill ph-info text-blue-500"></i>
+                    <span class="text-sm font-bold text-gray-800">理解孩子的表现</span>
+                </div>
+                <p class="text-sm text-gray-600 leading-relaxed mb-4">
+                    小明在识字阅读时表现慢，并非“不用心”，而是他的<span class="font-bold text-blue-500">视觉信息加工速度</span>尚未发育完全。这是典型的发展阶段问题，通过科学陪伴可以显著改善。
+                </p>
+                
+                <button onclick="navTo('screen-training')" class="w-full bg-white border border-blue-200 text-blue-500 rounded-xl py-3 text-sm font-bold shadow-sm active:scale-95 transition-transform flex justify-center items-center gap-2">
+                    查看专属干预方案 <i class="ph-bold ph-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="absolute bottom-0 left-0 w-full h-[84px] bg-white border-t border-gray-100 flex justify-around items-center px-2 pb-4 z-40">
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-home')">
+                <i class="ph ph-house text-[22px]"></i>
+                <span class="text-[10px] font-medium">首页</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-screening')">
+                <i class="ph ph-scan text-[22px]"></i>
+                <span class="text-[10px] font-medium">筛查</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-blue-500 cursor-pointer">
+                <i class="ph-fill ph-chart-pie-slice text-[22px]"></i>
+                <span class="text-[10px] font-bold">报告</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-training')">
+                <i class="ph ph-shapes text-[22px]"></i>
+                <span class="text-[10px] font-medium">训练</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-profile')">
+                <i class="ph ph-user text-[22px]"></i>
+                <span class="text-[10px] font-medium">我的</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 4：家长端 - 训练干预页 ==================== -->
+    <div id="screen-training" class="screen overflow-y-auto pb-24 bg-white">
+        <!-- 极简头部 -->
+        <div class="bg-white px-6 pt-12 pb-4 sticky top-0 z-30">
+            <h1 class="text-xl font-bold text-gray-800 mb-1">干预与训练</h1>
+            <p class="text-xs text-gray-500">已为小明定制专属的家庭提升计划</p>
+        </div>
+
+        <div class="px-6 mt-4">
+            <!-- 今日进度概览 -->
+            <div class="bg-gray-50 rounded-[24px] p-6 mb-8 border border-gray-100 relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-green-50 rounded-full opacity-50"></div>
+                <div class="relative z-10 flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">今日任务表</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">周三 · 预计用时 15 分钟</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full border-4 border-green-400 flex justify-center items-center bg-white text-green-500 font-bold text-sm">
+                        0/3
+                    </div>
+                </div>
+                
+                <!-- 家长陪伴贴士 -->
+                <div class="bg-white rounded-xl p-3 flex gap-3 items-start shadow-sm border border-gray-100">
+                    <i class="ph-fill ph-hand-heart text-red-400 text-lg mt-0.5 shrink-0"></i>
+                    <p class="text-xs text-gray-600 leading-relaxed">家长请在旁陪伴，当孩子遇到困难时多给予鼓励，**切勿直接给出答案或指责**。</p>
+                </div>
+            </div>
+
+            <!-- 具体训练任务列表 -->
+            <h3 class="text-lg font-bold text-gray-800 mb-4">待完成的任务</h3>
+            <div class="flex flex-col gap-4 mb-8">
+                
+                <!-- 任务 1 -->
+                <div class="bg-white rounded-[20px] border border-gray-100 card-shadow p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-orange-50 text-orange-400 flex justify-center items-center text-2xl shrink-0">
+                        <i class="ph-fill ph-eye"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-bold text-gray-800">火眼金睛 (视觉训练)</h4>
+                        <p class="text-xs text-gray-400 mt-1">提升形近字辨识能力</p>
+                    </div>
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded-xl text-xs font-bold active:scale-95 transition-transform shadow-sm">
+                        去完成
+                    </button>
+                </div>
+
+                <!-- 任务 2 -->
+                <div class="bg-white rounded-[20px] border border-gray-100 card-shadow p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 flex justify-center items-center text-2xl shrink-0">
+                        <i class="ph-fill ph-puzzle-piece"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-bold text-gray-800">字形保卫战</h4>
+                        <p class="text-xs text-gray-400 mt-1">强化汉字结构记忆</p>
+                    </div>
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded-xl text-xs font-bold active:scale-95 transition-transform shadow-sm">
+                        去完成
+                    </button>
+                </div>
+
+                <!-- 任务 3 -->
+                <div class="bg-white rounded-[20px] border border-gray-100 card-shadow p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-green-50 text-green-500 flex justify-center items-center text-2xl shrink-0">
+                        <i class="ph-fill ph-book-open"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-bold text-gray-800">亲子共读打卡</h4>
+                        <p class="text-xs text-gray-400 mt-1">培养语感与阅读兴趣</p>
+                    </div>
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded-xl text-xs font-bold active:scale-95 transition-transform shadow-sm">
+                        去完成
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- 本阶段小结预告 -->
+            <div class="flex items-center gap-4 bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                <i class="ph ph-flag-checkered text-3xl text-gray-300"></i>
+                <div>
+                    <h4 class="text-sm font-bold text-gray-700">阶段复评预告</h4>
+                    <p class="text-xs text-gray-500 mt-1">连续坚持训练 <span class="font-bold text-blue-500">14天</span> 后，系统将提示进行下一轮效果复评。</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="absolute bottom-0 left-0 w-full h-[84px] bg-white border-t border-gray-100 flex justify-around items-center px-2 pb-4 z-40">
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-home')">
+                <i class="ph ph-house text-[22px]"></i>
+                <span class="text-[10px] font-medium">首页</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-screening')">
+                <i class="ph ph-scan text-[22px]"></i>
+                <span class="text-[10px] font-medium">筛查</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-report')">
+                <i class="ph ph-chart-pie-slice text-[22px]"></i>
+                <span class="text-[10px] font-medium">报告</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-blue-500 cursor-pointer">
+                <i class="ph-fill ph-shapes text-[22px]"></i>
+                <span class="text-[10px] font-bold">训练</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-profile')">
+                <i class="ph ph-user text-[22px]"></i>
+                <span class="text-[10px] font-medium">我的</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 页面 5：家长端 - 我的(档案)页 ==================== -->
+    <div id="screen-profile" class="screen overflow-y-auto pb-24 bg-gray-50">
+        <!-- 极简头部 -->
+        <div class="bg-white px-6 pt-12 pb-6 sticky top-0 z-30 flex items-center justify-between border-b border-gray-100 shadow-sm">
+            <h1 class="text-xl font-bold text-gray-800">我的</h1>
+            <i class="ph ph-gear text-xl text-gray-400 cursor-pointer hover:text-gray-600"></i>
+        </div>
+
+        <div class="px-6 mt-6">
+            <!-- 家长账号信息卡片 -->
+            <div class="flex items-center gap-4 bg-white rounded-[24px] border border-gray-100 card-shadow p-6 mb-8">
+                <div class="w-16 h-16 rounded-full bg-blue-50 flex justify-center items-center text-blue-500 font-bold text-2xl shrink-0">
+                    妈
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-lg font-bold text-gray-800">小明妈妈</h2>
+                    <p class="text-sm text-gray-500 mt-1">138****5678</p>
+                </div>
+                <div class="text-[10px] text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full font-bold">
+                    家庭基础版
+                </div>
+            </div>
+
+            <!-- 儿童档案管理区 -->
+            <h3 class="text-lg font-bold text-gray-800 mb-4 px-1">儿童档案管理</h3>
+            <div class="bg-white rounded-[24px] border border-gray-100 card-shadow p-4 mb-8 flex gap-3 overflow-x-auto">
+                <!-- 档案 1 (已选中) -->
+                <div class="min-w-[120px] bg-blue-50 rounded-2xl p-4 border border-blue-100 flex flex-col items-center gap-2 relative cursor-pointer">
+                    <div class="absolute top-2 right-2 w-2 h-2 rounded-full bg-blue-400"></div>
+                    <div class="w-10 h-10 rounded-full bg-white flex justify-center items-center text-blue-500 shadow-sm">
+                        <i class="ph-fill ph-user text-xl"></i>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-sm font-bold text-gray-700">小明</div>
+                        <div class="text-xs text-gray-500 mt-0.5">7岁 / 一年级</div>
+                    </div>
+                </div>
+                <!-- 档案添加按钮 (复用注册后的创建档案页) -->
+                <div onclick="navTo('screen-profile-create')" class="min-w-[120px] bg-gray-50 rounded-2xl p-4 border border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 cursor-pointer active:bg-gray-100 transition-colors">
+                    <div class="w-10 h-10 rounded-full bg-white flex justify-center items-center text-gray-400 shadow-sm">
+                        <i class="ph ph-plus text-lg"></i>
+                    </div>
+                    <div class="text-sm font-medium text-gray-500 mt-1">添加孩子</div>
+                </div>
+            </div>
+
+            <!-- 系统设置与服务菜单 -->
+            <h3 class="text-lg font-bold text-gray-800 mb-4 px-1">服务与设置</h3>
+            <div class="bg-white rounded-[24px] border border-gray-100 card-shadow overflow-hidden mb-8">
+                <!-- 菜单项 -->
+                <div class="flex items-center gap-4 p-5 border-b border-gray-50 active:bg-gray-50 cursor-pointer transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-green-50 flex justify-center items-center text-green-500 shrink-0">
+                        <i class="ph-fill ph-clock"></i>
+                    </div>
+                    <div class="flex-1 text-sm font-bold text-gray-700">任务与提醒设置</div>
+                    <i class="ph ph-caret-right text-gray-300"></i>
+                </div>
+                <div class="flex items-center gap-4 p-5 border-b border-gray-50 active:bg-gray-50 cursor-pointer transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-orange-50 flex justify-center items-center text-orange-400 shrink-0">
+                        <i class="ph-fill ph-question"></i>
+                    </div>
+                    <div class="flex-1 text-sm font-bold text-gray-700">帮助中心与常见问题</div>
+                    <i class="ph ph-caret-right text-gray-300"></i>
+                </div>
+                <div class="flex items-center gap-4 p-5 border-b border-gray-50 active:bg-gray-50 cursor-pointer transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-purple-50 flex justify-center items-center text-purple-500 shrink-0">
+                        <i class="ph-fill ph-headset"></i>
+                    </div>
+                    <div class="flex-1 text-sm font-bold text-gray-700">联系专业客服</div>
+                    <i class="ph ph-caret-right text-gray-300"></i>
+                </div>
+                <div class="flex items-center gap-4 p-5 active:bg-gray-50 cursor-pointer transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-gray-50 flex justify-center items-center text-gray-500 shrink-0">
+                        <i class="ph-fill ph-info"></i>
+                    </div>
+                    <div class="flex-1 text-sm font-bold text-gray-700">关于系统 (v1.0)</div>
+                    <i class="ph ph-caret-right text-gray-300"></i>
+                </div>
+            </div>
+            
+            <!-- 退出登录按钮 -->
+            <button onclick="navTo('screen-login')" class="w-full bg-white border border-gray-200 text-gray-500 rounded-2xl py-3.5 text-sm font-bold shadow-sm active:bg-gray-50 transition-colors">
+                退出登录
+            </button>
+        </div>
+
+        <!-- 底部导航栏 -->
+        <div class="absolute bottom-0 left-0 w-full h-[84px] bg-white border-t border-gray-100 flex justify-around items-center px-2 pb-4 z-40">
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-home')">
+                <i class="ph ph-house text-[22px]"></i>
+                <span class="text-[10px] font-medium">首页</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-screening')">
+                <i class="ph ph-scan text-[22px]"></i>
+                <span class="text-[10px] font-medium">筛查</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-report')">
+                <i class="ph ph-chart-pie-slice text-[22px]"></i>
+                <span class="text-[10px] font-medium">报告</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 cursor-pointer" onclick="navTo('screen-training')">
+                <i class="ph ph-shapes text-[22px]"></i>
+                <span class="text-[10px] font-medium">训练</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-blue-500 cursor-pointer">
+                <i class="ph-fill ph-user text-[22px]"></i>
+                <span class="text-[10px] font-bold">我的</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- 交接设备提示弹窗 -->
+<div id="handover-modal" class="absolute inset-0 bg-gray-900/40 z-50 flex justify-center items-end hidden opacity-0 transition-opacity pb-8">
+    <div class="bg-white w-[90%] max-w-sm rounded-[32px] p-6 flex flex-col items-center transform translate-y-10 transition-transform duration-300" id="handover-modal-content">
+        <div class="w-16 h-16 bg-blue-50 rounded-full flex justify-center items-center text-blue-500 text-3xl mb-4">
+            <i class="ph-fill ph-device-mobile"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">请把手机交给孩子</h3>
+        <p class="text-gray-500 text-center text-sm mb-6 leading-relaxed">即将进入儿童互动模式。<br>系统将在游戏过程中自动记录数据，结束后会自动生成报告。</p>
+        <div class="w-full flex flex-col gap-3">
+            <button onclick="mockTransferToChildApp()" class="w-full bg-blue-500 text-white rounded-2xl py-3.5 font-bold shadow-md shadow-blue-500/20 active:scale-95">
+                已交给孩子，开始游戏
+            </button>
+            <button onclick="hideHandoverModal()" class="w-full bg-white border border-gray-200 text-gray-500 rounded-2xl py-3.5 font-bold active:bg-gray-50">
+                稍后再测
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 简易 AI 咨询底部弹窗 -->
+<div id="ai-modal" class="absolute inset-0 bg-gray-900/40 z-50 flex justify-center items-end hidden opacity-0 transition-opacity">
+    <div class="bg-white w-full max-w-[430px] rounded-t-[32px] p-6 flex flex-col transform translate-y-full transition-transform duration-300 h-[60vh]" id="ai-modal-content">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-purple-100 flex justify-center items-center text-purple-600">
+                    <i class="ph-fill ph-robot text-xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800">智能解答助手</h3>
+            </div>
+            <i class="ph ph-x text-xl text-gray-400 cursor-pointer" onclick="hideAiModal()"></i>
+        </div>
+        
+        <div class="flex-1 bg-gray-50 rounded-2xl p-4 overflow-y-auto mb-4 border border-gray-100 flex flex-col gap-4">
+            <div class="flex gap-2 w-[85%]">
+                <div class="w-6 h-6 rounded-full bg-purple-100 text-purple-500 flex justify-center items-center shrink-0 mt-1">
+                    <i class="ph-fill ph-robot text-xs"></i>
+                </div>
+                <div class="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 text-sm text-gray-600 shadow-sm">
+                    家长您好！我是AI助手。关于小明的报告或者平时的训练，您有任何疑问都可以问我哦。<br><br>例如您可以问我：<br>
+                    <span class="text-blue-500 cursor-pointer">"什么是视觉加工速度慢？"</span><br>
+                    <span class="text-blue-500 cursor-pointer">"在家应该怎么陪他练？"</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 bg-gray-50 rounded-full px-4 py-2 border border-gray-200">
+            <input type="text" placeholder="输入你想问的问题..." class="flex-1 bg-transparent border-none outline-none text-sm text-gray-700" readonly>
+            <i class="ph-fill ph-paper-plane-right text-purple-500 text-xl"></i>
+        </div>
+    </div>
+</div>
+
+<!-- 登录提示轻弹窗 -->
+<div id="toast" class="absolute top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg transition-all duration-300 opacity-0 pointer-events-none z-50">
+    提示信息
+</div>
+
+<script>
+    // --- 页面路由与切换 ---
+    let currentScreen = 'screen-login';
+
+    function navTo(targetId) {
+        if (targetId === currentScreen) return;
+
+        const current = document.getElementById(currentScreen);
+        const target = document.getElementById(targetId);
+
+        // 淡入淡出逻辑
+        current.style.opacity = '0';
+        current.style.pointerEvents = 'none';
+        
+        setTimeout(() => {
+            current.classList.remove('active');
+            target.classList.add('active');
+            
+            // 触发重绘以激活过渡
+            void target.offsetWidth; 
+            target.style.opacity = '1';
+            target.style.pointerEvents = 'auto';
+            
+            currentScreen = targetId;
+        }, 150);
+    }
+
+    // --- 登录页逻辑 ---
+    let isAgreed = false;
+    let loginMode = 'code'; // 'code' 或 'pwd'
+    let isRegisterMode = false;
+    
+    function switchLoginMode(mode) {
+        if (loginMode === mode) return;
+        loginMode = mode;
+        
+        const tabCode = document.getElementById('tab-code');
+        const tabPwd = document.getElementById('tab-pwd');
+        const lineCode = document.getElementById('line-code');
+        const linePwd = document.getElementById('line-pwd');
+        const formCode = document.getElementById('form-code');
+        const formPwd = document.getElementById('form-pwd');
+        const formRegPhone = document.getElementById('form-register-phone');
+        const formRegAccount = document.getElementById('form-register-account');
+
+        // 样式切换
+        if (mode === 'pwd') {
+            tabCode.classList.replace('text-gray-800', 'text-gray-400');
+            tabPwd.classList.replace('text-gray-400', 'text-gray-800');
+            lineCode.classList.add('opacity-0');
+            linePwd.classList.remove('opacity-0');
+        } else {
+            tabPwd.classList.replace('text-gray-800', 'text-gray-400');
+            tabCode.classList.replace('text-gray-400', 'text-gray-800');
+            linePwd.classList.add('opacity-0');
+            lineCode.classList.remove('opacity-0');
+        }
+
+        // 表单显示隐藏
+        formCode.classList.add('hidden');
+        formPwd.classList.add('hidden');
+        formRegPhone.classList.add('hidden');
+        formRegAccount.classList.add('hidden');
+
+        if (!isRegisterMode) {
+            if (mode === 'code') formCode.classList.remove('hidden');
+            else formPwd.classList.remove('hidden');
+        } else {
+            if (mode === 'code') formRegPhone.classList.remove('hidden');
+            else formRegAccount.classList.remove('hidden');
+        }
+    }
+
+    function toggleRegisterMode() {
+        isRegisterMode = !isRegisterMode;
+        
+        const tabCodeText = document.getElementById('tab-code-text');
+        const tabPwdText = document.getElementById('tab-pwd-text');
+        const mainBtn = document.getElementById('auth-main-btn');
+        const switchText = document.getElementById('auth-switch-text');
+        const thirdParty = document.getElementById('third-party-login');
+        const agreeText = document.getElementById('agree-text');
+        
+        if (isRegisterMode) {
+            tabCodeText.innerText = "手机号注册";
+            tabPwdText.innerText = "账号注册";
+            thirdParty.classList.add('hidden');
+            
+            mainBtn.innerText = "注 册";
+            switchText.innerHTML = '已有账号？ <span class="text-blue-500 font-bold cursor-pointer" onclick="toggleRegisterMode()">去登录</span>';
+            agreeText.innerHTML = '我已阅读并同意 <span class="text-blue-500 cursor-pointer">《用户服务协议》</span> 和 <span class="text-blue-500 cursor-pointer">《隐私政策》</span>';
+        } else {
+            tabCodeText.innerText = "验证码登录";
+            tabPwdText.innerText = "密码登录";
+            thirdParty.classList.remove('hidden');
+            
+            mainBtn.innerText = "登 录";
+            switchText.innerHTML = '还没有账号？ <span class="text-blue-500 font-bold cursor-pointer" onclick="toggleRegisterMode()">立即注册</span>';
+            agreeText.innerHTML = '我已阅读并同意 <span class="text-blue-500 cursor-pointer">《用户服务协议》</span> 和 <span class="text-blue-500 cursor-pointer">《隐私政策》</span>，未注册手机号将自动创建账号。';
+        }
+
+        // 重新调用 switchLoginMode 触发正确的表单显示
+        const currentMode = loginMode;
+        loginMode = null; // 强行触发更新
+        switchLoginMode(currentMode);
+    }
+
+    function toggleAgreement() {
+        isAgreed = !isAgreed;
+        const checkbox = document.getElementById('agree-checkbox');
+        const icon = document.getElementById('agree-check-icon');
+        
+        if (isAgreed) {
+            checkbox.classList.replace('border-gray-300', 'border-blue-500');
+            checkbox.classList.add('bg-blue-500');
+            icon.classList.remove('opacity-0');
+        } else {
+            checkbox.classList.replace('border-blue-500', 'border-gray-300');
+            checkbox.classList.remove('bg-blue-500');
+            icon.classList.add('opacity-0');
+        }
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.classList.remove('opacity-0');
+        toast.classList.add('translate-y-2');
+        setTimeout(() => {
+            toast.classList.add('opacity-0');
+            toast.classList.remove('translate-y-2');
+        }, 2000);
+    }
+
+    function handleAuthAction() {
+        if (!isAgreed) {
+            showToast('请先勾选同意用户服务协议');
+            return;
+        }
+
+        if (isRegisterMode) {
+            if (loginMode === 'code') {
+                const phone = document.getElementById('reg-phone').value;
+                const code = document.getElementById('reg-code').value;
+                const pwd = document.getElementById('reg-pwd').value;
+                if (!phone || phone.length !== 11) {
+                    showToast('请输入正确的11位手机号'); return;
+                }
+                if (!code) { showToast('请输入验证码'); return; }
+                if (!pwd) { showToast('请设置密码'); return; }
+            } else {
+                const username = document.getElementById('reg-acc-username').value;
+                const pwd = document.getElementById('reg-acc-pwd').value;
+                const pwdConfirm = document.getElementById('reg-acc-pwd-confirm').value;
+                if (!username || username.length < 4) { showToast('请输入至少4位的用户名'); return; }
+                if (!pwd) { showToast('请设置密码'); return; }
+                if (pwd !== pwdConfirm) { showToast('两次输入的密码不一致'); return; }
+            }
+        } else {
+            if (loginMode === 'code') {
+                const phone = document.getElementById('login-phone').value;
+                const code = document.getElementById('login-code').value;
+                if (!phone || phone.length !== 11) {
+                    showToast('请输入正确的11位手机号'); return;
+                }
+                if (!code) { showToast('请输入验证码'); return; }
+            } else {
+                const account = document.getElementById('login-account').value;
+                const pwd = document.getElementById('login-pwd').value;
+                if (!account) { showToast('请输入账号'); return; }
+                if (!pwd) { showToast('请输入密码'); return; }
+            }
+        }
+
+        // 模拟登录/注册成功，进入档案创建页
+        navTo('screen-profile-create');
+    }
+
+    // --- 创建档案逻辑 ---
+    function finishProfileCreation() {
+        // 模拟完成档案创建，进入首页
+        navTo('screen-home');
+    }
+
+    // --- 交接设备弹窗逻辑 ---
+    function showHandoverModal() {
+        const modal = document.getElementById('handover-modal');
+        const content = document.getElementById('handover-modal-content');
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            modal.classList.remove('opacity-0');
+            content.classList.remove('translate-y-10');
+        });
+    }
+
+    function hideHandoverModal() {
+        const modal = document.getElementById('handover-modal');
+        const content = document.getElementById('handover-modal-content');
+        modal.classList.add('opacity-0');
+        content.classList.add('translate-y-10');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+
+    function mockTransferToChildApp() {
+        hideHandoverModal();
+        setTimeout(() => {
+            alert('系统提示：即将切换至【儿童端-挑战页面】。在实际开发中此处会进行路由跳转。');
+        }, 300);
+    }
+
+    // --- AI 问答弹窗逻辑 ---
+    function showAiModal() {
+        const modal = document.getElementById('ai-modal');
+        const content = document.getElementById('ai-modal-content');
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            modal.classList.remove('opacity-0');
+            content.classList.remove('translate-y-full');
+        });
+    }
+
+    function hideAiModal() {
+        const modal = document.getElementById('ai-modal');
+        const content = document.getElementById('ai-modal-content');
+        modal.classList.add('opacity-0');
+        content.classList.add('translate-y-full');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+</script>
+</body>
+</html>

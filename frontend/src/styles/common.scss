@@ -1,0 +1,391 @@
+/* 全局通用样式 - 参照原型图极简风格 */
+@use './variables.scss' as *;
+
+page {
+  font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: $text-main;
+  background-color: $bg-sub;
+}
+
+/* 容器 */
+.container {
+  padding: $content-padding;
+  min-height: 100vh;
+}
+
+/* 卡片 - 原型图规范 */
+.card {
+  background: $bg-main;
+  border-radius: $border-radius-lg;
+  padding: 48rpx;
+  box-shadow: $shadow-card;
+}
+
+.card-sm {
+  background: $bg-main;
+  border-radius: $border-radius-sm;
+  padding: 32rpx;
+  box-shadow: $shadow-card;
+}
+
+/* 标题 */
+.card-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: $text-main;
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $text-main;
+  margin-bottom: 32rpx;
+}
+
+/* 按钮 - 原型图规范 */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 48rpx;  /* rounded-3xl */
+  font-size: 32rpx;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn:active {
+  transform: scale(0.95);
+}
+
+.btn-primary {
+  background: $primary-blue;
+  color: #fff;
+  padding: 32rpx 48rpx;
+  box-shadow: $shadow-blue-btn;
+}
+
+.btn-primary-full {
+  width: 100%;
+  background: $primary-blue;
+  color: #fff;
+  padding: 32rpx;
+  border-radius: 48rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+  box-shadow: $shadow-blue-btn;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+}
+
+.btn-secondary {
+  background: $bg-sub;
+  color: $text-main;
+  padding: 24rpx 48rpx;
+  border: 2rpx solid #E5E7EB;
+}
+
+/* 输入框 */
+.input {
+  width: 100%;
+  padding: 24rpx 32rpx;
+  border: 2rpx solid #E5E7EB;
+  border-radius: $border-radius-sm;
+  font-size: 28rpx;
+  background: $bg-sub;
+}
+
+.input:focus {
+  border-color: $primary-blue;
+  background: $bg-main;
+}
+
+/* 底部导航 - 原型图规范 */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: $nav-height;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding: 16rpx 32rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  background: $bg-main;
+  border-top: 1rpx solid #F3F4F6;
+  z-index: 999;
+}
+
+.tab-bar-4 {
+  /* 4个导航项 */
+}
+
+.tab-bar-5 {
+  /* 5个导航项 */
+  padding-left: 16rpx;
+  padding-right: 16rpx;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  color: #9CA3AF;
+}
+
+.tab-item.active {
+  color: $primary-blue;
+}
+
+.tab-icon {
+  font-size: 44rpx;
+  line-height: 1;
+}
+
+.tab-label {
+  font-size: 20rpx;
+  font-weight: 500;
+}
+
+.tab-label-bold {
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+/* 风险等级标签 */
+.risk-badge {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  border-radius: 50rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.risk-low {
+  background: rgba($success-green, 0.1);
+  color: $success-green;
+}
+
+.risk-medium {
+  background: rgba($warning-orange, 0.1);
+  color: $warning-orange;
+}
+
+.risk-high {
+  background: rgba($accent-red, 0.1);
+  color: $accent-red;
+}
+
+/* 进度条 */
+.progress-bar {
+  width: 100%;
+  height: 16rpx;
+  background: #F3F4F6;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 8rpx;
+  transition: width 0.5s;
+}
+
+.progress-green {
+  background: $success-green;
+}
+
+.progress-orange {
+  background: $warning-orange;
+}
+
+.progress-blue {
+  background: $primary-blue;
+}
+
+/* 头像圆形 */
+.avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  background: #EFF6FF;
+  color: $primary-blue;
+}
+
+.avatar-sm {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 24rpx;
+  background: $bg-main;
+  color: $text-sub;
+}
+
+.avatar-lg {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 48rpx;
+  background: #EFF6FF;
+  color: $primary-blue;
+}
+
+/* 功能入口图标 */
+.entry-icon {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: $border-radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  background: $bg-main;
+  box-shadow: $shadow-card;
+  border: 1rpx solid #F9FAFB;
+}
+
+/* 动态卡片 */
+.activity-card {
+  background: $bg-main;
+  padding: 32rpx;
+  border-radius: 40rpx;
+  border: 1rpx solid #F3F4F6;
+  display: flex;
+  align-items: center;
+  gap: 32rpx;
+}
+
+/* 列表项 */
+.list-item {
+  background: $bg-main;
+  padding: 40rpx;
+  border-radius: 40rpx;
+  border: 1rpx solid #F3F4F6;
+  display: flex;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.list-item:active {
+  background: $bg-sub;
+}
+
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background: #F3F4F6;
+}
+
+/* 标签 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 24rpx;
+  border-radius: 50rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.tag-blue {
+  background: rgba($primary-blue, 0.1);
+  color: $primary-blue;
+}
+
+.tag-green {
+  background: rgba($success-green, 0.1);
+  color: $success-green;
+}
+
+.tag-orange {
+  background: rgba($warning-orange, 0.1);
+  color: $warning-orange;
+}
+
+.tag-red {
+  background: rgba($accent-red, 0.1);
+  color: $accent-red;
+}
+
+/* 弹窗遮罩 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: $bg-main;
+  width: 80%;
+  max-width: 640rpx;
+  border-radius: $border-radius-xl;
+  padding: 48rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 40rpx;
+  opacity: 0.7;
+}
+
+.empty-icon {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 50%;
+  background: $bg-sub;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64rpx;
+  color: #D1D5DB;
+  margin-bottom: 24rpx;
+}
+
+/* 动画 - 儿童端专用 */
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-30rpx); }
+  60% { transform: translateY(-14rpx); }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-bounce {
+  animation: bounce 2s infinite;
+}
+
+.animate-pop-in {
+  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}

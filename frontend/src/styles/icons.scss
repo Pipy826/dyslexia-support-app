@@ -1,0 +1,13 @@
+/* Phosphor Icons - 全局图标样式 */
+@import './phosphor/light.css';
+@import './phosphor/regular.css';
+@import './phosphor/fill.css';
+
+/* 基础图标类 */
+[class*="ph-"] {
+  font-family: "Phosphor" !important;
+  font-style: normal;
+  font-weight: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
