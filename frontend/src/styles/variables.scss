@@ -49,3 +49,15 @@ $risk-high: $accent-red;        // 高风险/警示
 $nav-height: 168rpx;           // 底部导航高度 (84px * 2)
 $top-safe-area: 96rpx;         // 顶部安全区 (48px * 2)
 $content-padding: 48rpx;        // 内容区内边距 (24px * 2)
+
+:root {
+  --text-main: #374151;
+  --text-sub: #6B7280;
+  --bg-main: #FFFFFF;
+  --bg-sub: #F9FAFB;
+  --primary-blue: #3B82F6;
+  --success-green: #10B981;
+  --warning-orange: #F59E0B;
+  --accent-red: #EF4444;
+  --content-padding: 48rpx;
+}
