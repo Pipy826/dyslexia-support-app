@@ -207,7 +207,7 @@
 </template>
 
 <script>
-import { login, register, handleLoginSuccess, sendVerifyCode } from '../../../api/auth.js'
+import { login, loginByCode, register, handleLoginSuccess, sendVerifyCode } from '../../../api/auth.js'
 
 export default {
   data() {
@@ -337,19 +337,22 @@ export default {
         }
 
         try {
-          const res = await login({
-            username: this.formData.account || this.formData.phone,
-            password: this.formData.password,
-            phone: this.formData.phone,
-            code: this.formData.code
-          })
+          let res
+          if (this.loginMode === 'code') {
+            res = await loginByCode(this.formData.phone, this.formData.code)
+          } else {
+            res = await login({
+              username: this.formData.account,
+              password: this.formData.password
+            })
+          }
           handleLoginSuccess(res)
           uni.showToast({ title: '登录成功', icon: 'success' })
           setTimeout(() => {
             uni.reLaunch({ url: '/pages/parent/home/index' })
           }, 1000)
         } catch (e) {
-          this.showToastMsg('登录失败，请重试')
+          this.showToastMsg('登录失败，请检查账号或验证码')
         }
       }
     }

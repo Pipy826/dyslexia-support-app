@@ -16,9 +16,12 @@
         </view>
         <view class="child-details">
           <view class="child-label">当前评测对象</view>
-          <view class="child-name">小明 <text class="child-meta">一年级 / 7岁</text></view>
+          <view class="child-name">
+            {{ currentChild ? currentChild.name : '未选择' }}
+            <text class="child-meta" v-if="currentChild">{{ getAge(currentChild.birth_date) }}岁 / {{ currentChild.grade || '' }}</text>
+          </view>
         </view>
-        <view class="switch-btn">切换</view>
+        <view class="switch-btn" @click="showChildPicker" v-if="children.length > 1">切换</view>
       </view>
 
       <!-- 发起筛查动作区 -->
@@ -55,8 +58,27 @@
         <view class="section-title">历史筛查记录</view>
       </view>
 
+      <!-- 历史列表 -->
+      <view v-if="screeningHistory.length > 0">
+        <view
+          class="history-card"
+          v-for="item in screeningHistory"
+          :key="item.id"
+          @click="viewReport(item)"
+        >
+          <view class="history-icon" :class="item.risk_level">
+            <text class="ph ph-file-text"></text>
+          </view>
+          <view class="history-info">
+            <view class="history-title">{{ gameTypeName(item.game_type) }}筛查</view>
+            <view class="history-time">{{ formatDate(item.created_at) }}</view>
+          </view>
+          <view class="history-badge" :class="item.risk_level">{{ riskLabel(item.risk_level) }}</view>
+        </view>
+      </view>
+
       <!-- 空状态 -->
-      <view class="empty-state">
+      <view class="empty-state" v-else>
         <view class="empty-icon">
           <text class="ph ph-clock"></text>
         </view>
@@ -67,6 +89,26 @@
 
     <!-- 底部导航栏 -->
     <tab-bar type="parent" current="/pages/parent/screening/index"></tab-bar>
+
+    <!-- 儿童切换弹窗 -->
+    <view class="modal-overlay" v-if="showPicker" @click="showPicker = false">
+      <view class="picker-sheet" @click.stop>
+        <view class="picker-title">选择评测对象</view>
+        <view
+          v-for="child in children"
+          :key="child.id"
+          :class="['picker-item', { active: currentChild?.id === child.id }]"
+          @click="selectChild(child)"
+        >
+          <view class="picker-avatar">{{ child.name.charAt(0) }}</view>
+          <view class="picker-info">
+            <view class="picker-name">{{ child.name }}</view>
+            <view class="picker-meta">{{ getAge(child.birth_date) }}岁 / {{ child.grade || '' }}</view>
+          </view>
+          <text v-if="currentChild?.id === child.id" class="ph ph-check picker-check"></text>
+        </view>
+      </view>
+    </view>
 
     <!-- 交接设备提示弹窗 -->
     <view class="modal-overlay" v-if="showModal" @click="hideModal">
@@ -84,7 +126,9 @@
 </template>
 
 <script>
-import { getCurrentChild } from '../../../utils/auth.js'
+import { getCurrentChild, setCurrentChild } from '../../../utils/auth.js'
+import { getChildren } from '../../../api/child.js'
+import { getScreeningHistory } from '../../../api/screening.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
 export default {
@@ -92,14 +136,74 @@ export default {
   data() {
     return {
       currentChild: null,
-      showModal: false
+      children: [],
+      showModal: false,
+      showPicker: false,
+      screeningHistory: []
     }
   },
-  onLoad() {
-    this.currentChild = getCurrentChild()
+  onShow() {
+    this.loadData()
   },
   methods: {
+    async loadData() {
+      try {
+        this.children = await getChildren()
+        const saved = getCurrentChild()
+        if (saved) {
+          this.currentChild = this.children.find(c => c.id === saved.id) || this.children[0]
+        } else if (this.children.length > 0) {
+          this.currentChild = this.children[0]
+        }
+        if (this.currentChild) {
+          setCurrentChild(this.currentChild)
+          await this.loadHistory()
+        }
+      } catch (e) {
+        console.error('加载失败', e)
+      }
+    },
+    async loadHistory() {
+      if (!this.currentChild) return
+      try {
+        this.screeningHistory = await getScreeningHistory(this.currentChild.id)
+      } catch (e) {
+        console.error('加载历史失败', e)
+      }
+    },
+    getAge(birthDate) {
+      if (!birthDate) return '?'
+      return new Date().getFullYear() - new Date(birthDate).getFullYear()
+    },
+    formatDate(dateStr) {
+      if (!dateStr) return ''
+      const d = new Date(dateStr)
+      return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+    },
+    gameTypeName(type) {
+      return { visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解' }[type] || type
+    },
+    riskLabel(level) {
+      return { low: '低风险', medium: '中风险', high: '高风险' }[level] || '未知'
+    },
+    showChildPicker() {
+      this.showPicker = true
+    },
+    selectChild(child) {
+      this.currentChild = child
+      setCurrentChild(child)
+      this.showPicker = false
+      this.screeningHistory = []
+      this.loadHistory()
+    },
+    viewReport(screening) {
+      uni.navigateTo({ url: `/pages/parent/report/index?child_id=${this.currentChild.id}` })
+    },
     showHandoverModal() {
+      if (!this.currentChild) {
+        uni.showToast({ title: '请先添加孩子档案', icon: 'none' })
+        return
+      }
       this.showModal = true
     },
     hideModal() {
@@ -455,4 +559,104 @@ export default {
   border: 2rpx solid #E5E7EB;
   color: #6B7280;
 }
+
+/* 历史记录卡片 */
+.history-card {
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 32rpx;
+  margin-bottom: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  border: 1rpx solid #F3F4F6;
+}
+
+.history-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.history-icon.low { background: #ECFDF5; }
+.history-icon.low .ph { color: #10B981; }
+.history-icon.medium { background: #FEF3C7; }
+.history-icon.medium .ph { color: #F59E0B; }
+.history-icon.high { background: #FEF2F2; }
+.history-icon.high .ph { color: #EF4444; }
+.history-icon .ph { font-size: 36rpx; }
+
+.history-info { flex: 1; }
+
+.history-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #374151;
+}
+
+.history-time {
+  font-size: 22rpx;
+  color: #9CA3AF;
+  margin-top: 4rpx;
+}
+
+.history-badge {
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 6rpx 20rpx;
+  border-radius: 16rpx;
+}
+
+.history-badge.low { background: #ECFDF5; color: #10B981; }
+.history-badge.medium { background: #FEF3C7; color: #F59E0B; }
+.history-badge.high { background: #FEF2F2; color: #EF4444; }
+
+/* 儿童切换弹窗 */
+.picker-sheet {
+  background: #FFFFFF;
+  width: 100%;
+  border-radius: 48rpx 48rpx 0 0;
+  padding: 48rpx 48rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.picker-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1F2937;
+  margin-bottom: 32rpx;
+  text-align: center;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.picker-item.active { background: #EFF6FF; }
+
+.picker-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: #DBEAFE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #3B82F6;
+}
+
+.picker-info { flex: 1; }
+.picker-name { font-size: 28rpx; font-weight: 700; color: #374151; }
+.picker-meta { font-size: 22rpx; color: #9CA3AF; margin-top: 4rpx; }
+.picker-check { font-size: 32rpx; color: #3B82F6; }
 </style>

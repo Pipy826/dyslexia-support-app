@@ -11,10 +11,10 @@
     <view class="page-content">
       <!-- 家长账号信息卡片 -->
       <view class="account-card">
-        <view class="account-avatar">妈</view>
+        <view class="account-avatar">{{ user?.username?.charAt(0)?.toUpperCase() || '我' }}</view>
         <view class="account-info">
-          <view class="account-name">小明妈妈</view>
-          <view class="account-phone">138****5678</view>
+          <view class="account-name">{{ user?.username || '用户' }}</view>
+          <view class="account-phone">{{ maskPhone(user?.phone) }}</view>
         </view>
         <view class="account-badge">家庭基础版</view>
       </view>
@@ -110,6 +110,10 @@ export default {
       } catch (e) {
         console.error('加载失败', e)
       }
+    },
+    maskPhone(phone) {
+      if (!phone) return '未绑定手机'
+      return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
     },
     logout() {
       uni.showModal({

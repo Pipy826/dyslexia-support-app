@@ -135,8 +135,33 @@ export default {
       this.selectedAnswer = index
     },
     playAudio() {
-      // 实际开发中调用 audio.play()
-      uni.showToast({ title: '播放音频', icon: 'none' })
+      const text = this.currentQuestion?.instruction || this.currentQuestion?.title
+      if (!text) return
+      // 使用系统TTS朗读题目
+      uni.createInnerAudioContext && (() => {
+        // H5/App 环境：使用 speechSynthesis
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel()
+          const utter = new window.SpeechSynthesisUtterance(text)
+          utter.lang = 'zh-CN'
+          utter.rate = 0.9
+          window.speechSynthesis.speak(utter)
+          return
+        }
+      })()
+      // 小程序环境：使用 uni.textToSpeech（微信小程序支持）
+      if (uni.textToSpeech) {
+        uni.textToSpeech({
+          lang: 'zh_CN',
+          tts: true,
+          content: text,
+          fail: () => {
+            uni.showToast({ title: '当前环境不支持语音', icon: 'none' })
+          }
+        })
+      } else {
+        uni.showToast({ title: text, icon: 'none', duration: 2000 })
+      }
     },
     confirmAnswer() {
       if (this.selectedAnswer === null) return

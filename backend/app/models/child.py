@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database import Base
@@ -10,10 +10,11 @@ class Child(Base):
     id = Column(Integer, primary_key=True, index=True)
     parent_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
-    gender = Column(String(10), nullable=True)  # 'male' or 'female'
+    gender = Column(String(10), nullable=True)
     birth_date = Column(Date, nullable=False)
-    grade = Column(String(20), nullable=True)  # e.g., "一年级"
+    grade = Column(String(20), nullable=True)
     avatar_url = Column(String(500), nullable=True)
+    has_difficulty = Column(Boolean, default=False, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

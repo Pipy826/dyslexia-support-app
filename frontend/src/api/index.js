@@ -1,6 +1,7 @@
 import { getToken, clearAuth } from '../utils/auth.js';
 
-const BASE_URL = 'http://localhost:8000';
+// H5开发模式走vite代理（空字符串），生产环境改为实际后端地址
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 /**
  * 统一请求封装

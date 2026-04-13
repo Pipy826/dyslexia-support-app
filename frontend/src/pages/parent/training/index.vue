@@ -13,10 +13,10 @@
         <view class="today-header">
           <view class="today-info">
             <view class="today-title">今日任务表</view>
-            <view class="today-meta">周三 · 预计用时 15 分钟</view>
+            <view class="today-meta">预计用时 15 分钟</view>
           </view>
           <view class="today-count">
-            <view class="count-ring">0/3</view>
+            <view class="count-ring">{{ completedCount }}/{{ totalCount }}</view>
           </view>
         </view>
 
@@ -27,43 +27,54 @@
         </view>
       </view>
 
-      <!-- 待完成的任务 -->
+      <!-- 任务列表 -->
       <view class="section-title">待完成的任务</view>
-      <view class="task-list">
-        <!-- 任务 1 -->
-        <view class="task-card">
-          <view class="task-icon orange">
-            <text class="ph ph-eye"></text>
+      <view class="task-list" v-if="pendingTasks.length > 0">
+        <view
+          class="task-card"
+          v-for="task in pendingTasks"
+          :key="task.id"
+          :class="{ completed: task.status === 'completed' }"
+        >
+          <view class="task-icon" :class="taskColor(task.task_type)">
+            <text :class="'ph ' + taskIcon(task.task_type)"></text>
           </view>
+          <view class="task-info">
+            <view class="task-name">{{ task.task_name || task.task_type }}</view>
+            <view class="task-desc">{{ taskDesc(task.task_type) }}</view>
+          </view>
+          <button
+            class="task-btn"
+            :class="{ done: task.status === 'completed' }"
+            @click="startTask(task)"
+            :disabled="task.status === 'completed'"
+          >{{ task.status === 'completed' ? '已完成' : '去完成' }}</button>
+        </view>
+      </view>
+      <view class="task-list" v-else>
+        <view class="task-card">
+          <view class="task-icon orange"><text class="ph ph-eye"></text></view>
           <view class="task-info">
             <view class="task-name">火眼金睛 (视觉训练)</view>
             <view class="task-desc">提升形近字辨识能力</view>
           </view>
-          <button class="task-btn" @click="startTask('visual')">去完成</button>
+          <button class="task-btn" @click="startTask({ task_type: 'visual', status: 'pending' })">去完成</button>
         </view>
-
-        <!-- 任务 2 -->
         <view class="task-card">
-          <view class="task-icon blue">
-            <text class="ph ph-puzzle-piece"></text>
-          </view>
+          <view class="task-icon blue"><text class="ph ph-puzzle-piece"></text></view>
           <view class="task-info">
             <view class="task-name">字形保卫战</view>
             <view class="task-desc">强化汉字结构记忆</view>
           </view>
-          <button class="task-btn" @click="startTask('spelling')">去完成</button>
+          <button class="task-btn" @click="startTask({ task_type: 'spelling', status: 'pending' })">去完成</button>
         </view>
-
-        <!-- 任务 3 -->
         <view class="task-card">
-          <view class="task-icon green">
-            <text class="ph ph-book-open"></text>
-          </view>
+          <view class="task-icon green"><text class="ph ph-book-open"></text></view>
           <view class="task-info">
             <view class="task-name">亲子共读打卡</view>
             <view class="task-desc">培养语感与阅读兴趣</view>
           </view>
-          <button class="task-btn" @click="startTask('reading')">去完成</button>
+          <button class="task-btn" @click="startTask({ task_type: 'reading', status: 'pending' })">去完成</button>
         </view>
       </view>
 
@@ -85,13 +96,17 @@
 <script>
 import { getChildren } from '../../../api/child.js'
 import { getCurrentChild, setCurrentChild } from '../../../utils/auth.js'
+import { getTasks, completeTask, createTask } from '../../../api/training.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
 export default {
   components: { TabBar },
   data() {
     return {
-      currentChild: null
+      currentChild: null,
+      pendingTasks: [],
+      completedCount: 0,
+      totalCount: 3
     }
   },
   onShow() {
@@ -109,13 +124,73 @@ export default {
             this.currentChild = children[0]
           }
           setCurrentChild(this.currentChild)
+          await this.loadTasks()
         }
       } catch (e) {
         console.error('加载失败', e)
       }
     },
-    startTask(type) {
+    async loadTasks() {
+      if (!this.currentChild) return
+      try {
+        const allTasks = await getTasks(this.currentChild.id)
+        // 今日任务：取最近3条
+        const today = new Date().toISOString().split('T')[0]
+        let todayTasks = allTasks.filter(t => {
+          const d = t.scheduled_date || t.created_at?.split('T')[0]
+          return d === today
+        })
+        // 如果没有今日任务，自动创建默认任务
+        if (todayTasks.length === 0 && allTasks.length === 0) {
+          await this.createDefaultTasks()
+          const refreshed = await getTasks(this.currentChild.id)
+          todayTasks = refreshed.slice(0, 3)
+        } else if (todayTasks.length === 0) {
+          todayTasks = allTasks.slice(0, 3)
+        }
+        this.pendingTasks = todayTasks
+        this.completedCount = todayTasks.filter(t => t.status === 'completed').length
+        this.totalCount = todayTasks.length || 3
+      } catch (e) {
+        console.error('加载任务失败', e)
+      }
+    },
+    async createDefaultTasks() {
+      const today = new Date().toISOString().split('T')[0]
+      const defaults = [
+        { task_type: 'visual', task_name: '火眼金睛 (视觉训练)', child_id: this.currentChild.id, scheduled_date: today },
+        { task_type: 'spelling', task_name: '字形保卫战', child_id: this.currentChild.id, scheduled_date: today },
+        { task_type: 'reading', task_name: '亲子共读打卡', child_id: this.currentChild.id, scheduled_date: today }
+      ]
+      for (const t of defaults) {
+        try { await createTask(t) } catch (e) { /* ignore */ }
+      }
+    },
+    async doCompleteTask(task) {
+      if (task.status === 'completed') return
+      try {
+        await completeTask(task.id)
+        task.status = 'completed'
+        this.completedCount = this.pendingTasks.filter(t => t.status === 'completed').length
+        uni.showToast({ title: '太棒了！获得一颗星星 ⭐', icon: 'none' })
+      } catch (e) {
+        console.error('完成任务失败', e)
+      }
+    },
+    startTask(task) {
+      if (task.status === 'completed') return
+      // 先跳转到游戏，完成后标记任务
+      uni.setStorageSync('pending_task_id', task.id)
       uni.navigateTo({ url: '/pages/child/home/index' })
+    },
+    taskIcon(type) {
+      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', reading: 'ph-book-open' }[type] || 'ph-star'
+    },
+    taskColor(type) {
+      return { visual: 'orange', spelling: 'blue', reading: 'green' }[type] || 'blue'
+    },
+    taskDesc(type) {
+      return { visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆', reading: '培养语感与阅读兴趣' }[type] || ''
     }
   }
 }
@@ -324,6 +399,11 @@ export default {
   border-radius: 32rpx;
   font-size: 22rpx;
   font-weight: 700;
+}
+
+.task-btn.done {
+  background: #F3F4F6;
+  color: #9CA3AF;
 }
 
 /* 里程碑卡片 */

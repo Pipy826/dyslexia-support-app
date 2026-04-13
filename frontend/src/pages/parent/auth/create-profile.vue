@@ -14,15 +14,16 @@
     <!-- 极简表单 -->
     <view class="form-section">
 
-      <!-- 头像选择 (模拟) -->
-      <view class="avatar-upload">
+      <!-- 头像选择 -->
+      <view class="avatar-upload" @click="chooseAvatar">
         <view class="avatar-preview">
-          <text class="ph ph-user"></text>
+          <image v-if="formData.avatar_url" :src="formData.avatar_url" class="avatar-img" mode="aspectFill" />
+          <text v-else class="ph ph-user"></text>
           <view class="camera-icon">
             <text class="ph ph-camera"></text>
           </view>
         </view>
-        <view class="upload-hint">点击上传头像</view>
+        <view class="upload-hint">{{ uploading ? '上传中...' : '点击上传头像' }}</view>
       </view>
 
       <!-- 姓名/昵称 -->
@@ -87,16 +88,17 @@
     </view>
 
     <!-- 完成按钮 -->
-    <button class="main-btn" @click="handleFinish">
+    <button class="main-btn" @click="handleFinish" :disabled="uploading">
       完成创建，进入首页
     </button>
-
-    <!-- Toast提示 -->
-    <view class="toast" :class="{ show: showToastVisible }">{{ toastMessage }}</view>
   </view>
 </template>
 
 <script>
+import { createChild } from '../../../api/child.js'
+import { setCurrentChild } from '../../../utils/auth.js'
+import { uploadAvatar, getAvatarUrl } from '../../../api/child.js'
+
 export default {
   data() {
     return {
@@ -104,7 +106,8 @@ export default {
         name: '',
         gender: 'boy',
         grade: '1',
-        hasDifficulty: false
+        hasDifficulty: false,
+        avatar_url: ''
       },
       gradeOptions: [
         { label: '学龄前', value: 'pre' },
@@ -114,32 +117,58 @@ export default {
         { label: '四年级', value: '4' },
         { label: '五/六年级', value: '5+' }
       ],
-      showToastVisible: false,
-      toastMessage: ''
+      uploading: false
     }
   },
   methods: {
     goBack() {
       uni.navigateBack()
     },
-    showToastMsg(msg) {
-      this.toastMessage = msg
-      this.showToastVisible = true
-      setTimeout(() => {
-        this.showToastVisible = false
-      }, 2000)
+    chooseAvatar() {
+      uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: async (res) => {
+          this.uploading = true
+          try {
+            const result = await uploadAvatar(res.tempFilePaths[0])
+            this.formData.avatar_url = result.url
+          } catch (e) {
+            uni.showToast({ title: '上传失败', icon: 'none' })
+          } finally {
+            this.uploading = false
+          }
+        }
+      })
     },
-    handleFinish() {
+    async handleFinish() {
       if (!this.formData.name) {
-        this.showToastMsg('请输入孩子姓名或昵称')
+        uni.showToast({ title: '请输入孩子姓名或昵称', icon: 'none' })
         return
       }
+      // birth_date 必填，用年级推算一个默认生日
+      const gradeAgeMap = { pre: 5, '1': 7, '2': 8, '3': 9, '4': 10, '5+': 11 }
+      const age = gradeAgeMap[this.formData.grade] || 8
+      const birthYear = new Date().getFullYear() - age
+      const birthDate = `${birthYear}-01-01`
 
-      // 模拟完成档案创建
-      uni.showToast({ title: '创建成功', icon: 'success' })
-      setTimeout(() => {
-        uni.reLaunch({ url: '/pages/parent/home/index' })
-      }, 1000)
+      try {
+        const child = await createChild({
+          name: this.formData.name,
+          gender: this.formData.gender === 'girl' ? 'female' : 'male',
+          birth_date: birthDate,
+          grade: this.formData.grade,
+          avatar_url: this.formData.avatar_url || null
+        })
+        setCurrentChild(child)
+        uni.showToast({ title: '创建成功', icon: 'success' })
+        setTimeout(() => {
+          uni.reLaunch({ url: '/pages/parent/home/index' })
+        }, 1000)
+      } catch (e) {
+        uni.showToast({ title: '创建失败，请重试', icon: 'none' })
+      }
     }
   }
 }
@@ -219,6 +248,12 @@ export default {
 .avatar-preview .ph {
   font-size: 64rpx;
   color: #3B82F6;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .camera-icon {

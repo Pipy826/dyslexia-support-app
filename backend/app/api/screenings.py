@@ -48,9 +48,7 @@ def get_questions(
     # Remove correct_index from response (don't expose answer to frontend)
     questions_for_client = []
     for q in selected:
-        q_copy = q.copy()
-        correct_idx = q_copy.pop("correct_index")
-        q_copy["correct_answer"] = correct_idx  # Store for validation
+        q_copy = {k: v for k, v in q.items() if k != "correct_index"}
         questions_for_client.append(q_copy)
 
     return {

@@ -66,9 +66,12 @@ export default {
   methods: {
     switchTab(pagePath) {
       if (this.currentPath === pagePath) return
-      uni.switchTab({ url: pagePath }).catch(() => {
+      // 先尝试 switchTab，失败则 navigateTo
+      try {
+        uni.switchTab({ url: pagePath })
+      } catch (e) {
         uni.navigateTo({ url: pagePath })
-      })
+      }
     }
   }
 }

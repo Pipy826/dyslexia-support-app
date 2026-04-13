@@ -9,6 +9,16 @@ export default defineConfig({
       '@': resolve(__dirname, 'src')
     }
   },
+  // H5开发模式代理，解决跨域问题
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      }
+    }
+  },
   css: {
     preprocessorOptions: {
       scss: {

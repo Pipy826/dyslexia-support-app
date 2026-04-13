@@ -138,7 +138,7 @@ def create_screening_report(
 
     # 生成报告
     summary = generate_summary(child.name, age, risk_level, scores_dict)
-    recommendations = generate_recommendations(risk_level)
+    recommendations = generate_recommendations(risk_level, scores_dict)
 
     report = Report(
         child_id=child_id,

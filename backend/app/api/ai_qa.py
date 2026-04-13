@@ -8,7 +8,7 @@ from ..models.ai_chat import AIConversation
 from ..models.screening import Report
 from ..models.child import Child
 from ..schemas.ai_chat import AIChatRequest, AIChatResponse
-from ..services.ai_service import get_rule_based_response
+from ..services.ai_service import get_ai_response
 from .deps import get_current_user
 from ..models.user import User
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/ai", tags=["AI问答"])
 
 
 @router.post("/chat", response_model=AIChatResponse)
-def chat(
+async def chat(
     data: AIChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -35,7 +35,6 @@ def chat(
     # Get context if child_id provided
     context = {}
     if data.child_id:
-        # Get latest report for context
         report = db.query(Report).filter(
             Report.child_id == data.child_id
         ).order_by(Report.created_at.desc()).first()
@@ -45,8 +44,8 @@ def chat(
             if report.dimensions:
                 context["dimensions"] = json.loads(report.dimensions)
 
-    # Get AI response (rule-based for MVP)
-    reply = get_rule_based_response(data.message, context)
+    # Get AI response (LLM if configured, else rule-based)
+    reply = await get_ai_response(data.message, context)
 
     # Save assistant message
     assistant_msg = AIConversation(

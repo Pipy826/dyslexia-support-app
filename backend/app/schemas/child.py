@@ -9,6 +9,7 @@ class ChildCreate(BaseModel):
     birth_date: date
     grade: Optional[str] = None
     avatar_url: Optional[str] = None
+    has_difficulty: Optional[bool] = None
 
 
 class ChildUpdate(BaseModel):
@@ -17,6 +18,7 @@ class ChildUpdate(BaseModel):
     birth_date: Optional[date] = None
     grade: Optional[str] = None
     avatar_url: Optional[str] = None
+    has_difficulty: Optional[bool] = None
 
 
 class ChildResponse(BaseModel):
@@ -27,6 +29,7 @@ class ChildResponse(BaseModel):
     birth_date: date
     grade: Optional[str] = None
     avatar_url: Optional[str] = None
+    has_difficulty: Optional[bool] = None
     created_at: datetime
 
     class Config:

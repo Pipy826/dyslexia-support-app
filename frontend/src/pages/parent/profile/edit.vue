@@ -14,10 +14,11 @@
     <!-- 极简表单 -->
     <view class="form-section">
 
-      <!-- 头像选择 (模拟) -->
-      <view class="avatar-upload">
+      <!-- 头像选择 -->
+      <view class="avatar-upload" @click="chooseAvatar">
         <view class="avatar-preview">
-          <text class="ph ph-user"></text>
+          <image v-if="formData.avatar_url" :src="getAvatarUrl(formData.avatar_url)" class="avatar-img" mode="aspectFill" />
+          <text v-else class="ph ph-user"></text>
           <view class="camera-icon">
             <text class="ph ph-camera"></text>
           </view>
@@ -90,25 +91,25 @@
     <button class="main-btn" @click="handleSave">
       {{ isEdit ? '保存修改' : '完成创建，进入首页' }}
     </button>
-
-    <!-- Toast提示 -->
-    <view class="toast" :class="{ show: showToast }">{{ toastMessage }}</view>
   </view>
 </template>
 
 <script>
 import { createChild, updateChild, getChild } from '../../../api/child.js'
+import { uploadAvatar, getAvatarUrl } from '../../../api/child.js'
 
 export default {
   data() {
     return {
       childId: null,
       isEdit: false,
+      uploading: false,
       formData: {
         name: '',
         gender: 'boy',
         grade: '1',
-        hasDifficulty: false
+        hasDifficulty: false,
+        avatar_url: ''
       },
       gradeOptions: [
         { label: '学龄前', value: 'pre' },
@@ -117,9 +118,7 @@ export default {
         { label: '三年级', value: '3' },
         { label: '四年级', value: '4' },
         { label: '五/六年级', value: '5+' }
-      ],
-      showToast: false,
-      toastMessage: ''
+      ]
     }
   },
   onLoad(options) {
@@ -137,7 +136,8 @@ export default {
           name: child.name,
           gender: child.gender === 'female' ? 'girl' : 'boy',
           grade: child.grade || '1',
-          hasDifficulty: child.has_difficulty || false
+          hasDifficulty: child.has_difficulty || false,
+          avatar_url: child.avatar_url || ''
         }
       } catch (e) {
         console.error('加载失败', e)
@@ -146,16 +146,34 @@ export default {
     goBack() {
       uni.navigateBack()
     },
-    showToast(msg) {
-      this.toastMessage = msg
-      this.showToast = true
-      setTimeout(() => {
-        this.showToast = false
-      }, 2000)
+    getAvatarUrl(path) {
+      if (!path) return ''
+      if (path.startsWith('http')) return path
+      return 'http://localhost:8000' + path
+    },
+    chooseAvatar() {
+      uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: async (res) => {
+          const filePath = res.tempFilePaths[0]
+          this.uploading = true
+          try {
+            const result = await uploadAvatar(filePath)
+            this.formData.avatar_url = result.url
+            uni.showToast({ title: '头像上传成功', icon: 'success' })
+          } catch (e) {
+            uni.showToast({ title: '上传失败，请重试', icon: 'none' })
+          } finally {
+            this.uploading = false
+          }
+        }
+      })
     },
     async handleSave() {
       if (!this.formData.name) {
-        this.showToast('请输入孩子姓名或昵称')
+        uni.showToast({ title: '请输入孩子姓名或昵称', icon: 'none' })
         return
       }
 
@@ -164,7 +182,8 @@ export default {
           name: this.formData.name,
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
           grade: this.formData.grade,
-          has_difficulty: this.formData.hasDifficulty
+          has_difficulty: this.formData.hasDifficulty,
+          avatar_url: this.formData.avatar_url || null
         }
 
         if (this.isEdit) {
@@ -183,7 +202,7 @@ export default {
           }
         }, 1000)
       } catch (e) {
-        this.showToast(this.isEdit ? '保存失败' : '创建失败')
+        uni.showToast({ title: this.isEdit ? '保存失败' : '创建失败', icon: 'none' })
       }
     }
   }
@@ -264,6 +283,12 @@ export default {
 .avatar-preview .ph {
   font-size: 64rpx;
   color: #3B82F6;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .camera-icon {

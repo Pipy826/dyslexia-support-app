@@ -32,6 +32,11 @@
 
 <script>
 export default {
+  onLoad() {
+    // 清除筛查缓存，避免下次进入游戏复用旧ID
+    uni.removeStorageSync('current_screening')
+    uni.removeStorageSync('pending_task_id')
+  },
   methods: {
     returnHome() {
       uni.redirectTo({ url: '/pages/child/home/index' })
