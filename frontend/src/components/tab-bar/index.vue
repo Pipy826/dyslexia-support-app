@@ -66,12 +66,9 @@ export default {
   methods: {
     switchTab(pagePath) {
       if (this.currentPath === pagePath) return
-      // 先尝试 switchTab，失败则 navigateTo
-      try {
-        uni.switchTab({ url: pagePath })
-      } catch (e) {
-        uni.navigateTo({ url: pagePath })
-      }
+      // 项目使用自定义导航栏，无原生 tabBar 配置
+      // 用 reLaunch 清空页面栈后跳转，避免页面堆积
+      uni.reLaunch({ url: pagePath })
     }
   }
 }

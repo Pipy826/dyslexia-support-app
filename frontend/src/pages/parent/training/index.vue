@@ -179,9 +179,12 @@ export default {
     },
     startTask(task) {
       if (task.status === 'completed') return
-      // 先跳转到游戏，完成后标记任务
-      uni.setStorageSync('pending_task_id', task.id)
-      uni.navigateTo({ url: '/pages/child/home/index' })
+      // 存储待完成任务ID，游戏结束后自动标记
+      if (task.id) uni.setStorageSync('pending_task_id', task.id)
+      // 直接进入准备页，传入游戏类型
+      uni.navigateTo({
+        url: `/pages/child/prep/index?game_type=${task.task_type || 'visual'}`
+      })
     },
     taskIcon(type) {
       return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', reading: 'ph-book-open' }[type] || 'ph-star'

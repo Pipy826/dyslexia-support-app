@@ -149,7 +149,8 @@ export default {
     getAvatarUrl(path) {
       if (!path) return ''
       if (path.startsWith('http')) return path
-      return 'http://localhost:8000' + path
+      const base = import.meta.env.VITE_API_BASE_URL || ''
+      return base + path
     },
     chooseAvatar() {
       uni.chooseImage({
@@ -198,7 +199,7 @@ export default {
           if (this.isEdit) {
             uni.navigateBack()
           } else {
-            uni.switchTab({ url: '/pages/parent/home/index' })
+            uni.reLaunch({ url: '/pages/parent/home/index' })
           }
         }, 1000)
       } catch (e) {

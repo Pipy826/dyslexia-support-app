@@ -1,4 +1,4 @@
-import { post, get } from './index.js';
+import { post, get, del } from './index.js';
 
 export const chat = (data) => post('/api/ai/chat', data);
 
@@ -10,5 +10,5 @@ export const getChatHistory = (childId, limit = 20) => {
 
 export const clearChatHistory = (childId) => {
   const params = childId ? { child_id: childId } : {};
-  return get('/api/ai/history', params); // Note: should be DELETE
+  return del('/api/ai/history', params);
 };

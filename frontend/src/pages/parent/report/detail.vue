@@ -14,7 +14,7 @@
     <view class="page-content" v-if="report">
       <!-- 概览卡片 -->
       <view class="overview-card">
-        <view class="report-time">生成时间：今天 10:15</view>
+        <view class="report-time">生成时间：{{ formatDateTime(report.created_at) }}</view>
         <view class="conclusion-row">
           <view class="conclusion-indicator" :class="report.risk_level === 'high' ? 'red' : (report.risk_level === 'medium' ? 'orange' : 'green')"></view>
           <view class="conclusion-title">{{ getRiskTitle(report.risk_level) }}</view>
@@ -129,6 +129,11 @@ export default {
       if (score >= 60) return '中等'
       return '偏弱'
     },
+    formatDateTime(dateStr) {
+      if (!dateStr) return ''
+      const d = new Date(dateStr)
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+    },
     goBack() {
       uni.navigateBack()
     },
@@ -138,7 +143,7 @@ export default {
       })
     },
     goToTraining() {
-      uni.switchTab({ url: '/pages/parent/training/index' })
+      uni.reLaunch({ url: '/pages/parent/training/index' })
     }
   }
 }

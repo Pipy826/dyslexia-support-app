@@ -42,14 +42,8 @@ def get_questions(
     questions_db = GAME_QUESTIONS.get(game_type, {})
     level_questions = questions_db.get(difficulty, [])
 
-    # Return requested count of questions
-    selected = level_questions[:count]
-
-    # Remove correct_index from response (don't expose answer to frontend)
-    questions_for_client = []
-    for q in selected:
-        q_copy = {k: v for k, v in q.items() if k != "correct_index"}
-        questions_for_client.append(q_copy)
+    # 取指定数量，包含 correct_index 供前端即时反馈
+    questions_for_client = list(level_questions[:count])
 
     return {
         "questions": questions_for_client,

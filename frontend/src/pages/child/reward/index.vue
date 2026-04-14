@@ -14,9 +14,15 @@
     </view>
 
     <view class="content-area">
-      <view class="congrats-title pop-in" style="animation-delay: 0.7s">太棒啦！</view>
+      <view class="congrats-title pop-in" style="animation-delay: 0.7s">太棒啦！🎉</view>
       <view class="congrats-desc pop-in" style="animation-delay: 0.8s">
-        你完成了所有的挑战<br>获得了 3 颗探险之星
+        你完成了所有的挑战<br>获得了 <text class="highlight">{{ starsEarned }}</text> 颗探险之星
+      </view>
+
+      <!-- 总星星数 -->
+      <view class="total-stars pop-in" style="animation-delay: 0.9s">
+        <text class="ph ph-star"></text>
+        累计 {{ totalStars }} 颗星星
       </view>
 
       <button class="return-btn pop-in" style="animation-delay: 1s" @click="returnHome">
@@ -31,13 +37,32 @@
 </template>
 
 <script>
+import { getTotalStars } from '../../../api/training.js'
+import { getCurrentChild } from '../../../utils/auth.js'
+
 export default {
+  data() {
+    return {
+      starsEarned: 1,
+      totalStars: 0
+    }
+  },
   onLoad() {
-    // 清除筛查缓存，避免下次进入游戏复用旧ID
     uni.removeStorageSync('current_screening')
     uni.removeStorageSync('pending_task_id')
+    this.loadStars()
   },
   methods: {
+    async loadStars() {
+      const child = getCurrentChild()
+      if (!child) return
+      try {
+        const res = await getTotalStars(child.id)
+        this.totalStars = res.total_stars || 0
+      } catch (e) {
+        console.warn('加载星星失败', e)
+      }
+    },
     returnHome() {
       uni.redirectTo({ url: '/pages/child/home/index' })
     }
@@ -48,13 +73,12 @@ export default {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #FFFFFF;
+  background: linear-gradient(180deg, #FEF3C7 0%, #FFFFFF 50%);
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* 星星动画区 */
 .stars-area {
   flex: 1;
   display: flex;
@@ -64,24 +88,10 @@ export default {
   padding-bottom: 40rpx;
 }
 
-.star {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+.star { display: flex; align-items: center; justify-content: center; }
+.star.left, .star.right { font-size: 80rpx; color: #F59E0B; padding-bottom: 40rpx; }
+.star.center { font-size: 128rpx; color: #F59E0B; }
 
-.star.left, .star.right {
-  font-size: 80rpx;
-  color: #F59E0B;
-  padding-bottom: 40rpx;
-}
-
-.star.center {
-  font-size: 120rpx;
-  color: #F59E0B;
-}
-
-/* 内容区 */
 .content-area {
   display: flex;
   flex-direction: column;
@@ -98,11 +108,31 @@ export default {
 
 .congrats-desc {
   font-size: 32rpx;
-  color: #9CA3AF;
+  color: #6B7280;
   text-align: center;
   line-height: 1.6;
-  margin-bottom: 80rpx;
+  margin-bottom: 32rpx;
 }
+.congrats-desc .highlight {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #F59E0B;
+}
+
+.total-stars {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: #FEF3C7;
+  padding: 16rpx 40rpx;
+  border-radius: 50rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #D97706;
+  margin-bottom: 64rpx;
+  border: 1rpx solid #FDE68A;
+}
+.total-stars .ph { font-size: 32rpx; color: #F59E0B; }
 
 .return-btn {
   width: 100%;
@@ -113,7 +143,7 @@ export default {
   padding: 32rpx;
   font-size: 40rpx;
   font-weight: 700;
-  box-shadow: 0 8rpx 24rpx rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8rpx 24rpx rgba(59,130,246,0.3);
 }
 
 .parent-note {
@@ -122,12 +152,10 @@ export default {
   margin-top: 48rpx;
 }
 
-/* 动画 */
 @keyframes popIn {
   0% { transform: scale(0.5); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
-
 .pop-in {
   opacity: 0;
   animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;

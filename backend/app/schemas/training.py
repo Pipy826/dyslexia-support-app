@@ -47,5 +47,4 @@ class GrowthRecordResponse(BaseModel):
     metadata: Optional[str] = Field(default=None, alias="meta_data")
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True, "populate_by_name": True}

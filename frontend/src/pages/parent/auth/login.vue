@@ -301,12 +301,13 @@ export default {
         }
 
         try {
-          await register({
+          const res = await register({
             username: this.regData.username || this.regData.phone,
             password: this.regData.password,
             phone: this.regData.phone,
             code: this.regData.code
           })
+          handleLoginSuccess(res)  // 存储 token 和用户信息
           uni.showToast({ title: '注册成功', icon: 'success' })
           setTimeout(() => {
             uni.navigateTo({ url: '/pages/parent/auth/create-profile' })

@@ -12,32 +12,36 @@ def calculate_score(answers: List[Dict], game_type: str) -> tuple[int, List[Dict
     if not answers:
         return 0, []
 
-    correct_count = 0
     total_count = len(answers)
-    dimension_scores = []
-
-    for answer in answers:
-        is_correct = answer.get("is_correct", False)
-        if is_correct:
-            correct_count += 1
-
-    # 计算总分（百分比）
+    correct_count = sum(1 for a in answers if a.get("is_correct", False))
     total_score = int((correct_count / total_count) * 100) if total_count > 0 else 0
 
     # 根据游戏类型映射到能力维度
     dimension_map = {
         "visual": ["visual_discrimination", "attention"],
-        "spelling": ["spelling", "phonological", "character_order"],
+        "spelling": ["phonological", "character_order", "spelling"],
         "comprehension": ["reading_comprehension", "semantic_integration", "information_extraction"]
     }
 
     dimensions = dimension_map.get(game_type, ["general"])
-    for dim in dimensions:
-        dim_score = total_score  # 简化：各维度同分
-        dimension_scores.append({
-            "dimension": dim,
-            "score": dim_score
-        })
+
+    # 将答题记录按顺序分配到各维度，计算各维度独立得分
+    dimension_scores = []
+    n_dims = len(dimensions)
+    chunk = max(1, total_count // n_dims)
+
+    for i, dim in enumerate(dimensions):
+        start = i * chunk
+        # 最后一个维度取剩余所有题目
+        end = start + chunk if i < n_dims - 1 else total_count
+        dim_answers = answers[start:end]
+        if dim_answers:
+            dim_correct = sum(1 for a in dim_answers if a.get("is_correct", False))
+            dim_score = int((dim_correct / len(dim_answers)) * 100)
+        else:
+            # 题目不足时用总分兜底
+            dim_score = total_score
+        dimension_scores.append({"dimension": dim, "score": dim_score})
 
     return total_score, dimension_scores
 
