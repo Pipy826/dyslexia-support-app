@@ -26,6 +26,7 @@ const request = (options) => {
 
     uni.request({
       ...options,
+      timeout: 60000,  // 60秒，覆盖uni默认值
       url: options.url.startsWith('http') ? options.url : BASE_URL + options.url,
       header: {
         'Content-Type': 'application/json',

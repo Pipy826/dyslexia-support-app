@@ -1,151 +1,716 @@
+"""
+AI 服务模块 —— 接入 NVIDIA NIM（兼容 OpenAI 格式）
+支持：
+  1. 普通对话（家长问答）
+  2. 流式对话（SSE）
+  3. AI 生成个性化报告解读
+  4. AI 生成个性化训练计划
+  5. 儿童端鼓励话语生成
+"""
+
+from typing import Dict, Optional, List, AsyncGenerator
 import httpx
 import json
-import random
-from typing import Dict, Optional
 
 from ..config import settings
 
+# ── 系统提示词 ──────────────────────────────────────────────────────────────
 
-# ── 规则型兜底回复（无LLM时使用）──────────────────────────────────────────
-RISK_RESPONSES = {
-    "low": "孩子的读写能力发展良好！继续保持良好的阅读习惯，多让孩子接触文字游戏即可。",
-    "medium": "孩子在某些方面需要加强。建议每天安排10-15分钟的专项训练，如视觉辨识或拼字练习。",
-    "high": "建议寻求专业机构的帮助。同时可以在家中进行一些简单的读写游戏，如找不同、拼图等。"
+PARENT_SYSTEM_PROMPT = """你是一位专业的儿童读写障碍干预顾问，同时也是一位温暖、有耐心的家长支持者。
+你的职责是：
+1. 用通俗易懂的语言解释孩子的筛查报告和各项能力维度
+2. 提供科学、实用的家庭干预建议
+3. 安抚家长的焦虑情绪，强调读写障碍不是智力问题，通过科学干预可以显著改善
+4. 回答关于读写障碍、学习困难的专业问题
+
+回答要求：
+- 语言温暖、亲切，像朋友一样交流
+- 避免使用过于专业的术语，如需使用请解释
+- 回答简洁，重点突出，不超过200字
+- 如果家长情绪低落，先给予情感支持再提供建议
+- 始终保持积极、鼓励的态度"""
+
+REPORT_SYSTEM_PROMPT = """你是一位专业的儿童读写能力评估专家。
+请根据提供的筛查数据，生成一份个性化的评估报告解读。
+
+要求：
+- 语言温暖、专业，面向家长
+- 重点解释孩子的优势和需要关注的方面
+- 避免让家长过度焦虑
+- 提供2-3条具体可操作的家庭建议
+- 总字数控制在300字以内
+- 使用自然的中文表达，不要使用列表格式，用流畅的段落"""
+
+TRAINING_PLAN_SYSTEM_PROMPT = """你是一位专业的儿童读写障碍干预治疗师。
+请根据孩子的筛查报告，生成一份个性化的家庭训练计划。
+
+要求：
+- 计划要具体、可操作，家长在家就能执行
+- 针对孩子的弱项维度重点设计训练内容
+- 每个任务说明训练目的、具体方法和预期时长
+- 语言简单易懂，充满鼓励
+- 返回 JSON 格式，结构如下：
+{
+  "plan_summary": "整体计划说明（1-2句话）",
+  "duration_weeks": 4,
+  "tasks": [
+    {
+      "task_type": "visual|spelling|comprehension",
+      "task_name": "任务名称",
+      "description": "具体训练方法描述",
+      "frequency": "每天/每周X次",
+      "duration_minutes": 15,
+      "tips": "家长小贴士"
+    }
+  ]
 }
+只返回 JSON，不要有其他文字。"""
 
-DIMENSION_EXPLANATIONS = {
-    "visual_discrimination": "视觉辨识能力是指区分不同字形细微差别的能力，对正确识别汉字很重要。",
-    "phonological": "音形映射能力是指将字的读音和字形联系在一起的能力。",
-    "character_order": "字序组织能力是指正确记忆和书写汉字笔画顺序的能力。",
-    "reading_comprehension": "阅读理解能力是指理解文字内容并从中提取信息的能力。",
-    "semantic_integration": "语义整合能力是指将词语和句子组合成完整意义的能力。",
-    "information_extraction": "信息提取能力是指从文本中快速找到关键信息的能力。",
-    "attention": "注意力是指在读写过程中保持专注的能力，对学习效率很重要。"
-}
+CHILD_ENCOURAGEMENT_PROMPT = """你是一位活泼可爱的儿童学习伙伴，专门给小朋友加油鼓劲。
+请根据孩子的游戏表现，生成一句温暖、有趣的鼓励话语。
 
-DEFAULT_RESPONSES = [
-    "您好！关于儿童读写能力的问题，我可以帮助您解读评估结果并提供建议。请问您具体想了解什么？",
-    "我理解您的关心。关于孩子的读写发展，您可以查看评估报告中的详细建议，或者告诉我您想了解的具体方面。",
-    "如果您对孩子的评估结果有疑问，可以告诉我风险等级或具体的能力维度，我会为您详细解释。"
-]
+要求：
+- 语言简单，适合6-10岁儿童理解
+- 充满活力和正能量
+- 如果表现好，热情称赞具体的进步
+- 如果表现一般，鼓励继续努力，不要批评
+- 可以使用可爱的表情符号
+- 只返回鼓励话语本身，不超过30字"""
+
+GROWTH_ANALYSIS_SYSTEM_PROMPT = """你是一位专业的儿童读写能力发展分析师。
+请根据孩子多次筛查的历史数据，生成一份成长趋势分析报告。
+
+要求：
+- 客观分析进步和退步的维度
+- 指出最显著的变化趋势
+- 语言温暖，面向家长
+- 如有进步，给予积极肯定
+- 如有退步，给出可能原因和建议
+- 总字数控制在250字以内，用流畅段落，不用列表"""
+
+DAILY_TIP_SYSTEM_PROMPT = """你是一位儿童读写障碍干预专家，每天为家长提供一条简短实用的育儿小贴士。
+
+要求：
+- 根据孩子的能力状况，给出今日最值得关注的一条建议
+- 语言简洁，一句话到两句话
+- 具体可操作，今天就能做
+- 温暖鼓励的语气
+- 不超过60字
+- 只返回贴士内容本身，不要有前缀"""
+
+EMOTIONAL_SUPPORT_SYSTEM_PROMPT = """你是一位专业的家长心理支持顾问，同时也是儿童读写障碍领域的专家。
+当家长面对孩子高风险评估结果时，你需要提供情感支持和专业引导。
+
+要求：
+- 首先给予情感共鸣，理解家长的担忧和焦虑
+- 用科学事实消除误解（读写障碍≠智力问题）
+- 提供积极的展望和具体的下一步行动
+- 语气温暖、坚定、充满希望
+- 总字数200字以内"""
+
+ADAPTIVE_DIFFICULTY_PROMPT = """你是一位专业的儿童认知评估专家。
+请根据孩子当前的答题表现，判断是否需要调整难度，并给出建议。
+
+只返回JSON格式：
+{
+  "should_adjust": true/false,
+  "direction": "up"/"down"/"stay",
+  "reason": "简短原因（10字以内）",
+  "confidence": 0.0-1.0
+}"""
 
 
-def _build_system_prompt(context: Dict) -> str:
-    """构建系统提示词"""
-    base = (
-        "你是一位专业的儿童读写障碍干预顾问，擅长解读儿童读写能力评估报告，"
-        "并为家长提供科学、温暖、易懂的建议。请用简洁友好的中文回答，避免过于专业的术语。"
-    )
-    if context.get("risk_level"):
-        risk_map = {"low": "低风险", "medium": "中风险", "high": "高风险"}
-        base += f"\n\n当前孩子的评估风险等级为：{risk_map.get(context['risk_level'], context['risk_level'])}。"
-    if context.get("dimensions"):
-        dims = context["dimensions"]
-        dim_str = "、".join([f"{k}({v}分)" for k, v in dims.items()])
-        base += f"\n各能力维度得分：{dim_str}。"
-    return base
+# ── 核心 HTTP 调用 ──────────────────────────────────────────────────────────
+
+def _build_headers() -> Dict[str, str]:
+    return {
+        "Authorization": f"Bearer {settings.AI_API_KEY}",
+        "Content-Type": "application/json",
+    }
 
 
-async def get_ai_response(message: str, context: Optional[Dict] = None, history: list = None) -> str:
-    """
-    获取AI回复。
-    优先使用配置的LLM API（兼容OpenAI格式），降级到规则型回复。
-    history: 历史消息列表，格式 [{"role": "user"/"assistant", "message": "..."}]
-    """
-    context = context or {}
-
-    if settings.AI_API_KEY:
-        try:
-            return await _call_llm(message, context, history)
-        except Exception as e:
-            print(f"[AI] LLM调用失败，降级到规则回复: {e}")
-
-    return _get_rule_based_response(message, context)
-
-
-async def _call_llm(message: str, context: Dict, history: list = None) -> str:
-    """调用兼容OpenAI格式的LLM API，支持多轮对话历史"""
-    system_prompt = _build_system_prompt(context)
-
+def _build_messages(system_prompt: str, history: List[Dict], user_message: str) -> List[Dict]:
     messages = [{"role": "system", "content": system_prompt}]
+    # 只保留最近10轮对话，避免超出上下文
+    for msg in history[-20:]:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": user_message})
+    return messages
 
-    # 注入历史对话（最近10轮，避免 token 超限）
-    if history:
-        for h in history[-20:]:  # 最多20条（10轮）
-            messages.append({"role": h["role"], "content": h["message"]})
 
-    # 当前用户消息
-    messages.append({"role": "user", "content": message})
+async def call_llm(
+    system_prompt: str,
+    user_message: str,
+    history: Optional[List[Dict]] = None,
+    temperature: float = 0.7,
+    max_tokens: int = 512,
+) -> str:
+    """普通（非流式）LLM 调用，返回完整回复文本"""
+    messages = _build_messages(system_prompt, history or [], user_message)
 
     payload = {
         "model": settings.AI_MODEL,
         "messages": messages,
-        "max_tokens": 500,
-        "temperature": 0.7
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
     }
 
-    headers = {
-        "Authorization": f"Bearer {settings.AI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
             f"{settings.AI_API_BASE_URL}/chat/completions",
+            headers=_build_headers(),
             json=payload,
-            headers=headers
         )
         resp.raise_for_status()
         data = resp.json()
         return data["choices"][0]["message"]["content"].strip()
 
 
-def _get_rule_based_response(message: str, context: Dict) -> str:
-    """规则型兜底回复"""
-    message_lower = message.lower()
+async def call_llm_stream(
+    system_prompt: str,
+    user_message: str,
+    history: Optional[List[Dict]] = None,
+    temperature: float = 0.7,
+    max_tokens: int = 512,
+) -> AsyncGenerator[str, None]:
+    """流式 LLM 调用，逐 token yield 文本片段"""
+    messages = _build_messages(system_prompt, history or [], user_message)
 
-    # 风险等级解释
-    if "风险" in message or "risk" in message_lower:
-        risk_level = context.get("risk_level", "medium")
-        return f"根据评估结果，孩子的风险等级为{risk_level}。{RISK_RESPONSES.get(risk_level, '')}"
+    payload = {
+        "model": settings.AI_MODEL,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": True,
+    }
 
-    # 维度解释
-    for dim, explanation in DIMENSION_EXPLANATIONS.items():
-        if dim in message_lower or dim.replace("_", "") in message_lower:
-            return explanation
-
-    # 训练/建议类
-    if "建议" in message or "怎么" in message or "help" in message_lower or "训练" in message or "练" in message:
-        risk_level = context.get("risk_level", "medium")
-        return f"针对孩子的情况，我建议：{RISK_RESPONSES.get(risk_level, '')}"
-
-    # 报告/结果类
-    if "报告" in message or "结果" in message:
-        return "评估报告包含风险等级、各能力维度得分和详细建议。如果您的孩子的风险等级为中或高，建议定期进行复查。"
-
-    # 行为解释类 — 为什么总改答案、为什么时好时差
-    if "改答案" in message or "反复" in message or "犹豫" in message:
-        return "孩子反复修改答案，通常反映了对字形或读音的不确定感，是拼写能力或音形映射能力薄弱的常见表现，并非态度问题。建议通过每日少量的拼字练习来强化记忆。"
-
-    if "时好时差" in message or "有时好" in message or "不稳定" in message or "波动" in message:
-        return "表现不稳定通常与注意力持续性和任务疲劳有关。建议将训练时间控制在10-15分钟内，选择孩子状态好的时段进行，避免在疲惫或情绪不佳时强行练习。"
-
-    if "认字" in message and ("做错" in message or "不会" in message or "理解" in message):
-        return "认字但做不对题，通常说明孩子的阅读理解能力或语义整合能力需要加强——能识别单个字，但对句子整体意思的把握还不够。可以多做亲子共读，读完后用简单问题引导孩子复述。"
-
-    if "抄写" in message or "默写" in message or "写错" in message:
-        return "抄写或默写出错，常见原因是视觉辨识能力或字形记忆能力不足，孩子可能混淆形近字。建议通过找不同、形近字对比等视觉训练游戏来改善。"
-
-    # 是否需要就医/专业机构
-    if "医院" in message or "机构" in message or "专业" in message or "诊断" in message:
-        risk_level = context.get("risk_level", "")
-        if risk_level == "high":
-            return "根据评估结果，孩子目前处于高风险状态。建议尽快联系专业的儿童语言或学习障碍评估机构进行全面评估。本系统的结果仅供参考，不能替代专业诊断。"
-        return "本系统提供的是家庭初筛参考，不能替代专业医学诊断。如果您对孩子的情况有持续担忧，建议咨询儿童发展专科医生或专业教育评估机构。"
-
-    return random.choice(DEFAULT_RESPONSES)
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        async with client.stream(
+            "POST",
+            f"{settings.AI_API_BASE_URL}/chat/completions",
+            headers=_build_headers(),
+            json=payload,
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line.startswith("data: "):
+                    continue
+                chunk = line[6:]
+                if chunk.strip() == "[DONE]":
+                    break
+                try:
+                    data = json.loads(chunk)
+                    delta = data["choices"][0]["delta"].get("content", "")
+                    if delta:
+                        yield delta
+                except (json.JSONDecodeError, KeyError, IndexError):
+                    continue
 
 
-# 保留同步版本供兼容
+# ── 功能 1：家长问答（普通） ─────────────────────────────────────────────────
+
+async def get_ai_response(
+    message: str,
+    context: Optional[Dict] = None,
+    history: Optional[List[Dict]] = None,
+) -> str:
+    """家长问答 —— 普通模式，返回完整回复"""
+    user_content = _build_parent_user_content(message, context)
+    try:
+        return await call_llm(
+            system_prompt=PARENT_SYSTEM_PROMPT,
+            user_message=user_content,
+            history=history,
+            temperature=0.7,
+            max_tokens=400,
+        )
+    except Exception as e:
+        return f"抱歉，AI助手暂时无法响应，请稍后再试。（{type(e).__name__}）"
+
+
+async def get_ai_response_stream(
+    message: str,
+    context: Optional[Dict] = None,
+    history: Optional[List[Dict]] = None,
+) -> AsyncGenerator[str, None]:
+    """家长问答 —— 流式模式，逐 token yield"""
+    user_content = _build_parent_user_content(message, context)
+    try:
+        async for chunk in call_llm_stream(
+            system_prompt=PARENT_SYSTEM_PROMPT,
+            user_message=user_content,
+            history=history,
+            temperature=0.7,
+            max_tokens=400,
+        ):
+            yield chunk
+    except Exception as e:
+        yield f"抱歉，AI助手暂时无法响应，请稍后再试。（{type(e).__name__}）"
+
+
+def _build_parent_user_content(message: str, context: Optional[Dict]) -> str:
+    """将孩子报告数据拼入用户消息，作为上下文"""
+    if not context:
+        return message
+
+    ctx_parts = []
+    if context.get("child_name"):
+        ctx_parts.append(f"孩子姓名：{context['child_name']}")
+    if context.get("child_age"):
+        ctx_parts.append(f"年龄：{context['child_age']}岁")
+    if context.get("risk_level"):
+        level_map = {"low": "低风险", "medium": "中风险", "high": "高风险"}
+        ctx_parts.append(f"风险等级：{level_map.get(context['risk_level'], context['risk_level'])}")
+    if context.get("overall_score") is not None:
+        ctx_parts.append(f"综合得分：{context['overall_score']}分")
+    if context.get("dimensions"):
+        dim_names = {
+            "visual_discrimination": "视觉辨识",
+            "phonological": "音形映射",
+            "character_order": "字序组织",
+            "reading_comprehension": "阅读理解",
+            "semantic_integration": "语义整合",
+            "information_extraction": "信息提取",
+            "attention": "注意力",
+        }
+        dim_strs = []
+        for k, v in context["dimensions"].items():
+            name = dim_names.get(k, k)
+            dim_strs.append(f"{name}:{v}分")
+        ctx_parts.append(f"各维度得分：{'、'.join(dim_strs)}")
+
+    if ctx_parts:
+        context_str = "【孩子信息】" + "，".join(ctx_parts) + "\n\n"
+        return context_str + message
+    return message
+
+
+# ── 功能 2：AI 生成个性化报告解读 ────────────────────────────────────────────
+
+async def generate_report_interpretation(
+    child_name: str,
+    child_age: int,
+    risk_level: str,
+    overall_score: int,
+    dimensions: Dict[str, int],
+) -> str:
+    """根据筛查数据生成个性化报告解读文字"""
+    level_map = {"low": "低风险", "medium": "中风险", "high": "高风险"}
+    dim_names = {
+        "visual_discrimination": "视觉辨识",
+        "phonological": "音形映射",
+        "character_order": "字序组织",
+        "reading_comprehension": "阅读理解",
+        "semantic_integration": "语义整合",
+        "information_extraction": "信息提取",
+        "attention": "注意力",
+    }
+
+    dim_detail = "\n".join(
+        f"  - {dim_names.get(k, k)}：{v}分"
+        for k, v in dimensions.items()
+    )
+
+    user_message = f"""请为以下孩子生成个性化的评估报告解读：
+
+孩子姓名：{child_name}
+年龄：{child_age}岁
+综合得分：{overall_score}分（满分100）
+风险等级：{level_map.get(risk_level, risk_level)}
+
+各维度得分：
+{dim_detail}
+
+请生成一段温暖、专业的报告解读，帮助家长理解孩子的表现。"""
+
+    try:
+        return await call_llm(
+            system_prompt=REPORT_SYSTEM_PROMPT,
+            user_message=user_message,
+            temperature=0.6,
+            max_tokens=500,
+        )
+    except Exception:
+        # 降级到模板
+        return _fallback_report_summary(child_name, risk_level)
+
+
+def _fallback_report_summary(child_name: str, risk_level: str) -> str:
+    templates = {
+        "low": f"{child_name}的读写能力发展良好，各项能力指标均在正常范围内。建议继续保持良好的学习习惯。",
+        "medium": f"{child_name}在某些能力维度上需要关注，可能存在轻微的读写困难。建议家长多加陪伴和引导。",
+        "high": f"{child_name}的评估结果显示存在明显的读写困难特征，建议寻求专业的评估和干预支持。",
+    }
+    return templates.get(risk_level, templates["medium"])
+
+
+# ── 功能 3：AI 生成个性化训练计划 ────────────────────────────────────────────
+
+async def generate_training_plan(
+    child_name: str,
+    child_age: int,
+    risk_level: str,
+    dimensions: Dict[str, int],
+    completed_tasks_count: int = 0,
+) -> Dict:
+    """根据筛查报告生成个性化训练计划，返回结构化 JSON"""
+    level_map = {"low": "低风险", "medium": "中风险", "high": "高风险"}
+    dim_names = {
+        "visual_discrimination": "视觉辨识",
+        "phonological": "音形映射",
+        "character_order": "字序组织",
+        "reading_comprehension": "阅读理解",
+        "semantic_integration": "语义整合",
+        "information_extraction": "信息提取",
+        "attention": "注意力",
+    }
+
+    # 找出弱项（低于60分）
+    weak_dims = [dim_names.get(k, k) for k, v in dimensions.items() if v < 60]
+    medium_dims = [dim_names.get(k, k) for k, v in dimensions.items() if 60 <= v < 75]
+
+    dim_detail = "\n".join(
+        f"  - {dim_names.get(k, k)}：{v}分{'（需重点关注）' if v < 60 else ''}"
+        for k, v in dimensions.items()
+    )
+
+    user_message = f"""请为以下孩子生成个性化家庭训练计划：
+
+孩子姓名：{child_name}
+年龄：{child_age}岁
+风险等级：{level_map.get(risk_level, risk_level)}
+已完成训练次数：{completed_tasks_count}次
+
+各维度得分：
+{dim_detail}
+
+需要重点训练的维度：{', '.join(weak_dims) if weak_dims else '无明显弱项，均衡训练即可'}
+需要适当关注的维度：{', '.join(medium_dims) if medium_dims else '无'}
+
+请生成一个4周的家庭训练计划，包含3-5个具体任务。"""
+
+    try:
+        result = await call_llm(
+            system_prompt=TRAINING_PLAN_SYSTEM_PROMPT,
+            user_message=user_message,
+            temperature=0.5,
+            max_tokens=800,
+        )
+        # 清理可能的 markdown 代码块
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("```")[1]
+            if result.startswith("json"):
+                result = result[4:]
+        return json.loads(result)
+    except Exception:
+        return _fallback_training_plan(child_name, risk_level, weak_dims)
+
+
+def _fallback_training_plan(child_name: str, risk_level: str, weak_dims: List[str]) -> Dict:
+    """降级训练计划模板"""
+    tasks = []
+    if not weak_dims or "视觉辨识" in weak_dims:
+        tasks.append({
+            "task_type": "visual",
+            "task_name": "找不同游戏",
+            "description": "每天和孩子一起玩找不同的游戏，从简单的图形开始，逐渐过渡到汉字。",
+            "frequency": "每天",
+            "duration_minutes": 10,
+            "tips": "保持轻松愉快的氛围，不要给孩子压力。"
+        })
+    if not weak_dims or "阅读理解" in weak_dims:
+        tasks.append({
+            "task_type": "comprehension",
+            "task_name": "亲子共读",
+            "description": "每天睡前共读一个小故事，读完后用简单问题引导孩子复述内容。",
+            "frequency": "每天",
+            "duration_minutes": 15,
+            "tips": "选择孩子感兴趣的主题，让阅读成为快乐的时光。"
+        })
+    tasks.append({
+        "task_type": "spelling",
+        "task_name": "拼音拼字练习",
+        "description": "用卡片游戏练习拼音和汉字的对应关系，每次选5-8个常用字。",
+        "frequency": "每周3次",
+        "duration_minutes": 10,
+        "tips": "答对了给予及时表扬，答错了轻松带过，下次再练。"
+    })
+
+    return {
+        "plan_summary": f"针对{child_name}的情况，制定了一套循序渐进的家庭训练计划，重点提升{'、'.join(weak_dims) if weak_dims else '各项'}能力。",
+        "duration_weeks": 4,
+        "tasks": tasks
+    }
+
+
+# ── 功能 4：儿童端鼓励话语 ───────────────────────────────────────────────────
+
+async def generate_child_encouragement(
+    child_name: str,
+    game_type: str,
+    score: int,
+    correct_count: int,
+    total_count: int,
+) -> str:
+    """为儿童生成个性化鼓励话语"""
+    game_names = {
+        "visual": "找不同",
+        "spelling": "拼音游戏",
+        "comprehension": "阅读理解",
+    }
+    game_name = game_names.get(game_type, "游戏")
+
+    user_message = (
+        f"孩子叫{child_name}，刚完成了{game_name}，"
+        f"答对了{correct_count}/{total_count}题，得分{score}分。"
+        f"请生成一句鼓励话语。"
+    )
+
+    try:
+        return await call_llm(
+            system_prompt=CHILD_ENCOURAGEMENT_PROMPT,
+            user_message=user_message,
+            temperature=0.9,
+            max_tokens=60,
+        )
+    except Exception:
+        if score >= 80:
+            return f"哇，{child_name}太厉害了！🌟 继续加油！"
+        elif score >= 60:
+            return f"{child_name}做得很棒！💪 再练练会更厉害的！"
+        else:
+            return f"{child_name}已经很努力了！🌈 下次一定会更好！"
+
+
+# ── 兼容旧接口（保持向后兼容） ───────────────────────────────────────────────
+
 def get_rule_based_response(message: str, context: Optional[Dict] = None) -> str:
-    return _get_rule_based_response(message, context or {})
+    """已废弃：保留此函数签名以兼容旧代码，实际不再使用规则回复"""
+    return "正在连接AI助手，请稍候..."
+
+
+# ── 功能 5：成长趋势分析 ─────────────────────────────────────────────────────
+
+async def generate_growth_analysis(
+    child_name: str,
+    child_age: int,
+    reports: List[Dict],
+) -> str:
+    """
+    根据多次筛查报告，生成成长趋势分析。
+    reports: 按时间升序排列的报告列表，每项包含 overall_score, risk_level, dimensions, created_at
+    """
+    if len(reports) < 2:
+        return f"{child_name}目前只有一次筛查记录，建议坚持训练后再次筛查，以便观察成长趋势。"
+
+    dim_names = {
+        "visual_discrimination": "视觉辨识",
+        "phonological": "音形映射",
+        "character_order": "字序组织",
+        "spelling": "拼写输出",
+        "reading_comprehension": "阅读理解",
+        "semantic_integration": "语义整合",
+        "information_extraction": "信息提取",
+        "attention": "注意力",
+    }
+
+    # 构建历史数据描述
+    history_lines = []
+    for i, r in enumerate(reports[-4:], 1):  # 最多取最近4次
+        dims = r.get("dimensions", {})
+        if isinstance(dims, str):
+            try:
+                dims = json.loads(dims)
+            except Exception:
+                dims = {}
+        dim_str = "、".join(f"{dim_names.get(k, k)}:{v}分" for k, v in dims.items())
+        history_lines.append(
+            f"第{i}次（{r.get('created_at', '')[:10]}）：综合{r.get('overall_score', 0)}分，"
+            f"风险等级{r.get('risk_level', '')}，{dim_str}"
+        )
+
+    # 计算总体趋势
+    first_score = reports[0].get("overall_score", 0) or 0
+    last_score = reports[-1].get("overall_score", 0) or 0
+    trend = "提升" if last_score > first_score else ("下降" if last_score < first_score else "持平")
+
+    user_message = f"""请为以下孩子生成成长趋势分析：
+
+孩子姓名：{child_name}，年龄：{child_age}岁
+共{len(reports)}次筛查记录，总体趋势：{trend}（{first_score}分→{last_score}分）
+
+历史数据：
+{chr(10).join(history_lines)}
+
+请生成一段温暖、专业的成长趋势分析，帮助家长了解孩子的进步情况。"""
+
+    try:
+        return await call_llm(
+            system_prompt=GROWTH_ANALYSIS_SYSTEM_PROMPT,
+            user_message=user_message,
+            temperature=0.6,
+            max_tokens=400,
+        )
+    except Exception:
+        if last_score > first_score:
+            return f"{child_name}在最近的训练中取得了明显进步，综合得分从{first_score}分提升到{last_score}分。请继续保持！"
+        elif last_score < first_score:
+            return f"{child_name}最近的得分有所波动，建议调整训练方式，多关注弱项维度的练习。"
+        else:
+            return f"{child_name}的能力保持稳定，建议继续坚持训练，逐步提升各项能力。"
+
+
+# ── 功能 6：每日学习贴士 ─────────────────────────────────────────────────────
+
+async def generate_daily_tip(
+    child_name: str,
+    child_age: int,
+    risk_level: str,
+    dimensions: Dict[str, int],
+    completed_tasks_today: int = 0,
+) -> str:
+    """生成今日个性化学习贴士"""
+    dim_names = {
+        "visual_discrimination": "视觉辨识",
+        "phonological": "音形映射",
+        "character_order": "字序组织",
+        "spelling": "拼写输出",
+        "reading_comprehension": "阅读理解",
+        "semantic_integration": "语义整合",
+        "information_extraction": "信息提取",
+        "attention": "注意力",
+    }
+
+    weak_dims = [dim_names.get(k, k) for k, v in dimensions.items() if v < 65]
+    level_map = {"low": "低风险", "medium": "中风险", "high": "高风险"}
+
+    user_message = (
+        f"孩子：{child_name}，{child_age}岁，{level_map.get(risk_level, '')}。"
+        f"需要关注的维度：{', '.join(weak_dims) if weak_dims else '无明显弱项'}。"
+        f"今日已完成训练：{completed_tasks_today}次。"
+        f"请给出今日最值得关注的一条家庭训练小贴士。"
+    )
+
+    try:
+        return await call_llm(
+            system_prompt=DAILY_TIP_SYSTEM_PROMPT,
+            user_message=user_message,
+            temperature=0.8,
+            max_tokens=100,
+        )
+    except Exception:
+        tips = {
+            "low": "今天可以和孩子一起读一个小故事，读完后让孩子用自己的话复述一遍。",
+            "medium": "今天花10分钟做找不同游戏，帮助孩子提升视觉辨识能力。",
+            "high": "今天重点练习孩子最薄弱的一个维度，每次5-10分钟，保持轻松愉快的氛围。",
+        }
+        return tips.get(risk_level, tips["medium"])
+
+
+# ── 功能 7：家长情绪支持 ─────────────────────────────────────────────────────
+
+async def generate_emotional_support(
+    child_name: str,
+    child_age: int,
+    risk_level: str,
+    overall_score: int,
+    dimensions: Dict[str, int],
+) -> str:
+    """为面对高风险结果的家长生成情绪支持内容"""
+    dim_names = {
+        "visual_discrimination": "视觉辨识",
+        "phonological": "音形映射",
+        "character_order": "字序组织",
+        "spelling": "拼写输出",
+        "reading_comprehension": "阅读理解",
+        "semantic_integration": "语义整合",
+        "information_extraction": "信息提取",
+        "attention": "注意力",
+    }
+
+    weak_dims = [dim_names.get(k, k) for k, v in dimensions.items() if v < 60]
+    strong_dims = [dim_names.get(k, k) for k, v in dimensions.items() if v >= 75]
+
+    user_message = (
+        f"孩子{child_name}，{child_age}岁，刚完成筛查，结果为{risk_level}风险，综合得分{overall_score}分。"
+        f"需要关注的维度：{', '.join(weak_dims) if weak_dims else '无'}。"
+        f"表现较好的维度：{', '.join(strong_dims) if strong_dims else '无'}。"
+        f"家长可能感到担忧和焦虑，请给予情感支持和专业引导。"
+    )
+
+    try:
+        return await call_llm(
+            system_prompt=EMOTIONAL_SUPPORT_SYSTEM_PROMPT,
+            user_message=user_message,
+            temperature=0.7,
+            max_tokens=350,
+        )
+    except Exception:
+        return (
+            f"看到{child_name}的评估结果，您可能感到担心，这完全可以理解。"
+            f"请记住，读写障碍与智力无关，很多聪明的孩子都有类似的情况。"
+            f"通过科学的干预训练，大多数孩子都能显著改善。"
+            f"您愿意关注孩子的成长，这本身就是最好的支持。我们一起来帮助{child_name}！"
+        )
+
+
+# ── 功能 8：自适应难度判断 ───────────────────────────────────────────────────
+
+async def evaluate_adaptive_difficulty(
+    game_type: str,
+    current_difficulty: str,
+    recent_answers: List[Dict],
+) -> Dict:
+    """
+    根据最近答题表现，判断是否需要调整难度。
+    recent_answers: 最近5-10题的答题记录，每项包含 is_correct, time_spent
+    返回: { should_adjust, direction, reason, confidence }
+    """
+    if len(recent_answers) < 3:
+        return {"should_adjust": False, "direction": "stay", "reason": "题目不足", "confidence": 0.5}
+
+    correct_count = sum(1 for a in recent_answers if a.get("is_correct", False))
+    total = len(recent_answers)
+    accuracy = correct_count / total
+
+    times = [a.get("time_spent", 5) for a in recent_answers if a.get("time_spent")]
+    avg_time = sum(times) / len(times) if times else 5
+
+    game_names = {"visual": "视觉辨识", "spelling": "拼字识别", "comprehension": "文字理解"}
+    diff_names = {"L1": "初级", "L2": "中级", "L3": "高级"}
+
+    user_message = (
+        f"游戏类型：{game_names.get(game_type, game_type)}，当前难度：{diff_names.get(current_difficulty, current_difficulty)}。"
+        f"最近{total}题：正确率{accuracy:.0%}，平均用时{avg_time:.1f}秒。"
+        f"请判断是否需要调整难度。"
+    )
+
+    try:
+        result = await call_llm(
+            system_prompt=ADAPTIVE_DIFFICULTY_PROMPT,
+            user_message=user_message,
+            temperature=0.3,
+            max_tokens=100,
+        )
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("```")[1]
+            if result.startswith("json"):
+                result = result[4:]
+        return json.loads(result)
+    except Exception:
+        # 规则降级
+        if accuracy >= 0.85 and avg_time < 4 and current_difficulty != "L3":
+            return {"should_adjust": True, "direction": "up", "reason": "表现优秀", "confidence": 0.8}
+        elif accuracy < 0.5 and current_difficulty != "L1":
+            return {"should_adjust": True, "direction": "down", "reason": "正确率偏低", "confidence": 0.8}
+        return {"should_adjust": False, "direction": "stay", "reason": "表现正常", "confidence": 0.7}
+
+
+# ── 兼容旧接口（保持向后兼容） ───────────────────────────────────────────────
+
+def get_rule_based_response(message: str, context: Optional[Dict] = None) -> str:
+    """已废弃：保留此函数签名以兼容旧代码，实际不再使用规则回复"""
+    return "正在连接AI助手，请稍候..."

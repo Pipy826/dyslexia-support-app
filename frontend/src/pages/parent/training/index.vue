@@ -7,6 +7,20 @@
     </view>
 
     <view class="page-content">
+      <!-- AI 生成训练计划入口 -->
+      <view class="ai-plan-banner" @click="showAiPlanModal">
+        <view class="ai-plan-left">
+          <view class="ai-plan-icon">
+            <text class="ph-fill ph-robot"></text>
+          </view>
+          <view class="ai-plan-text">
+            <view class="ai-plan-title">AI 智能训练计划</view>
+            <view class="ai-plan-sub">根据筛查报告，一键生成专属方案</view>
+          </view>
+        </view>
+        <text class="ph ph-arrow-right ai-plan-arrow"></text>
+      </view>
+
       <!-- 今日进度概览 -->
       <view class="today-card">
         <view class="today-decoration"></view>
@@ -108,6 +122,67 @@
 
     <!-- 底部导航栏 -->
     <tab-bar type="parent" current="/pages/parent/training/index"></tab-bar>
+
+    <!-- AI 训练计划弹窗 -->
+    <view class="modal-overlay" v-if="showAiModal" @click="showAiModal = false">
+      <view class="modal-content" @click.stop>
+        <view class="modal-header">
+          <view class="modal-avatar">
+            <text class="ph-fill ph-robot"></text>
+          </view>
+          <view class="modal-title">AI 专属训练计划</view>
+          <view class="modal-close" @click="showAiModal = false">
+            <text class="ph ph-x"></text>
+          </view>
+        </view>
+
+        <!-- 加载中 -->
+        <view class="modal-loading" v-if="aiPlanLoading">
+          <view class="loading-spinner"></view>
+          <view class="loading-text">AI 正在分析报告，生成专属计划...</view>
+        </view>
+
+        <!-- 计划内容 -->
+        <view class="modal-plan" v-else-if="aiPlan">
+          <view class="plan-summary">{{ aiPlan.plan_summary }}</view>
+          <view class="plan-duration">计划周期：{{ aiPlan.duration_weeks }} 周</view>
+
+          <view class="plan-tasks">
+            <view
+              class="plan-task-item"
+              v-for="(task, i) in aiPlan.tasks"
+              :key="i"
+            >
+              <view class="plan-task-header">
+                <view class="plan-task-icon" :class="taskColor(task.task_type)">
+                  <text :class="'ph ' + taskIcon(task.task_type)"></text>
+                </view>
+                <view class="plan-task-info">
+                  <view class="plan-task-name">{{ task.task_name }}</view>
+                  <view class="plan-task-meta">{{ task.frequency }} · {{ task.duration_minutes }}分钟</view>
+                </view>
+              </view>
+              <view class="plan-task-desc">{{ task.description }}</view>
+              <view class="plan-task-tip" v-if="task.tips">
+                <text class="ph ph-lightbulb"></text> {{ task.tips }}
+              </view>
+            </view>
+          </view>
+
+          <button class="apply-plan-btn" @click="applyAiPlan">
+            <text class="ph ph-check-circle"></text> 应用此计划
+          </button>
+        </view>
+
+        <!-- 未生成 -->
+        <view class="modal-empty" v-else>
+          <view class="modal-empty-text">AI 将根据孩子的最新筛查报告，生成个性化的家庭训练计划。</view>
+          <button class="generate-btn" @click="generateAiPlan">
+            <text class="ph ph-sparkle"></text> 立即生成
+          </button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -116,6 +191,7 @@ import { getChildren } from '../../../api/child.js'
 import { getCurrentChild, setCurrentChild } from '../../../utils/auth.js'
 import { getTasks, completeTask, createTask } from '../../../api/training.js'
 import { getReports } from '../../../api/report.js'
+import { generateTrainingPlan } from '../../../api/ai.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
 export default {
@@ -132,7 +208,11 @@ export default {
         { text: '家长陪伴，多鼓励，不催促', color: 'green' }
       ],
       showReassessReminder: false,
-      continuousDays: 0
+      continuousDays: 0,
+      // AI 训练计划
+      showAiModal: false,
+      aiPlanLoading: false,
+      aiPlan: null,
     }
   },
   onShow() {
@@ -277,7 +357,47 @@ export default {
     },
     goToScreening() {
       uni.navigateTo({ url: '/pages/parent/screening/index' })
-    }
+    },
+
+    // ── AI 训练计划 ──────────────────────────────────────────────────────────
+    showAiPlanModal() {
+      this.showAiModal = true
+    },
+    async generateAiPlan() {
+      if (!this.currentChild) {
+        uni.showToast({ title: '请先选择孩子', icon: 'none' })
+        return
+      }
+      this.aiPlanLoading = true
+      this.aiPlan = null
+      try {
+        const res = await generateTrainingPlan(this.currentChild.id)
+        this.aiPlan = res.plan
+      } catch (e) {
+        uni.showToast({ title: 'AI生成失败，请先完成筛查', icon: 'none' })
+      } finally {
+        this.aiPlanLoading = false
+      }
+    },
+    async applyAiPlan() {
+      if (!this.aiPlan || !this.currentChild) return
+      const today = new Date().toISOString().split('T')[0]
+      let created = 0
+      for (const task of this.aiPlan.tasks) {
+        try {
+          await createTask({
+            child_id: this.currentChild.id,
+            task_type: task.task_type,
+            task_name: task.task_name,
+            scheduled_date: today,
+          })
+          created++
+        } catch (e) { /* ignore */ }
+      }
+      this.showAiModal = false
+      uni.showToast({ title: `已添加 ${created} 个训练任务 ✅`, icon: 'none' })
+      await this.loadTasks()
+    },
   }
 }
 </script>
@@ -288,6 +408,265 @@ export default {
   background: #FFFFFF;
   padding-bottom: 196rpx;
 }
+
+/* AI 训练计划入口 Banner */
+.ai-plan-banner {
+  background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
+  border-radius: 40rpx;
+  padding: 32rpx 40rpx;
+  margin-bottom: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-plan-left {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.ai-plan-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-plan-icon .ph {
+  font-size: 40rpx;
+  color: #FFFFFF;
+}
+
+.ai-plan-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.ai-plan-sub {
+  font-size: 22rpx;
+  color: rgba(255,255,255,0.75);
+  margin-top: 4rpx;
+}
+
+.ai-plan-arrow {
+  font-size: 36rpx;
+  color: rgba(255,255,255,0.7);
+}
+
+/* AI 计划弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+}
+
+.modal-content {
+  background: #FFFFFF;
+  width: 100%;
+  border-radius: 64rpx 64rpx 0 0;
+  padding: 48rpx;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 40rpx;
+}
+
+.modal-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #7C3AED;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-avatar .ph {
+  font-size: 36rpx;
+  color: #FFFFFF;
+}
+
+.modal-title {
+  flex: 1;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1F2937;
+}
+
+.modal-close .ph {
+  font-size: 40rpx;
+  color: #9CA3AF;
+}
+
+.modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 0;
+  gap: 32rpx;
+}
+
+.loading-spinner {
+  width: 80rpx;
+  height: 80rpx;
+  border: 6rpx solid #EDE9FE;
+  border-top-color: #7C3AED;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: #7C3AED;
+}
+
+.plan-summary {
+  font-size: 28rpx;
+  color: #374151;
+  line-height: 1.7;
+  background: #F5F3FF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 16rpx;
+}
+
+.plan-duration {
+  font-size: 22rpx;
+  color: #9CA3AF;
+  margin-bottom: 32rpx;
+}
+
+.plan-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  margin-bottom: 40rpx;
+}
+
+.plan-task-item {
+  background: #F9FAFB;
+  border-radius: 32rpx;
+  padding: 32rpx;
+  border: 1rpx solid #F3F4F6;
+}
+
+.plan-task-header {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.plan-task-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.plan-task-icon .ph { font-size: 36rpx; }
+.plan-task-icon.orange { background: #FEF3C7; }
+.plan-task-icon.orange .ph { color: #F59E0B; }
+.plan-task-icon.blue { background: #EFF6FF; }
+.plan-task-icon.blue .ph { color: #3B82F6; }
+.plan-task-icon.green { background: #ECFDF5; }
+.plan-task-icon.green .ph { color: #10B981; }
+
+.plan-task-name {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1F2937;
+}
+
+.plan-task-meta {
+  font-size: 22rpx;
+  color: #9CA3AF;
+  margin-top: 4rpx;
+}
+
+.plan-task-desc {
+  font-size: 26rpx;
+  color: #4B5563;
+  line-height: 1.6;
+  margin-bottom: 12rpx;
+}
+
+.plan-task-tip {
+  font-size: 22rpx;
+  color: #7C3AED;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.plan-task-tip .ph { font-size: 24rpx; }
+
+.apply-plan-btn {
+  width: 100%;
+  background: #7C3AED;
+  color: #FFFFFF;
+  border-radius: 40rpx;
+  padding: 32rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+
+.apply-plan-btn .ph { font-size: 32rpx; }
+
+.modal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48rpx 0;
+  gap: 32rpx;
+}
+
+.modal-empty-text {
+  font-size: 28rpx;
+  color: #6B7280;
+  text-align: center;
+  line-height: 1.7;
+}
+
+.generate-btn {
+  background: #7C3AED;
+  color: #FFFFFF;
+  border-radius: 40rpx;
+  padding: 28rpx 64rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.generate-btn .ph { font-size: 32rpx; }
 
 /* 头部 */
 .page-header {

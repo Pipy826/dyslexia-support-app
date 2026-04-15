@@ -12,7 +12,7 @@ from ..schemas.screening import (
     ScreeningStart, ScreeningSubmit, ScreeningResponse,
     GameQuestionsResponse, QuestionOption
 )
-from ..services.screening_service import create_screening_report
+from ..services.screening_service import create_screening_report_async
 from ..games import VISUAL_QUESTIONS, SPELLING_QUESTIONS, COMPREHENSION_QUESTIONS
 from .deps import get_current_user
 from ..models.user import User
@@ -163,7 +163,7 @@ def start_screening(
 
 
 @router.post("/submit")
-def submit_screening(
+async def submit_screening(
     data: ScreeningSubmit,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -223,14 +223,72 @@ def submit_screening(
     }
     screening.behavior_data = json.dumps(behavior_payload, ensure_ascii=False)
 
-    # Create report
-    report = create_screening_report(
-        db=db,
+    # Create report (async, AI runs in background to avoid blocking response)
+    import asyncio
+    from ..services.screening_service import calculate_score, determine_risk_level, generate_summary, generate_recommendations
+
+    # 先用模板快速生成报告，保证前端能立即拿到结果
+    total_score, dimension_scores = calculate_score(graded_answers, screening.game_type)
+    scores_dict = {ds["dimension"]: ds["score"] for ds in dimension_scores}
+    risk_level = determine_risk_level(scores_dict)
+
+    from ..models.screening import DimensionScore
+    for ds in dimension_scores:
+        db.add(DimensionScore(
+            screening_id=screening.id,
+            dimension=ds["dimension"],
+            score=ds["score"],
+        ))
+
+    screening.score = total_score
+    screening.risk_level = risk_level
+    screening.completed_at = datetime.utcnow()
+
+    summary = generate_summary(child.name, 0, risk_level, scores_dict)
+    recommendations = generate_recommendations(risk_level, scores_dict)
+
+    from ..models.screening import Report
+    report = Report(
         child_id=screening.child_id,
         screening_id=screening.id,
-        game_type=screening.game_type,
-        answers=graded_answers
+        overall_score=total_score,
+        risk_level=risk_level,
+        summary=summary,
+        recommendations=recommendations,
+        dimensions=json.dumps(scores_dict, ensure_ascii=False),
     )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    # 后台异步用 AI 更新 summary（不阻塞响应）
+    async def _update_summary_async(report_id: int, child_name: str, age: int):
+        from ..database import SessionLocal
+        from ..services.ai_service import generate_report_interpretation
+        try:
+            ai_summary = await generate_report_interpretation(
+                child_name=child_name,
+                child_age=age,
+                risk_level=risk_level,
+                overall_score=total_score,
+                dimensions=scores_dict,
+            )
+            bg_db = SessionLocal()
+            try:
+                bg_report = bg_db.query(Report).filter(Report.id == report_id).first()
+                if bg_report:
+                    bg_report.summary = ai_summary
+                    bg_db.commit()
+            finally:
+                bg_db.close()
+        except Exception:
+            pass  # AI 失败不影响主流程
+
+    today_date = datetime.now().date()
+    age = today_date.year - child.birth_date.year - (
+        (today_date.month, today_date.day) < (child.birth_date.month, child.birth_date.day)
+    )
+    asyncio.create_task(_update_summary_async(report.id, child.name, age))
 
     # 根据报告结果自动生成今日训练任务
     scores_dict = json.loads(report.dimensions) if report.dimensions else {}

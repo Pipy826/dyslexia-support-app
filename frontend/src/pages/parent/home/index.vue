@@ -39,6 +39,20 @@
     </view>
 
     <view class="page-content">
+      <!-- 每日 AI 贴士 -->
+      <view class="daily-tip-card" v-if="dailyTip" @click="showAiChat">
+        <view class="tip-left">
+          <view class="tip-icon">
+            <text class="ph-fill ph-lightbulb"></text>
+          </view>
+          <view class="tip-content">
+            <view class="tip-label">今日 AI 建议</view>
+            <view class="tip-text">{{ dailyTip }}</view>
+          </view>
+        </view>
+        <text class="ph ph-arrow-right tip-arrow"></text>
+      </view>
+
       <!-- 核心引导卡片 -->
       <view class="guide-card" v-if="!recentReport">
         <view class="guide-decoration"></view>
@@ -74,11 +88,11 @@
           </view>
           <view class="grid-label">训练计划</view>
         </view>
-        <view class="grid-item" @click="goToGrowth">
+        <view class="grid-item" @click="goToGrowthAnalysis">
           <view class="grid-icon orange">
             <text class="ph ph-trend-up"></text>
           </view>
-          <view class="grid-label">成长记录</view>
+          <view class="grid-label">成长分析</view>
         </view>
         <view class="grid-item" @click="showAiChat">
           <view class="grid-icon purple">
@@ -130,6 +144,7 @@
 import { getCurrentChild, setCurrentChild, getUser } from '../../../utils/auth.js'
 import { getChildren } from '../../../api/child.js'
 import { getReports } from '../../../api/report.js'
+import { getDailyTip } from '../../../api/ai.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
 export default {
@@ -142,7 +157,8 @@ export default {
       recentReport: null,
       showPicker: false,
       hasUnread: false,
-      activities: []
+      activities: [],
+      dailyTip: '',
     }
   },
   computed: {
@@ -194,8 +210,20 @@ export default {
         const reports = await getReports(this.currentChild.id)
         this.recentReport = reports[0] || null
         this.buildActivities(reports)
+        // 有报告才加载每日贴士
+        if (this.recentReport) {
+          this.loadDailyTip()
+        }
       } catch (e) {
         console.error('加载报告失败', e)
+      }
+    },
+    async loadDailyTip() {
+      try {
+        const res = await getDailyTip(this.currentChild.id)
+        this.dailyTip = res.tip
+      } catch (e) {
+        // 静默失败，不影响主流程
       }
     },
     buildActivities(reports) {
@@ -251,6 +279,11 @@ export default {
     },
     showAiChat() {
       uni.navigateTo({ url: '/pages/parent/ai-chat/index' })
+    },
+    goToGrowthAnalysis() {
+      if (this.currentChild) {
+        uni.navigateTo({ url: `/pages/parent/growth/index?child_id=${this.currentChild.id}` })
+      }
     },
     goToGrowth() {
       uni.navigateTo({ url: '/pages/parent/growth/index' })
@@ -341,6 +374,63 @@ export default {
 /* 页面内容 */
 .page-content {
   padding: 32rpx 48rpx;
+}
+
+/* 每日 AI 贴士 */
+.daily-tip-card {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 1rpx solid #FDE68A;
+  border-radius: 40rpx;
+  padding: 28rpx 32rpx;
+  margin-bottom: 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.tip-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  flex: 1;
+}
+
+.tip-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #F59E0B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tip-icon .ph {
+  font-size: 32rpx;
+  color: #FFFFFF;
+}
+
+.tip-content { flex: 1; }
+
+.tip-label {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #D97706;
+  letter-spacing: 1rpx;
+  margin-bottom: 6rpx;
+}
+
+.tip-text {
+  font-size: 26rpx;
+  color: #374151;
+  line-height: 1.6;
+}
+
+.tip-arrow {
+  font-size: 32rpx;
+  color: #D97706;
+  flex-shrink: 0;
 }
 
 /* 引导卡片 */

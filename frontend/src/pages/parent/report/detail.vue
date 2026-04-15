@@ -37,6 +37,42 @@
         </view>
       </view>
 
+      <!-- AI 个性化解读 -->
+      <view class="section-title">AI 个性化解读</view>
+      <view class="ai-interpretation-card">
+        <view class="ai-card-header">
+          <view class="ai-avatar">
+            <text class="ph-fill ph-robot"></text>
+          </view>
+          <view class="ai-card-title">AI 助手解读</view>
+          <view class="ai-refresh-btn" @click="loadAiInterpretation" v-if="!aiLoading">
+            <text class="ph ph-arrows-clockwise"></text>
+          </view>
+        </view>
+
+        <!-- 加载中 -->
+        <view class="ai-loading" v-if="aiLoading">
+          <view class="dot-flashing"></view>
+          <view class="ai-loading-text">AI 正在分析报告...</view>
+        </view>
+
+        <!-- 解读内容 -->
+        <view class="ai-content" v-else-if="aiInterpretation">
+          {{ aiInterpretation }}
+        </view>
+
+        <!-- 未加载 -->
+        <view class="ai-placeholder" v-else>
+          <button class="ai-load-btn" @click="loadAiInterpretation">
+            <text class="ph ph-sparkle"></text> 获取 AI 解读
+          </button>
+        </view>
+
+        <button class="ai-chat-btn" @click="goToAiChat" v-if="aiInterpretation">
+          <text class="ph ph-chat-circle-dots"></text> 继续追问 AI
+        </button>
+      </view>
+
       <!-- 干预建议 -->
       <view class="section-title">干预建议</view>
       <view class="advice-card">
@@ -64,11 +100,45 @@
       <text class="ph ph-circle-notch"></text>
       <view class="loading-text">加载中...</view>
     </view>
+
+    <!-- 情绪支持弹窗（高风险时自动弹出） -->
+    <view class="modal-overlay" v-if="showEmotionalModal" @click="showEmotionalModal = false">
+      <view class="emotional-modal" @click.stop>
+        <view class="emotional-header">
+          <view class="emotional-avatar">
+            <text class="ph-fill ph-heart"></text>
+          </view>
+          <view class="emotional-title">给家长的话</view>
+          <view class="emotional-close" @click="showEmotionalModal = false">
+            <text class="ph ph-x"></text>
+          </view>
+        </view>
+
+        <view class="emotional-loading" v-if="emotionalLoading">
+          <view class="loading-spinner-sm"></view>
+          <view>AI 正在准备...</view>
+        </view>
+
+        <view class="emotional-content" v-else>
+          {{ emotionalSupport }}
+        </view>
+
+        <view class="emotional-actions">
+          <button class="emotional-chat-btn" @click="goToAiChatFromModal">
+            <text class="ph ph-chat-circle-dots"></text> 继续和 AI 聊聊
+          </button>
+          <button class="emotional-close-btn" @click="showEmotionalModal = false">
+            我知道了
+          </button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
 import { getReport, getReportDimensions } from '../../../api/report.js'
+import { getReportInterpretation, getEmotionalSupport } from '../../../api/ai.js'
 import { getCurrentChild } from '../../../utils/auth.js'
 
 export default {
@@ -77,7 +147,12 @@ export default {
       reportId: null,
       report: null,
       dimensions: null,
-      currentChild: null
+      currentChild: null,
+      aiInterpretation: '',
+      aiLoading: false,
+      emotionalSupport: '',
+      emotionalLoading: false,
+      showEmotionalModal: false,
     }
   },
   onLoad(options) {
@@ -90,11 +165,45 @@ export default {
       try {
         this.report = await getReport(this.reportId)
         const dimRes = await getReportDimensions(this.reportId)
-        // dimensions 可能是对象或 JSON 字符串
         const raw = dimRes.dimensions
         this.dimensions = (typeof raw === 'string') ? JSON.parse(raw) : (raw || {})
+        // 报告加载完后自动获取AI解读
+        this.loadAiInterpretation()
+        // 高风险时自动触发情绪支持
+        if (this.report?.risk_level === 'high') {
+          this.loadEmotionalSupport()
+        }
       } catch (e) {
         console.error('加载报告失败', e)
+      }
+    },
+    async loadAiInterpretation() {
+      if (this.aiLoading) return
+      this.aiLoading = true
+      this.aiInterpretation = ''
+      try {
+        const res = await getReportInterpretation(this.reportId)
+        this.aiInterpretation = res.interpretation
+      } catch (e) {
+        console.error('AI解读失败', e)
+        uni.showToast({ title: 'AI解读暂时不可用', icon: 'none' })
+      } finally {
+        this.aiLoading = false
+      }
+    },
+    async loadEmotionalSupport() {
+      this.emotionalLoading = true
+      try {
+        const res = await getEmotionalSupport(this.reportId)
+        this.emotionalSupport = res.support
+        // 延迟弹出，让用户先看到报告
+        setTimeout(() => {
+          this.showEmotionalModal = true
+        }, 1500)
+      } catch (e) {
+        console.error('情绪支持加载失败', e)
+      } finally {
+        this.emotionalLoading = false
       }
     },
     getRiskTitle(level) {
@@ -166,6 +275,10 @@ export default {
       uni.navigateTo({
         url: `/pages/parent/ai-chat/index?child_id=${this.currentChild?.id}`
       })
+    },
+    goToAiChatFromModal() {
+      this.showEmotionalModal = false
+      this.goToAiChat()
     },
     goToTraining() {
       uni.navigateTo({ url: '/pages/parent/training/index' })
@@ -410,6 +523,150 @@ export default {
   justify-content: center;
 }
 
+/* AI 解读卡片 */
+.ai-interpretation-card {
+  background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
+  border-radius: 48rpx;
+  padding: 48rpx;
+  margin-bottom: 48rpx;
+  border: 1rpx solid #DDD6FE;
+}
+
+.ai-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
+}
+
+.ai-avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: #7C3AED;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-avatar .ph {
+  font-size: 32rpx;
+  color: #FFFFFF;
+}
+
+.ai-card-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #5B21B6;
+}
+
+.ai-refresh-btn .ph {
+  font-size: 32rpx;
+  color: #7C3AED;
+}
+
+.ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 16rpx 0;
+}
+
+.ai-loading-text {
+  font-size: 26rpx;
+  color: #7C3AED;
+}
+
+.ai-content {
+  font-size: 28rpx;
+  color: #374151;
+  line-height: 1.8;
+  margin-bottom: 32rpx;
+}
+
+.ai-placeholder {
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0;
+}
+
+.ai-load-btn {
+  background: #7C3AED;
+  color: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 20rpx 48rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.ai-load-btn .ph {
+  font-size: 28rpx;
+}
+
+.ai-chat-btn {
+  width: 100%;
+  background: #FFFFFF;
+  border: 2rpx solid #DDD6FE;
+  color: #7C3AED;
+  border-radius: 32rpx;
+  padding: 24rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+
+.ai-chat-btn .ph {
+  font-size: 28rpx;
+}
+
+/* 思考动画 */
+.dot-flashing {
+  position: relative;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: #7C3AED;
+  animation: dot-flashing 1s infinite linear alternate;
+  animation-delay: 0.5s;
+}
+
+.dot-flashing::before,
+.dot-flashing::after {
+  content: '';
+  display: inline-block;
+  position: absolute;
+  top: 0;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: #7C3AED;
+}
+
+.dot-flashing::before {
+  left: -28rpx;
+  animation: dot-flashing 1s infinite alternate;
+  animation-delay: 0s;
+}
+
+.dot-flashing::after {
+  left: 28rpx;
+  animation: dot-flashing 1s infinite alternate;
+  animation-delay: 1s;
+}
+
+@keyframes dot-flashing {
+  0% { background-color: #7C3AED; }
+  100% { background-color: #DDD6FE; }
+}
+
 /* 高风险专业引导卡片 */
 .high-risk-card {
   background: #FEF2F2;
@@ -450,6 +707,122 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 情绪支持弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+}
+
+.emotional-modal {
+  background: #FFFFFF;
+  width: 100%;
+  border-radius: 64rpx 64rpx 0 0;
+  padding: 48rpx;
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.emotional-header {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 32rpx;
+}
+
+.emotional-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #FEF2F2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.emotional-avatar .ph {
+  font-size: 36rpx;
+  color: #EF4444;
+}
+
+.emotional-title {
+  flex: 1;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1F2937;
+}
+
+.emotional-close .ph {
+  font-size: 40rpx;
+  color: #9CA3AF;
+}
+
+.emotional-loading {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 32rpx 0;
+  color: #9CA3AF;
+  font-size: 26rpx;
+}
+
+.loading-spinner-sm {
+  width: 40rpx;
+  height: 40rpx;
+  border: 4rpx solid #F3F4F6;
+  border-top-color: #EF4444;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.emotional-content {
+  font-size: 28rpx;
+  color: #374151;
+  line-height: 1.8;
+  margin-bottom: 40rpx;
+  background: #FFF5F5;
+  border-radius: 24rpx;
+  padding: 32rpx;
+}
+
+.emotional-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.emotional-chat-btn {
+  width: 100%;
+  background: #EF4444;
+  color: #FFFFFF;
+  border-radius: 40rpx;
+  padding: 28rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+
+.emotional-chat-btn .ph { font-size: 30rpx; }
+
+.emotional-close-btn {
+  width: 100%;
+  background: #FFFFFF;
+  border: 2rpx solid #E5E7EB;
+  color: #6B7280;
+  border-radius: 40rpx;
+  padding: 28rpx;
+  font-size: 28rpx;
+  font-weight: 700;
 }
 
 /* 加载状态 */

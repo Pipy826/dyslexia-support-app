@@ -77,6 +77,12 @@
       </view>
     </view>
 
+    <!-- 难度调整提示 -->
+    <view class="difficulty-toast" v-if="showDifficultyToast">
+      <text class="ph ph-sparkle"></text>
+      {{ difficultyToastText }}
+    </view>
+
     <!-- 退出确认弹窗 -->
     <view class="modal-overlay" v-if="showExitModal" @click="hideModal">
       <view class="modal-content" @click.stop>
@@ -95,6 +101,7 @@
 <script>
 import { getQuestions, startScreening, submitScreening } from '../../../api/screening.js'
 import { completeTask } from '../../../api/training.js'
+import { evaluateAdaptiveDifficulty } from '../../../api/ai.js'
 import { getCurrentChild } from '../../../utils/auth.js'
 
 export default {
@@ -111,7 +118,7 @@ export default {
       showExitModal: false,
       showFeedback: false,
       lastCorrect: false,
-      currentCorrectAnswer: '',   // 答错时展示正确答案文本
+      currentCorrectAnswer: '',
       // 行为数据采集
       questionStartTime: null,
       firstClickTime: null,
@@ -120,7 +127,12 @@ export default {
       timerInterval: null,
       loading: true,
       showResult: false,
-      correctAnswerMap: {}
+      correctAnswerMap: {},
+      // 自适应难度
+      adaptiveCheckInterval: 5,  // 每5题检查一次
+      difficultyLevels: ['L1', 'L2', 'L3'],
+      showDifficultyToast: false,
+      difficultyToastText: '',
     }
   },
   computed: {
@@ -320,16 +332,76 @@ export default {
         this.selectedAnswer = null
         this.resetQuestionState()
         this.startTimer()
+        // 每 adaptiveCheckInterval 题检查一次难度
+        if (this.currentIndex % this.adaptiveCheckInterval === 0 && this.currentIndex > 0) {
+          this.checkAdaptiveDifficulty()
+        }
       } else {
         this.submitResults()
       }
+    },
+
+    async checkAdaptiveDifficulty() {
+      // 取最近 adaptiveCheckInterval 条答题记录
+      const recent = this.answers.slice(-this.adaptiveCheckInterval)
+      if (recent.length < 3) return
+
+      try {
+        const result = await evaluateAdaptiveDifficulty({
+          game_type: this.gameType,
+          current_difficulty: this.difficulty,
+          recent_answers: recent,
+        })
+
+        if (!result.should_adjust) return
+
+        const levels = this.difficultyLevels
+        const currentIdx = levels.indexOf(this.difficulty)
+
+        if (result.direction === 'up' && currentIdx < levels.length - 1) {
+          this.difficulty = levels[currentIdx + 1]
+          this.showDifficultyHint('难度提升了！你真棒 🚀')
+          await this.appendQuestions()
+        } else if (result.direction === 'down' && currentIdx > 0) {
+          this.difficulty = levels[currentIdx - 1]
+          this.showDifficultyHint('换个简单一点的试试 💪')
+          await this.appendQuestions()
+        }
+      } catch (e) {
+        // 静默失败，不影响游戏
+      }
+    },
+
+    async appendQuestions() {
+      try {
+        const res = await getQuestions(this.gameType, this.difficulty, 5)
+        const newQs = (res.questions || []).filter(
+          q => !this.questions.find(existing => existing.id === q.id)
+        )
+        newQs.forEach(q => {
+          if (q.correct_index !== undefined) {
+            this.correctAnswerMap[q.id] = q.correct_index
+          }
+        })
+        this.questions = [...this.questions, ...newQs]
+      } catch (e) {
+        // 静默失败
+      }
+    },
+
+    showDifficultyHint(text) {
+      this.difficultyToastText = text
+      this.showDifficultyToast = true
+      setTimeout(() => {
+        this.showDifficultyToast = false
+      }, 2000)
     },
 
     async submitResults() {
       this.showResult = true
       this.clearTimer()
       try {
-        await submitScreening({
+        const res = await submitScreening({
           screening_id: this.screeningId,
           answers: this.answers
         })
@@ -339,6 +411,19 @@ export default {
           try { await completeTask(pendingTaskId) } catch (e) { console.warn('标记任务完成失败', e) }
           uni.removeStorageSync('pending_task_id')
         }
+
+        // 保存游戏结果供奖励页面使用（AI鼓励话语）
+        const correctCount = this.answers.filter(a => {
+          const correctIdx = this.correctAnswerMap[a.question_id]
+          return correctIdx !== undefined && a.answer === correctIdx
+        }).length
+        uni.setStorageSync('last_game_result', {
+          game_type: this.gameType,
+          score: res.score || 0,
+          correct_count: correctCount,
+          total_count: this.answers.length,
+          stars: 1,
+        })
 
         uni.removeStorageSync('current_screening')
         uni.redirectTo({ url: '/pages/child/reward/index' })
@@ -457,4 +542,31 @@ export default {
 .modal-btn { width: 100%; border-radius: 48rpx; padding: 28rpx; font-size: 28rpx; font-weight: 700; margin-bottom: 24rpx; }
 .modal-btn.outline { background: #FFFFFF; border: 4rpx solid #E5E7EB; color: #6B7280; }
 .modal-btn.primary { background: #3B82F6; color: #FFFFFF; box-shadow: 0 4rpx 12rpx rgba(59,130,246,0.2); }
+
+/* 难度调整提示 */
+.difficulty-toast {
+  position: fixed;
+  top: 200rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(55, 65, 81, 0.9);
+  color: #FFFFFF;
+  padding: 20rpx 40rpx;
+  border-radius: 50rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  z-index: 1000;
+  animation: toastIn 0.3s ease;
+  white-space: nowrap;
+}
+
+.difficulty-toast .ph { font-size: 30rpx; color: #FCD34D; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-20rpx); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
 </style>
