@@ -29,8 +29,8 @@
             <text class="ph ph-user"></text>
           </view>
           <view class="child-info">
-            <view class="child-name">{{ child.name || '小明' }}</view>
-            <view class="child-meta">{{ child.age || 7 }}岁 / {{ child.grade || '一年级' }}</view>
+            <view class="child-name">{{ child.name }}</view>
+            <view class="child-meta">{{ calcAge(child.birth_date) }}岁 / {{ gradeLabel(child.grade) }}</view>
           </view>
         </view>
         <!-- 添加按钮 -->
@@ -114,6 +114,14 @@ export default {
     maskPhone(phone) {
       if (!phone) return '未绑定手机'
       return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+    },
+    calcAge(birthDate) {
+      if (!birthDate) return '?'
+      return new Date().getFullYear() - new Date(birthDate).getFullYear()
+    },
+    gradeLabel(grade) {
+      const map = { pre: '学龄前', '1': '一年级', '2': '二年级', '3': '三年级', '4': '四年级', '5+': '五六年级' }
+      return map[grade] || grade || '未知年级'
     },
     logout() {
       uni.showModal({

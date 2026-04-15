@@ -33,7 +33,7 @@
           <view class="progress-track">
             <view class="progress-fill" :class="getScoreClass(score)" :style="{ width: score + '%' }"></view>
           </view>
-          <view class="ability-hint">{{ getDimHint(dim) }}</view>
+          <view class="ability-hint">{{ getDimHint(dim, score) }}</view>
         </view>
       </view>
 
@@ -46,6 +46,16 @@
         </view>
         <view class="advice-desc">{{ report.recommendations }}</view>
         <button class="advice-btn" @click="goToTraining">查看专属干预方案 →</button>
+      </view>
+
+      <!-- 高风险专业引导 -->
+      <view class="high-risk-card" v-if="report.risk_level === 'high'">
+        <view class="high-risk-header">
+          <text class="ph ph-warning-circle high-risk-icon"></text>
+          <view class="high-risk-title">建议专业评估</view>
+        </view>
+        <view class="high-risk-desc">根据本次评估结果，建议尽快联系专业机构进行全面评估，以获得更准确的诊断和干预方案。</view>
+        <button class="high-risk-btn" @click="goToAiChat">了解更多</button>
       </view>
     </view>
 
@@ -80,7 +90,9 @@ export default {
       try {
         this.report = await getReport(this.reportId)
         const dimRes = await getReportDimensions(this.reportId)
-        this.dimensions = dimRes.dimensions
+        // dimensions 可能是对象或 JSON 字符串
+        const raw = dimRes.dimensions
+        this.dimensions = (typeof raw === 'string') ? JSON.parse(raw) : (raw || {})
       } catch (e) {
         console.error('加载报告失败', e)
       }
@@ -106,18 +118,31 @@ export default {
       }
       return names[dim] || dim
     },
-    getDimHint(dim) {
-      const hints = {
-        visual_discrimination: '易混淆形近字，扫视容易漏字。',
-        phonological: '音义联结反应稍慢。',
-        character_order: '书写时部件位置偶有颠倒。',
-        spelling: '作答犹豫期长，部件颠倒发生率高。',
-        reading_comprehension: '能准确提取语句核心信息。',
-        semantic_integration: '句间关系理解正常。',
-        information_extraction: '能从文中定位关键信息。',
-        attention: '能够持续完成15分钟连续任务。'
+    getDimHint(dim, score) {
+      // 根据分数高低返回不同的描述
+      const good = {
+        visual_discrimination: '形近字辨别能力良好，视觉扫描稳定。',
+        phonological:          '音形联结反应正常，拼音识字能力稳定。',
+        character_order:       '汉字笔顺记忆良好，字形组织稳定。',
+        spelling:              '拼写输出稳定，作答犹豫较少。',
+        reading_comprehension: '能准确理解句子和短文的核心意思。',
+        semantic_integration:  '句间关系理解正常，语义整合能力良好。',
+        information_extraction:'能从文中快速定位关键信息。',
+        attention:             '能持续专注完成任务，注意力稳定。'
       }
-      return hints[dim] || ''
+      const weak = {
+        visual_discrimination: '易混淆形近字，视觉扫描时容易漏字或看错。',
+        phonological:          '音形联结反应偏慢，拼音与汉字对应存在困难。',
+        character_order:       '书写时部件位置偶有颠倒，笔顺记忆不稳定。',
+        spelling:              '作答犹豫期较长，部件颠倒或替换发生率偏高。',
+        reading_comprehension: '理解句子和短文时存在困难，容易遗漏关键信息。',
+        semantic_integration:  '句间关系理解存在偏差，语义整合能力需加强。',
+        information_extraction:'从文中提取关键信息时容易遗漏或混淆。',
+        attention:             '持续专注能力不足，连续任务中表现有波动。'
+      }
+      if (score >= 75) return good[dim] || ''
+      if (score >= 60) return `${weak[dim] || ''} 建议适当加强练习。`
+      return `${weak[dim] || ''} 这是当前需要重点关注的能力维度。`
     },
     getScoreClass(score) {
       if (score >= 75) return 'green'
@@ -143,7 +168,7 @@ export default {
       })
     },
     goToTraining() {
-      uni.reLaunch({ url: '/pages/parent/training/index' })
+      uni.navigateTo({ url: '/pages/parent/training/index' })
     }
   }
 }
@@ -376,6 +401,48 @@ export default {
   background: #FFFFFF;
   border: 2rpx solid #DBEAFE;
   color: #3B82F6;
+  border-radius: 32rpx;
+  padding: 24rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 高风险专业引导卡片 */
+.high-risk-card {
+  background: #FEF2F2;
+  border-radius: 48rpx;
+  padding: 48rpx;
+  margin-bottom: 48rpx;
+  border: 2rpx solid #FECACA;
+}
+.high-risk-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+.high-risk-icon {
+  font-size: 40rpx;
+  color: #EF4444;
+}
+.high-risk-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #DC2626;
+}
+.high-risk-desc {
+  font-size: 26rpx;
+  color: #4B5563;
+  line-height: 1.7;
+  margin-bottom: 32rpx;
+}
+.high-risk-btn {
+  width: 100%;
+  background: #EF4444;
+  color: #FFFFFF;
   border-radius: 32rpx;
   padding: 24rpx;
   font-size: 26rpx;

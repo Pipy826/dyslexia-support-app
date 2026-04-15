@@ -1,6 +1,14 @@
 {
   "pages": [
     {
+      "path": "pages/parent/home/index",
+      "style": {
+        "navigationBarTitleText": "首页",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
       "path": "pages/parent/auth/login",
       "style": {
         "navigationBarTitleText": "登录",
@@ -18,14 +26,6 @@
       "path": "pages/parent/auth/create-profile",
       "style": {
         "navigationBarTitleText": "创建儿童档案",
-        "navigationStyle": "custom",
-        "navigationBarBackgroundColor": "#FFFFFF"
-      }
-    },
-    {
-      "path": "pages/parent/home/index",
-      "style": {
-        "navigationBarTitleText": "首页",
         "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#FFFFFF"
       }

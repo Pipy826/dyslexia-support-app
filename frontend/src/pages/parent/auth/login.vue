@@ -189,17 +189,8 @@
       <text class="switch-link" @click="toggleRegisterMode">{{ isRegisterMode ? '去登录' : '立即注册' }}</text>
     </view>
 
-    <!-- 第三方快捷登录 -->
-    <view class="third-party-section" v-if="!isRegisterMode">
-      <view class="divider">
-        <view class="divider-line"></view>
-        <view class="divider-text">其他方式登录</view>
-        <view class="divider-line"></view>
-      </view>
-      <view class="wechat-btn">
-        <text class="ph ph-chat-circle"></text>
-      </view>
-    </view>
+    <!-- 第三方快捷登录（暂未开放） -->
+    <!-- <view class="third-party-section" v-if="!isRegisterMode"> ... </view> -->
 
     <!-- Toast提示 -->
     <view class="toast" :class="{ show: toastVisible }">{{ toastMessage }}</view>

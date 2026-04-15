@@ -27,19 +27,10 @@
         </view>
       </view>
 
-      <!-- 难度选择 -->
-      <view class="difficulty-section">
-        <view class="difficulty-label">选择难度</view>
-        <view class="difficulty-btns">
-          <view
-            v-for="d in difficulties"
-            :key="d.value"
-            :class="['diff-btn', { active: selectedDifficulty === d.value }]"
-            @click="selectedDifficulty = d.value"
-          >
-            {{ d.label }}
-          </view>
-        </view>
+      <!-- 难度提示（自动匹配，不让孩子手选） -->
+      <view class="difficulty-hint">
+        <text class="ph ph-star difficulty-icon"></text>
+        <view class="difficulty-text">已为你准备好适合的题目，加油！</view>
       </view>
 
       <button class="ready-btn" @click="startGame">
@@ -50,16 +41,13 @@
 </template>
 
 <script>
+import { getCurrentChild } from '../../../utils/auth.js'
+
 export default {
   data() {
     return {
       gameType: 'visual',
-      selectedDifficulty: 'L1',
-      difficulties: [
-        { value: 'L1', label: '初级 ⭐' },
-        { value: 'L2', label: '中级 ⭐⭐' },
-        { value: 'L3', label: '高级 ⭐⭐⭐' }
-      ]
+      selectedDifficulty: 'L1'
     }
   },
   computed: {
@@ -72,8 +60,17 @@ export default {
   },
   onLoad(options) {
     if (options.game_type) this.gameType = options.game_type
+    // 根据儿童年级自动匹配难度
+    const child = getCurrentChild()
+    this.selectedDifficulty = this._gradeToLevel(child?.grade)
   },
   methods: {
+    _gradeToLevel(grade) {
+      // 学龄前/一年级 → L1，二三年级 → L2，四年级及以上 → L3
+      if (!grade || grade === 'pre' || grade === '1') return 'L1'
+      if (grade === '2' || grade === '3') return 'L2'
+      return 'L3'
+    },
     goBack() {
       uni.navigateBack()
     },
@@ -164,38 +161,20 @@ export default {
 
 .tip-text { font-size: 32rpx; font-weight: 600; color: #374151; }
 
-/* 难度选择 */
-.difficulty-section {
-  width: 100%;
-  margin-bottom: 48rpx;
-}
-.difficulty-label {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #6B7280;
-  margin-bottom: 16rpx;
-  text-align: center;
-}
-.difficulty-btns {
+/* 难度提示 */
+.difficulty-hint {
   display: flex;
+  align-items: center;
   gap: 16rpx;
-  justify-content: center;
+  background: #FFFBEB;
+  border: 1rpx solid #FDE68A;
+  border-radius: 32rpx;
+  padding: 24rpx 40rpx;
+  margin-bottom: 48rpx;
+  width: 100%;
 }
-.diff-btn {
-  padding: 16rpx 32rpx;
-  border-radius: 50rpx;
-  border: 2rpx solid #E5E7EB;
-  font-size: 24rpx;
-  font-weight: 600;
-  color: #6B7280;
-  background: #FFFFFF;
-  transition: all 0.2s;
-}
-.diff-btn.active {
-  background: #EFF6FF;
-  border-color: #3B82F6;
-  color: #3B82F6;
-}
+.difficulty-icon { font-size: 36rpx; color: #F59E0B; }
+.difficulty-text { font-size: 28rpx; color: #92400E; font-weight: 600; }
 
 .ready-btn {
   width: 100%;

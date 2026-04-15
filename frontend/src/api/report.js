@@ -8,3 +8,5 @@ export const getReports = (childId) => {
 export const getReport = (id) => get(`/api/reports/${id}`);
 
 export const getReportDimensions = (id) => get(`/api/reports/${id}/dimensions`);
+
+export const getReportByScreening = (screeningId) => get(`/api/reports/by-screening/${screeningId}`);

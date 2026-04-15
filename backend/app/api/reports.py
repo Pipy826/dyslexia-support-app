@@ -29,6 +29,24 @@ def get_reports(
     return [ReportResponse.model_validate(r) for r in reports]
 
 
+@router.get("/by-screening/{screening_id}", response_model=ReportResponse)
+def get_report_by_screening(
+    screening_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get report by screening_id"""
+    report = db.query(Report).join(Child).filter(
+        Report.screening_id == screening_id,
+        Child.parent_id == current_user.id
+    ).first()
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return ReportResponse.model_validate(report)
+
+
 @router.get("/{report_id}", response_model=ReportResponse)
 def get_report(
     report_id: int,

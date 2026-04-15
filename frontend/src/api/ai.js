@@ -12,3 +12,12 @@ export const clearChatHistory = (childId) => {
   const params = childId ? { child_id: childId } : {};
   return del('/api/ai/history', params);
 };
+
+export const saveMessage = (messageId) => post(`/api/ai/save/${messageId}`);
+
+export const unsaveMessage = (messageId) => del(`/api/ai/save/${messageId}`);
+
+export const getSavedMessages = (childId) => {
+  const params = childId ? { child_id: childId } : {};
+  return get('/api/ai/saved', params);
+};

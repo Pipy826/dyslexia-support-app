@@ -18,6 +18,9 @@ class AnswerItem(BaseModel):
     question_id: str
     answer: Any
     time_spent: int  # seconds
+    reaction_time: Optional[int] = None   # 首次点击反应时间（毫秒）
+    change_count: Optional[int] = None    # 修改次数
+    is_timeout: Optional[bool] = None     # 是否超时
 
 
 class ScreeningSubmit(BaseModel):

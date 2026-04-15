@@ -122,7 +122,7 @@ export default {
       })
     },
     goToTraining() {
-      uni.navigateTo({ url: '/pages/child/training/index' })
+      uni.redirectTo({ url: '/pages/child/training/index' })
     }
   }
 }

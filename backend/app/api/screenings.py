@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, date
 import json
 
 from ..database import get_db
 from ..models.screening import Screening, Report
 from ..models.child import Child
+from ..models.training import TrainingTask
 from ..schemas.screening import (
     ScreeningStart, ScreeningSubmit, ScreeningResponse,
     GameQuestionsResponse, QuestionOption
@@ -15,6 +16,82 @@ from ..services.screening_service import create_screening_report
 from ..games import VISUAL_QUESTIONS, SPELLING_QUESTIONS, COMPREHENSION_QUESTIONS
 from .deps import get_current_user
 from ..models.user import User
+
+# 根据风险等级和弱项维度自动推荐训练任务
+TASK_TEMPLATES = {
+    "visual_discrimination": {"task_type": "visual", "task_name": "火眼金睛（视觉辨识训练）"},
+    "attention":             {"task_type": "visual", "task_name": "专注力训练"},
+    "phonological":          {"task_type": "spelling", "task_name": "音形对应练习"},
+    "character_order":       {"task_type": "spelling", "task_name": "字序组织训练"},
+    "spelling":              {"task_type": "spelling", "task_name": "拼字小达人"},
+    "reading_comprehension": {"task_type": "comprehension", "task_name": "阅读理解练习"},
+    "semantic_integration":  {"task_type": "comprehension", "task_name": "语义整合训练"},
+    "information_extraction":{"task_type": "comprehension", "task_name": "信息提取练习"},
+}
+
+DEFAULT_TASKS_BY_RISK = {
+    "low": [
+        {"task_type": "visual",        "task_name": "每日视觉热身"},
+        {"task_type": "spelling",      "task_name": "拼字小达人"},
+        {"task_type": "comprehension", "task_name": "亲子共读打卡"},
+    ],
+    "medium": [
+        {"task_type": "visual",        "task_name": "火眼金睛（视觉辨识训练）"},
+        {"task_type": "spelling",      "task_name": "音形对应练习"},
+        {"task_type": "comprehension", "task_name": "阅读理解练习"},
+    ],
+    "high": [
+        {"task_type": "visual",        "task_name": "视觉辨识强化训练"},
+        {"task_type": "spelling",      "task_name": "字序组织训练"},
+        {"task_type": "comprehension", "task_name": "语义整合训练"},
+    ],
+}
+
+def _auto_create_training_tasks(db: Session, child_id: int, risk_level: str, scores_dict: dict):
+    """根据报告结果自动创建今日训练任务（避免重复）"""
+    today = date.today()
+    # 检查今天是否已有任务
+    existing = db.query(TrainingTask).filter(
+        TrainingTask.child_id == child_id,
+        TrainingTask.scheduled_date == today
+    ).count()
+    if existing > 0:
+        return
+
+    # 找出弱项维度（得分 < 70）
+    weak_dims = [dim for dim, score in scores_dict.items() if score < 70]
+
+    tasks_to_create = []
+    seen_types = set()
+
+    # 优先为弱项维度创建任务
+    for dim in weak_dims:
+        tmpl = TASK_TEMPLATES.get(dim)
+        if tmpl and tmpl["task_type"] not in seen_types:
+            tasks_to_create.append(tmpl)
+            seen_types.add(tmpl["task_type"])
+        if len(tasks_to_create) >= 3:
+            break
+
+    # 不足3个时用默认任务补齐
+    if len(tasks_to_create) < 3:
+        for tmpl in DEFAULT_TASKS_BY_RISK.get(risk_level, DEFAULT_TASKS_BY_RISK["medium"]):
+            if tmpl["task_type"] not in seen_types:
+                tasks_to_create.append(tmpl)
+                seen_types.add(tmpl["task_type"])
+            if len(tasks_to_create) >= 3:
+                break
+
+    for tmpl in tasks_to_create:
+        task = TrainingTask(
+            child_id=child_id,
+            task_type=tmpl["task_type"],
+            task_name=tmpl["task_name"],
+            scheduled_date=today,
+            status="pending"
+        )
+        db.add(task)
+    db.commit()
 
 router = APIRouter(prefix="/api/screenings", tags=["筛查"])
 
@@ -133,12 +210,18 @@ def submit_screening(
             "answer": answer.answer,
             "correct_index": correct_idx,
             "is_correct": is_correct,
-            "time_spent": answer.time_spent
+            "time_spent": answer.time_spent,
+            "reaction_time": answer.reaction_time,
+            "change_count": answer.change_count,
+            "is_timeout": answer.is_timeout
         })
 
-    # Store behavior data
-    if data.behavior_data:
-        screening.behavior_data = json.dumps(data.behavior_data, ensure_ascii=False)
+    # 将行为数据（含每题细节）存入 behavior_data
+    behavior_payload = {
+        "answers_detail": graded_answers,
+        **(data.behavior_data or {})
+    }
+    screening.behavior_data = json.dumps(behavior_payload, ensure_ascii=False)
 
     # Create report
     report = create_screening_report(
@@ -148,6 +231,10 @@ def submit_screening(
         game_type=screening.game_type,
         answers=graded_answers
     )
+
+    # 根据报告结果自动生成今日训练任务
+    scores_dict = json.loads(report.dimensions) if report.dimensions else {}
+    _auto_create_training_tasks(db, screening.child_id, report.risk_level, scores_dict)
 
     return {
         "screening_id": screening.id,

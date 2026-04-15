@@ -85,6 +85,16 @@
         </view>
       </view>
 
+      <!-- 是否已有机构评估经历 -->
+      <view class="difficulty-notice" :class="{ checked: formData.hasProfessionalEval }">
+        <view class="notice-checkbox" @click="formData.hasProfessionalEval = !formData.hasProfessionalEval">
+          <text class="ph ph-check" v-if="formData.hasProfessionalEval"></text>
+        </view>
+        <view class="notice-text">
+          孩子曾在医院、康复机构或专业教育机构进行过相关评估或诊断。
+        </view>
+      </view>
+
     </view>
 
     <!-- 完成按钮 -->
@@ -107,6 +117,7 @@ export default {
         gender: 'boy',
         grade: '1',
         hasDifficulty: false,
+        hasProfessionalEval: false,
         avatar_url: ''
       },
       gradeOptions: [
@@ -159,6 +170,7 @@ export default {
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
           birth_date: birthDate,
           grade: this.formData.grade,
+          has_difficulty: this.formData.hasDifficulty,
           avatar_url: this.formData.avatar_url || null
         })
         setCurrentChild(child)

@@ -166,8 +166,11 @@ export default {
       if (task.id) {
         uni.setStorageSync('pending_task_id', task.id)
       }
+      // reading 映射到 comprehension（后端不支持 reading 类型）
+      const typeMap = { reading: 'comprehension' }
+      const gameType = typeMap[task.task_type] || task.task_type || 'visual'
       uni.navigateTo({
-        url: `/pages/child/prep/index?game_type=${task.task_type || 'visual'}`
+        url: `/pages/child/prep/index?game_type=${gameType}`
       })
     },
     taskIcon(type) {

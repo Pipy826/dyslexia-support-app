@@ -172,6 +172,17 @@ export default {
           }
           setCurrentChild(this.currentChild)
           await this.loadRecentReport()
+        } else {
+          // 没有孩子档案，引导创建
+          uni.showModal({
+            title: '欢迎使用',
+            content: '请先创建孩子的档案，以便开始筛查和训练。',
+            showCancel: false,
+            confirmText: '立即创建',
+            success: () => {
+              uni.navigateTo({ url: '/pages/parent/auth/create-profile' })
+            }
+          })
         }
       } catch (e) {
         console.error('加载失败', e)
@@ -229,7 +240,11 @@ export default {
       uni.navigateTo({ url: '/pages/parent/screening/index' })
     },
     goToReport() {
-      uni.navigateTo({ url: '/pages/parent/report/index' })
+      if (this.recentReport?.id) {
+        uni.navigateTo({ url: `/pages/parent/report/detail?id=${this.recentReport.id}` })
+      } else {
+        uni.navigateTo({ url: '/pages/parent/report/index' })
+      }
     },
     goToTraining() {
       uni.navigateTo({ url: '/pages/parent/training/index' })

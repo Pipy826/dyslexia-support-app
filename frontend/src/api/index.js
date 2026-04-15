@@ -1,7 +1,21 @@
 import { getToken, clearAuth } from '../utils/auth.js';
 
 // H5开发模式走vite代理（空字符串），生产环境改为实际后端地址
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// 当用局域网IP访问时，代理不生效，需要直接指向后端
+const getBaseUrl = () => {
+  const configured = import.meta.env.VITE_API_BASE_URL || '';
+  if (configured) return configured;
+  // 浏览器环境：如果当前不是localhost，直接用同主机的8000端口
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return `http://${host}:8000`;
+    }
+  }
+  return '';
+};
+
+const BASE_URL = getBaseUrl();
 
 /**
  * 统一请求封装

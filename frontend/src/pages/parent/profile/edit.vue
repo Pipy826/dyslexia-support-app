@@ -85,6 +85,16 @@
         </view>
       </view>
 
+      <!-- 是否已有机构评估经历 -->
+      <view class="difficulty-notice" :class="{ checked: formData.hasProfessionalEval }">
+        <view class="notice-checkbox" @click="formData.hasProfessionalEval = !formData.hasProfessionalEval">
+          <text class="ph ph-check" v-if="formData.hasProfessionalEval"></text>
+        </view>
+        <view class="notice-text">
+          孩子曾在医院、康复机构或专业教育机构进行过相关评估或诊断。
+        </view>
+      </view>
+
     </view>
 
     <!-- 完成按钮 -->
@@ -109,6 +119,7 @@ export default {
         gender: 'boy',
         grade: '1',
         hasDifficulty: false,
+        hasProfessionalEval: false,
         avatar_url: ''
       },
       gradeOptions: [
@@ -137,7 +148,9 @@ export default {
           gender: child.gender === 'female' ? 'girl' : 'boy',
           grade: child.grade || '1',
           hasDifficulty: child.has_difficulty || false,
-          avatar_url: child.avatar_url || ''
+          hasProfessionalEval: false,
+          avatar_url: child.avatar_url || '',
+          birth_date: child.birth_date || ''
         }
       } catch (e) {
         console.error('加载失败', e)
@@ -179,9 +192,19 @@ export default {
       }
 
       try {
+        // 编辑时需要保留原有 birth_date，新建时用年级推算
+        let birthDate = this.formData.birth_date
+        if (!birthDate) {
+          const gradeAgeMap = { pre: 5, '1': 7, '2': 8, '3': 9, '4': 10, '5+': 11 }
+          const age = gradeAgeMap[this.formData.grade] || 8
+          const birthYear = new Date().getFullYear() - age
+          birthDate = `${birthYear}-06-01`
+        }
+
         const data = {
           name: this.formData.name,
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
+          birth_date: birthDate,
           grade: this.formData.grade,
           has_difficulty: this.formData.hasDifficulty,
           avatar_url: this.formData.avatar_url || null

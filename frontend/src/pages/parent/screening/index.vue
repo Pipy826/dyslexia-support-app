@@ -73,6 +73,7 @@
             <view class="history-title">{{ gameTypeName(item.game_type) }}筛查</view>
             <view class="history-time">{{ formatDate(item.created_at) }}</view>
           </view>
+          <view class="history-score" v-if="item.score !== undefined">{{ item.score }}分</view>
           <view class="history-badge" :class="item.risk_level">{{ riskLabel(item.risk_level) }}</view>
         </view>
       </view>
@@ -129,6 +130,7 @@
 import { getCurrentChild, setCurrentChild } from '../../../utils/auth.js'
 import { getChildren } from '../../../api/child.js'
 import { getScreeningHistory } from '../../../api/screening.js'
+import { getReportByScreening } from '../../../api/report.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
 export default {
@@ -196,8 +198,14 @@ export default {
       this.screeningHistory = []
       this.loadHistory()
     },
-    viewReport(screening) {
-      uni.navigateTo({ url: `/pages/parent/report/index?child_id=${this.currentChild.id}` })
+    async viewReport(screening) {
+      try {
+        const report = await getReportByScreening(screening.id)
+        uni.navigateTo({ url: `/pages/parent/report/detail?id=${report.id}` })
+      } catch (e) {
+        // 报告不存在时跳到报告列表页
+        uni.navigateTo({ url: `/pages/parent/report/index?child_id=${this.currentChild.id}` })
+      }
     },
     showHandoverModal() {
       if (!this.currentChild) {
@@ -602,6 +610,13 @@ export default {
   font-size: 22rpx;
   color: #9CA3AF;
   margin-top: 4rpx;
+}
+
+.history-score {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #374151;
+  margin-right: 8rpx;
 }
 
 .history-badge {

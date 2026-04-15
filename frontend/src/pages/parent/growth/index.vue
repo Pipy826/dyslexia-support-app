@@ -19,6 +19,27 @@
         </view>
       </view>
 
+      <!-- 关键里程碑 -->
+      <view class="milestone-row" v-if="firstScreeningDate || continuousDays > 0">
+        <view class="milestone-item" v-if="firstScreeningDate">
+          <text class="ph ph-calendar-check milestone-icon"></text>
+          <view class="milestone-val">{{ firstScreeningDate }}</view>
+          <view class="milestone-label">首次筛查</view>
+        </view>
+        <view class="milestone-divider" v-if="firstScreeningDate && continuousDays > 0"></view>
+        <view class="milestone-item" v-if="continuousDays > 0">
+          <text class="ph ph-fire milestone-icon fire"></text>
+          <view class="milestone-val">{{ continuousDays }}天</view>
+          <view class="milestone-label">连续训练</view>
+        </view>
+        <view class="milestone-divider" v-if="completedTasks.length > 0"></view>
+        <view class="milestone-item" v-if="completedTasks.length > 0">
+          <text class="ph ph-check-circle milestone-icon green"></text>
+          <view class="milestone-val">{{ completedTasks.length }}次</view>
+          <view class="milestone-label">累计训练</view>
+        </view>
+      </view>
+
       <!-- 能力趋势图 -->
       <view class="section-title">能力评估趋势</view>
       <view class="trend-chart-card" v-if="chartReports.length > 0">
@@ -82,6 +103,12 @@
         <view class="empty-text">完成筛查后将显示能力趋势</view>
       </view>
 
+      <!-- 趋势分析文字 -->
+      <view class="trend-analysis" v-if="chartReports.length > 0">
+        <text class="ph ph-trend-up trend-analysis-icon"></text>
+        <view class="trend-analysis-text">{{ trendAnalysisText }}</view>
+      </view>
+
       <!-- 历史评估列表 -->
       <view class="section-title" v-if="reports.length > 0">历史评估记录</view>
       <view class="trend-card" v-if="reports.length > 0">
@@ -131,13 +158,27 @@ export default {
       currentChild: null,
       reports: [],
       completedTasks: [],
-      totalStars: 0
+      totalStars: 0,
+      continuousDays: 0,
+      firstScreeningDate: ''
     }
   },
   computed: {
     // 最多取最近 6 次用于图表
     chartReports() {
       return [...this.reports].reverse().slice(0, 6)
+    },
+    trendAnalysisText() {
+      const r = this.chartReports
+      if (r.length === 0) return ''
+      if (r.length === 1) return '首次评估，继续坚持训练后可查看趋势变化'
+      const latest = r[r.length - 1].overall_score || 0
+      const prev = r[r.length - 2].overall_score || 0
+      const diff = latest - prev
+      if (diff >= 10) return '稳定改善中 📈 继续保持！'
+      if (diff > 0) return '缓慢改善中，坚持训练效果会更明显'
+      if (Math.abs(diff) <= 5) return '基本稳定，建议调整训练重点'
+      return '近期有所波动，建议关注训练质量'
     }
   },
   onShow() {
@@ -155,9 +196,35 @@ export default {
         this.reports = reports
         this.completedTasks = tasks
         this.totalStars = starRes.total_stars || 0
+
+        // 首次筛查时间
+        if (reports.length > 0) {
+          const oldest = [...reports].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0]
+          this.firstScreeningDate = this.formatDate(oldest.created_at)
+        }
+
+        // 连续训练天数
+        this.continuousDays = this._calcContinuousDays(tasks)
       } catch (e) {
         console.error('加载失败', e)
       }
+    },
+    _calcContinuousDays(completedTasks) {
+      if (!completedTasks || completedTasks.length === 0) return 0
+      const days = new Set(completedTasks.map(t => {
+        const d = t.completed_at || t.created_at
+        return d ? d.split('T')[0] : null
+      }).filter(Boolean))
+      const sorted = [...days].sort().reverse()
+      let count = 0
+      let prev = null
+      for (const day of sorted) {
+        if (!prev) { count = 1; prev = day; continue }
+        const diff = (new Date(prev) - new Date(day)) / 86400000
+        if (diff === 1) { count++; prev = day }
+        else break
+      }
+      return count
     },
 
     // 图表辅助
@@ -248,6 +315,35 @@ export default {
 .stars-icon { font-size: 120rpx; color: rgba(255,255,255,0.25); }
 
 .section-title { font-size: 36rpx; font-weight: 700; color: #1F2937; margin-bottom: 24rpx; }
+
+/* 关键里程碑 */
+.milestone-row {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 32rpx 40rpx;
+  margin-bottom: 48rpx;
+  border: 1rpx solid #F3F4F6;
+}
+.milestone-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+.milestone-icon { font-size: 40rpx; color: #F59E0B; }
+.milestone-icon.fire { color: #EF4444; }
+.milestone-icon.green { color: #10B981; }
+.milestone-val { font-size: 36rpx; font-weight: 800; color: #1F2937; }
+.milestone-label { font-size: 20rpx; color: #9CA3AF; }
+.milestone-divider {
+  width: 1rpx;
+  height: 64rpx;
+  background: #F3F4F6;
+  flex-shrink: 0;
+}
 
 /* 趋势图卡片 */
 .trend-chart-card {
@@ -369,6 +465,29 @@ export default {
   font-size: 18rpx;
   color: #9CA3AF;
   bottom: 0;
+}
+
+/* 趋势分析文字 */
+.trend-analysis {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: #EFF6FF;
+  border-radius: 32rpx;
+  padding: 32rpx 40rpx;
+  margin-bottom: 48rpx;
+  border: 1rpx solid #DBEAFE;
+}
+.trend-analysis-icon {
+  font-size: 40rpx;
+  color: #3B82F6;
+  flex-shrink: 0;
+}
+.trend-analysis-text {
+  font-size: 28rpx;
+  color: #1D4ED8;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 /* 历史列表 */

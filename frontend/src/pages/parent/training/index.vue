@@ -3,7 +3,7 @@
     <!-- 极简头部 -->
     <view class="page-header">
       <view class="header-title">干预与训练</view>
-      <view class="header-subtitle">已为小明定制专属的家庭提升计划</view>
+      <view class="header-subtitle">已为{{ currentChild ? currentChild.name : '孩子' }}定制专属的家庭提升计划</view>
     </view>
 
     <view class="page-content">
@@ -79,11 +79,29 @@
       </view>
 
       <!-- 阶段小结预告 -->
-      <view class="milestone-card">
+      <view class="milestone-card" :class="{ active: showReassessReminder }">
         <text class="ph ph-flag"></text>
         <view class="milestone-info">
-          <view class="milestone-title">阶段复评预告</view>
-          <view class="milestone-desc">连续坚持训练 <text class="highlight">14天</text> 后，系统将提示进行下一轮效果复评。</view>
+          <view class="milestone-title">
+            {{ showReassessReminder ? '🎉 可以复评了！' : '阶段复评预告' }}
+          </view>
+          <view class="milestone-desc" v-if="!showReassessReminder">
+            连续坚持训练 <text class="highlight">14天</text> 后，系统将提示进行下一轮效果复评。
+            <text v-if="continuousDays > 0">（当前已连续 <text class="highlight">{{ continuousDays }}</text> 天）</text>
+          </view>
+          <view class="milestone-desc" v-else>
+            已连续训练 <text class="highlight">{{ continuousDays }}</text> 天，建议发起复评检验训练效果！
+          </view>
+        </view>
+        <button v-if="showReassessReminder" class="reassess-mini-btn" @click="goToScreening">去复评</button>
+      </view>
+
+      <!-- 本周重点 -->
+      <view class="section-title">本周训练重点</view>
+      <view class="week-card">
+        <view class="week-item" v-for="(item, i) in weekFocus" :key="i">
+          <view class="week-dot" :class="item.color"></view>
+          <view class="week-text">{{ item.text }}</view>
         </view>
       </view>
     </view>
@@ -97,6 +115,7 @@
 import { getChildren } from '../../../api/child.js'
 import { getCurrentChild, setCurrentChild } from '../../../utils/auth.js'
 import { getTasks, completeTask, createTask } from '../../../api/training.js'
+import { getReports } from '../../../api/report.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
 export default {
@@ -106,7 +125,14 @@ export default {
       currentChild: null,
       pendingTasks: [],
       completedCount: 0,
-      totalCount: 3
+      totalCount: 3,
+      weekFocus: [
+        { text: '每天完成今日任务，保持训练节奏', color: 'blue' },
+        { text: '重点练习弱项维度，每次10-15分钟', color: 'orange' },
+        { text: '家长陪伴，多鼓励，不催促', color: 'green' }
+      ],
+      showReassessReminder: false,
+      continuousDays: 0
     }
   },
   onShow() {
@@ -124,11 +150,64 @@ export default {
             this.currentChild = children[0]
           }
           setCurrentChild(this.currentChild)
-          await this.loadTasks()
+          await Promise.all([this.loadTasks(), this.loadWeekFocus()])
         }
       } catch (e) {
         console.error('加载失败', e)
       }
+    },
+    async loadWeekFocus() {
+      // 根据最新报告的弱项维度动态生成本周重点
+      try {
+        const reports = await getReports(this.currentChild.id)
+        if (!reports || reports.length === 0) return
+        const latest = reports[0]
+        let dims = {}
+        try { dims = JSON.parse(latest.dimensions || '{}') } catch (e) {}
+        const dimAdvice = {
+          visual_discrimination: { text: '重点：每天5分钟形近字辨别练习', color: 'orange' },
+          attention:             { text: '重点：训练时使用计时器，控制在15分钟内', color: 'orange' },
+          phonological:          { text: '重点：拼音与汉字对应卡片游戏', color: 'orange' },
+          character_order:       { text: '重点：描红练习，强化笔顺记忆', color: 'orange' },
+          spelling:              { text: '重点：每日听写5个词语，错词重复3遍', color: 'orange' },
+          reading_comprehension: { text: '重点：亲子共读后提问，引导复述', color: 'orange' },
+          semantic_integration:  { text: '重点：多做造句练习，理解词语用法', color: 'orange' },
+          information_extraction:{ text: '重点：阅读后找出时间/地点/人物', color: 'orange' },
+        }
+        const weakDims = Object.entries(dims).filter(([, s]) => s < 70).map(([d]) => d)
+        const focus = [{ text: '每天完成今日任务，保持训练节奏', color: 'blue' }]
+        for (const d of weakDims.slice(0, 2)) {
+          if (dimAdvice[d]) focus.push(dimAdvice[d])
+        }
+        focus.push({ text: '家长陪伴，多鼓励，不催促', color: 'green' })
+        this.weekFocus = focus
+
+        // 计算连续训练天数，判断是否触发复评提醒
+        const allTasks = await getTasks(this.currentChild.id, 'completed')
+        this.continuousDays = this._calcContinuousDays(allTasks)
+        if (this.continuousDays >= 14) {
+          this.showReassessReminder = true
+        }
+      } catch (e) {
+        console.warn('加载报告失败', e)
+      }
+    },
+    _calcContinuousDays(completedTasks) {
+      if (!completedTasks || completedTasks.length === 0) return 0
+      const days = new Set(completedTasks.map(t => {
+        const d = t.completed_at || t.created_at
+        return d ? d.split('T')[0] : null
+      }).filter(Boolean))
+      const sorted = [...days].sort().reverse()
+      let count = 0
+      let prev = null
+      for (const day of sorted) {
+        if (!prev) { count = 1; prev = day; continue }
+        const diff = (new Date(prev) - new Date(day)) / 86400000
+        if (diff === 1) { count++; prev = day }
+        else break
+      }
+      return count
     },
     async loadTasks() {
       if (!this.currentChild) return
@@ -158,9 +237,9 @@ export default {
     async createDefaultTasks() {
       const today = new Date().toISOString().split('T')[0]
       const defaults = [
-        { task_type: 'visual', task_name: '火眼金睛 (视觉训练)', child_id: this.currentChild.id, scheduled_date: today },
-        { task_type: 'spelling', task_name: '字形保卫战', child_id: this.currentChild.id, scheduled_date: today },
-        { task_type: 'reading', task_name: '亲子共读打卡', child_id: this.currentChild.id, scheduled_date: today }
+        { task_type: 'visual',        task_name: '火眼金睛 (视觉训练)',  child_id: this.currentChild.id, scheduled_date: today },
+        { task_type: 'spelling',      task_name: '字形保卫战',           child_id: this.currentChild.id, scheduled_date: today },
+        { task_type: 'comprehension', task_name: '亲子共读打卡',         child_id: this.currentChild.id, scheduled_date: today }
       ]
       for (const t of defaults) {
         try { await createTask(t) } catch (e) { /* ignore */ }
@@ -179,11 +258,12 @@ export default {
     },
     startTask(task) {
       if (task.status === 'completed') return
-      // 存储待完成任务ID，游戏结束后自动标记
       if (task.id) uni.setStorageSync('pending_task_id', task.id)
-      // 直接进入准备页，传入游戏类型
+      // reading 映射到 comprehension（后端不支持 reading 类型）
+      const typeMap = { reading: 'comprehension' }
+      const gameType = typeMap[task.task_type] || task.task_type || 'visual'
       uni.navigateTo({
-        url: `/pages/child/prep/index?game_type=${task.task_type || 'visual'}`
+        url: `/pages/child/prep/index?game_type=${gameType}`
       })
     },
     taskIcon(type) {
@@ -194,6 +274,9 @@ export default {
     },
     taskDesc(type) {
       return { visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆', reading: '培养语感与阅读兴趣' }[type] || ''
+    },
+    goToScreening() {
+      uni.navigateTo({ url: '/pages/parent/screening/index' })
     }
   }
 }
@@ -418,11 +501,22 @@ export default {
   display: flex;
   align-items: center;
   gap: 24rpx;
+  margin-bottom: 48rpx;
+}
+
+.milestone-card.active {
+  background: #ECFDF5;
+  border-color: #6EE7B7;
 }
 
 .milestone-card .ph {
   font-size: 64rpx;
   color: #D1D5DB;
+  flex-shrink: 0;
+}
+
+.milestone-card.active .ph {
+  color: #10B981;
 }
 
 .milestone-title {
@@ -440,5 +534,45 @@ export default {
 .milestone-desc .highlight {
   font-weight: 700;
   color: #3B82F6;
+}
+
+.reassess-mini-btn {
+  padding: 16rpx 28rpx;
+  background: #10B981;
+  color: #FFFFFF;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* 本周重点 */
+.week-card {
+  background: #F9FAFB;
+  border-radius: 32rpx;
+  padding: 32rpx 40rpx;
+  border: 1rpx solid #F3F4F6;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.week-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+.week-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.week-dot.blue { background: #3B82F6; }
+.week-dot.orange { background: #F59E0B; }
+.week-dot.green { background: #10B981; }
+.week-text {
+  font-size: 26rpx;
+  color: #4B5563;
+  line-height: 1.5;
 }
 </style>

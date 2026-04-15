@@ -1,5 +1,5 @@
-# 视觉辨识游戏题目
-# 找出不一样的字/图形
+# 视觉辨识游戏题目 — 找出不一样的字/错字
+# 修复：答案位置随机分布，无重复选项，无无效题目
 
 VISUAL_QUESTIONS = {
     "L1": [
@@ -19,8 +19,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L1",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["日", "日", "目", "日"],
-            "correct_index": 2,
+            "options": ["目", "日", "日", "日"],
+            "correct_index": 0,
             "time_limit": 10
         },
         {
@@ -29,8 +29,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L1",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["土", "土", "士", "土"],
-            "correct_index": 2,
+            "options": ["土", "士", "土", "土"],
+            "correct_index": 1,
             "time_limit": 10
         },
         {
@@ -39,8 +39,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L1",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["人", "人", "入", "人"],
-            "correct_index": 2,
+            "options": ["人", "人", "人", "入"],
+            "correct_index": 3,
             "time_limit": 10
         },
         {
@@ -49,8 +49,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L1",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["王", "王", "玉", "王"],
-            "correct_index": 2,
+            "options": ["王", "玉", "王", "王"],
+            "correct_index": 1,
             "time_limit": 10
         },
         {
@@ -59,8 +59,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L1",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["白", "白", "百", "白"],
-            "correct_index": 2,
+            "options": ["白", "白", "白", "百"],
+            "correct_index": 3,
             "time_limit": 10
         },
         {
@@ -79,8 +79,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L1",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["木", "木", "术", "木"],
-            "correct_index": 2,
+            "options": ["术", "木", "木", "木"],
+            "correct_index": 0,
             "time_limit": 10
         },
         {
@@ -99,8 +99,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L1",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["了", "了", "子", "了"],
-            "correct_index": 2,
+            "options": ["了", "子", "了", "了"],
+            "correct_index": 1,
             "time_limit": 10
         }
     ],
@@ -121,8 +121,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["汞", "泵", "泵", "泵"],
-            "correct_index": 0,
+            "options": ["泵", "泵", "汞", "泵"],
+            "correct_index": 2,
             "time_limit": 8
         },
         {
@@ -141,8 +141,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["午", "牛", "牛", "牛"],
-            "correct_index": 0,
+            "options": ["牛", "牛", "牛", "午"],
+            "correct_index": 3,
             "time_limit": 8
         },
         {
@@ -151,8 +151,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["折", "拆", "拆", "拆"],
-            "correct_index": 0,
+            "options": ["拆", "折", "拆", "拆"],
+            "correct_index": 1,
             "time_limit": 8
         },
         {
@@ -161,8 +161,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["戍", "戌", "戌", "戌"],
-            "correct_index": 0,
+            "options": ["戌", "戌", "戍", "戌"],
+            "correct_index": 2,
             "time_limit": 8
         },
         {
@@ -171,8 +171,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["候", "侯", "侯", "侯"],
-            "correct_index": 0,
+            "options": ["侯", "候", "侯", "侯"],
+            "correct_index": 1,
             "time_limit": 8
         },
         {
@@ -181,8 +181,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["治", "冶", "冶", "冶"],
-            "correct_index": 0,
+            "options": ["冶", "冶", "冶", "治"],
+            "correct_index": 3,
             "time_limit": 8
         },
         {
@@ -191,8 +191,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["崇", "祟", "祟", "祟"],
-            "correct_index": 0,
+            "options": ["祟", "崇", "祟", "祟"],
+            "correct_index": 1,
             "time_limit": 8
         },
         {
@@ -201,8 +201,8 @@ VISUAL_QUESTIONS = {
             "difficulty": "L2",
             "title": "请找出不一样的字",
             "instruction": "仔细看，哪个字和大家不一样呢？",
-            "options": ["膂", "膂", "膂", "膂"],
-            "correct_index": 0,
+            "options": ["戊", "戊", "戌", "戊"],
+            "correct_index": 2,
             "time_limit": 8
         }
     ],
@@ -211,8 +211,8 @@ VISUAL_QUESTIONS = {
             "id": "visual_L3_001",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
             "options": ["水果", "水呆", "水平", "水桶"],
             "correct_index": 1,
             "time_limit": 6
@@ -221,19 +221,19 @@ VISUAL_QUESTIONS = {
             "id": "visual_L3_002",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["公园", "公圆", "公园", "公里"],
-            "correct_index": 1,
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["公圆", "公园", "公里", "公路"],
+            "correct_index": 0,
             "time_limit": 6
         },
         {
             "id": "visual_L3_003",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["电脑", "电脑", "电恼", "电视"],
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["电视", "电脑", "电恼", "电话"],
             "correct_index": 2,
             "time_limit": 6
         },
@@ -241,9 +241,9 @@ VISUAL_QUESTIONS = {
             "id": "visual_L3_004",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["学校", "学校", "学效", "学期"],
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["学期", "学校", "学效", "学生"],
             "correct_index": 2,
             "time_limit": 6
         },
@@ -251,9 +251,9 @@ VISUAL_QUESTIONS = {
             "id": "visual_L3_005",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["图书", "图书", "图拾", "图书"],
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["图书", "图画", "图拾", "图案"],
             "correct_index": 2,
             "time_limit": 6
         },
@@ -261,50 +261,50 @@ VISUAL_QUESTIONS = {
             "id": "visual_L3_006",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["练习", "练习", "练刁", "练4"],
-            "correct_index": 2,
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["练习", "练刁", "练笔", "练唱"],
+            "correct_index": 1,
             "time_limit": 6
         },
         {
             "id": "visual_L3_007",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["游戏", "游戏", "游残", "游玩"],
-            "correct_index": 2,
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["游玩", "游戏", "游泳", "游残"],
+            "correct_index": 3,
             "time_limit": 6
         },
         {
             "id": "visual_L3_008",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["故事", "故事", "古事", "故4"],
-            "correct_index": 2,
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["故事", "古事", "故乡", "故意"],
+            "correct_index": 1,
             "time_limit": 6
         },
         {
             "id": "visual_L3_009",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["学生", "学生", "学尘", "学主"],
-            "correct_index": 2,
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["学尘", "学生", "学习", "学校"],
+            "correct_index": 0,
             "time_limit": 6
         },
         {
             "id": "visual_L3_010",
             "type": "visual_discrimination",
             "difficulty": "L3",
-            "title": "请找出错字",
-            "instruction": "下面的词语中，哪个字写错了？",
-            "options": ["老师", "老师", "老帅", "老狮"],
-            "correct_index": 2,
+            "title": "请找出含有错字的词语",
+            "instruction": "下面哪个词语里有错字？",
+            "options": ["老师", "老帅", "老实", "老虎"],
+            "correct_index": 1,
             "time_limit": 6
         }
     ]

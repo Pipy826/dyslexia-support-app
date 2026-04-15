@@ -24,6 +24,57 @@
         <!-- 能力多维剖析 -->
         <view class="section-title">能力多维剖析</view>
         <view class="ability-card">
+          <!-- SVG 雷达图 -->
+          <view class="radar-wrap" v-if="radarPoints.length > 0">
+            <svg viewBox="0 0 300 300" class="radar-svg">
+              <!-- 背景网格 -->
+              <polygon
+                v-for="level in [1,2,3,4]"
+                :key="level"
+                :points="getRadarPolygon(level * 25)"
+                fill="none"
+                stroke="#F3F4F6"
+                stroke-width="1"
+              />
+              <!-- 轴线 -->
+              <line
+                v-for="(axis, i) in radarAxes"
+                :key="'axis'+i"
+                x1="150" y1="150"
+                :x2="axis.x" :y2="axis.y"
+                stroke="#E5E7EB"
+                stroke-width="1"
+              />
+              <!-- 数据区域 -->
+              <polygon
+                :points="radarDataPoints"
+                fill="rgba(59,130,246,0.15)"
+                stroke="#3B82F6"
+                stroke-width="2"
+              />
+              <!-- 数据点 -->
+              <circle
+                v-for="(pt, i) in radarPoints"
+                :key="'pt'+i"
+                :cx="pt.x" :cy="pt.y"
+                r="5"
+                :fill="pt.color"
+                stroke="#FFFFFF"
+                stroke-width="2"
+              />
+              <!-- 维度标签 -->
+              <text
+                v-for="(axis, i) in radarAxes"
+                :key="'lbl'+i"
+                :x="axis.labelX" :y="axis.labelY"
+                text-anchor="middle"
+                dominant-baseline="middle"
+                font-size="11"
+                fill="#6B7280"
+              >{{ axis.shortName }}</text>
+            </svg>
+          </view>
+
           <view class="ability-item" v-for="(score, dim) in parsedDimensions" :key="dim">
             <view class="ability-header">
               <view class="ability-name">{{ dimName(dim) }}</view>
@@ -34,7 +85,7 @@
                 <view class="progress-fill" :class="scoreClass(score)" :style="{ width: score + '%' }"></view>
               </view>
             </view>
-            <view class="ability-hint">{{ dimHint(dim) }}</view>
+            <view class="ability-hint">{{ dimHint(dim, score) }}</view>
           </view>
         </view>
 
@@ -65,6 +116,26 @@
           </view>
           <view class="advice-desc">{{ latestReport.recommendations }}</view>
           <button class="advice-btn" @click="goToTraining">查看专属干预方案 →</button>
+        </view>
+
+        <!-- 复评建议 -->
+        <view class="reassess-card">
+          <view class="reassess-header">
+            <text class="ph ph-calendar-check"></text>
+            <view class="reassess-title">复评建议</view>
+          </view>
+          <view class="reassess-desc">{{ reassessText }}</view>
+          <button class="reassess-btn" @click="goToScreening">立即复评</button>
+        </view>
+
+        <!-- 高风险专业引导 -->
+        <view class="high-risk-card" v-if="latestReport.risk_level === 'high'">
+          <view class="high-risk-header">
+            <text class="ph ph-warning-circle high-risk-icon"></text>
+            <view class="high-risk-title">建议专业评估</view>
+          </view>
+          <view class="high-risk-desc">根据本次评估结果，建议尽快联系专业机构进行全面评估，以获得更准确的诊断和干预方案。</view>
+          <button class="high-risk-btn" @click="goToAiChat">了解更多</button>
         </view>
       </template>
 
@@ -97,6 +168,59 @@ export default {
       reports: [],
       latestReport: null,
       parsedDimensions: {}
+    }
+  },
+  computed: {
+    radarDimOrder() {
+      return ['visual_discrimination','phonological','character_order','spelling','reading_comprehension','semantic_integration','information_extraction','attention']
+    },
+    radarAxes() {
+      const dims = this.radarDimOrder
+      const n = dims.length
+      const cx = 150, cy = 150, r = 100, labelR = 125
+      const shortNames = {
+        visual_discrimination: '视觉', phonological: '音形',
+        character_order: '字序', spelling: '拼写',
+        reading_comprehension: '阅读', semantic_integration: '语义',
+        information_extraction: '提取', attention: '注意力'
+      }
+      return dims.map((dim, i) => {
+        const angle = (2 * Math.PI * i / n) - Math.PI / 2
+        return {
+          x: cx + r * Math.cos(angle),
+          y: cy + r * Math.sin(angle),
+          labelX: cx + labelR * Math.cos(angle),
+          labelY: cy + labelR * Math.sin(angle),
+          shortName: shortNames[dim] || dim
+        }
+      })
+    },
+    radarPoints() {
+      if (!this.parsedDimensions || Object.keys(this.parsedDimensions).length === 0) return []
+      const dims = this.radarDimOrder
+      const n = dims.length
+      const cx = 150, cy = 150, r = 100
+      return dims.map((dim, i) => {
+        const score = this.parsedDimensions[dim] || 0
+        const angle = (2 * Math.PI * i / n) - Math.PI / 2
+        const dist = (score / 100) * r
+        const color = score >= 75 ? '#10B981' : score >= 60 ? '#F59E0B' : '#EF4444'
+        return {
+          x: cx + dist * Math.cos(angle),
+          y: cy + dist * Math.sin(angle),
+          color
+        }
+      })
+    },
+    radarDataPoints() {
+      return this.radarPoints.map(p => `${p.x},${p.y}`).join(' ')
+    },
+    reassessText() {
+      if (!this.latestReport) return ''
+      const level = this.latestReport.risk_level
+      if (level === 'low') return '建议1个月后复评，持续跟踪能力变化'
+      if (level === 'medium') return '建议2周后复评，观察训练效果'
+      return '建议尽快复评，密切关注变化'
     }
   },
   onShow() {
@@ -146,14 +270,30 @@ export default {
       }
       return map[dim] || dim
     },
-    dimHint(dim) {
-      const map = {
-        visual_discrimination: '区分形近字的能力。', phonological: '音义联结能力。',
-        character_order: '笔画顺序记忆能力。', spelling: '拼写输出稳定性。',
-        reading_comprehension: '理解文字内容的能力。', semantic_integration: '句间关系理解能力。',
-        information_extraction: '从文本提取关键信息的能力。', attention: '持续专注完成任务的能力。'
+    dimHint(dim, score) {
+      const good = {
+        visual_discrimination: '形近字辨别能力良好，视觉扫描稳定。',
+        phonological:          '音形联结反应正常，拼音识字能力稳定。',
+        character_order:       '汉字笔顺记忆良好，字形组织稳定。',
+        spelling:              '拼写输出稳定，作答犹豫较少。',
+        reading_comprehension: '能准确理解句子和短文的核心意思。',
+        semantic_integration:  '句间关系理解正常，语义整合能力良好。',
+        information_extraction:'能从文中快速定位关键信息。',
+        attention:             '能持续专注完成任务，注意力稳定。'
       }
-      return map[dim] || ''
+      const weak = {
+        visual_discrimination: '易混淆形近字，视觉扫描时容易漏字或看错。',
+        phonological:          '音形联结反应偏慢，拼音与汉字对应存在困难。',
+        character_order:       '书写时部件位置偶有颠倒，笔顺记忆不稳定。',
+        spelling:              '作答犹豫期较长，部件颠倒或替换发生率偏高。',
+        reading_comprehension: '理解句子和短文时存在困难，容易遗漏关键信息。',
+        semantic_integration:  '句间关系理解存在偏差，语义整合能力需加强。',
+        information_extraction:'从文中提取关键信息时容易遗漏或混淆。',
+        attention:             '持续专注能力不足，连续任务中表现有波动。'
+      }
+      if (score >= 75) return good[dim] || ''
+      if (score >= 60) return `${weak[dim] || ''} 建议适当加强练习。`
+      return `${weak[dim] || ''} 这是当前需要重点关注的能力维度。`
     },
     scoreClass(score) {
       if (score >= 75) return 'green'
@@ -181,6 +321,16 @@ export default {
     },
     goToScreening() {
       uni.navigateTo({ url: '/pages/parent/screening/index' })
+    },
+    getRadarPolygon(pct) {
+      const dims = this.radarDimOrder
+      const n = dims.length
+      const cx = 150, cy = 150, r = 100
+      return dims.map((_, i) => {
+        const angle = (2 * Math.PI * i / n) - Math.PI / 2
+        const dist = (pct / 100) * r
+        return `${cx + dist * Math.cos(angle)},${cy + dist * Math.sin(angle)}`
+      }).join(' ')
     }
   }
 }
@@ -483,6 +633,101 @@ export default {
 .history-badge.low { background: #ECFDF5; color: #10B981; }
 .history-badge.medium { background: #FEF3C7; color: #F59E0B; }
 .history-badge.high { background: #FEF2F2; color: #EF4444; }
+
+/* 雷达图 */
+.radar-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 40rpx;
+}
+.radar-svg {
+  width: 300rpx;
+  height: 300rpx;
+}
+
+/* 复评建议卡片 */
+.reassess-card {
+  background: #F0FDF4;
+  border-radius: 48rpx;
+  padding: 48rpx;
+  margin-bottom: 48rpx;
+  border: 1rpx solid #BBF7D0;
+}
+.reassess-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+.reassess-header .ph {
+  font-size: 32rpx;
+  color: #10B981;
+}
+.reassess-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1F2937;
+}
+.reassess-desc {
+  font-size: 26rpx;
+  color: #4B5563;
+  line-height: 1.7;
+  margin-bottom: 32rpx;
+}
+.reassess-btn {
+  width: 100%;
+  background: #10B981;
+  color: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 24rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 高风险专业引导卡片 */
+.high-risk-card {
+  background: #FEF2F2;
+  border-radius: 48rpx;
+  padding: 48rpx;
+  margin-bottom: 48rpx;
+  border: 2rpx solid #FECACA;
+}
+.high-risk-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+.high-risk-icon {
+  font-size: 40rpx;
+  color: #EF4444;
+}
+.high-risk-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #DC2626;
+}
+.high-risk-desc {
+  font-size: 26rpx;
+  color: #4B5563;
+  line-height: 1.7;
+  margin-bottom: 32rpx;
+}
+.high-risk-btn {
+  width: 100%;
+  background: #EF4444;
+  color: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 24rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 /* 空状态 */
 .empty-state {
