@@ -88,6 +88,14 @@ def update_task_progress(
         if data.progress >= 100 and task.status != "completed":
             task.status = "completed"
             task.completed_at = datetime.utcnow()
+            # 通过进度接口完成任务时同样发放奖励，与 /complete 接口保持一致
+            reward = Reward(
+                child_id=task.child_id,
+                reward_type="star",
+                name="训练之星",
+                description="完成一次训练任务"
+            )
+            db.add(reward)
 
     db.commit()
     db.refresh(task)
@@ -108,6 +116,10 @@ def complete_task(
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # 防止重复完成：已完成的任务直接返回，不重复发放奖励
+    if task.status == "completed":
+        return TrainingTaskResponse.model_validate(task)
 
     task.status = "completed"
     task.progress = 100

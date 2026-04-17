@@ -117,18 +117,18 @@ export default {
       formData: {
         name: '',
         gender: 'boy',
-        grade: '1',
+        grade: '一年级',
         hasDifficulty: false,
         hasProfessionalEval: false,
         avatar_url: ''
       },
       gradeOptions: [
-        { label: '学龄前', value: 'pre' },
-        { label: '一年级', value: '1' },
-        { label: '二年级', value: '2' },
-        { label: '三年级', value: '3' },
-        { label: '四年级', value: '4' },
-        { label: '五/六年级', value: '5+' }
+        { label: '学龄前', value: '幼儿园' },
+        { label: '一年级', value: '一年级' },
+        { label: '二年级', value: '二年级' },
+        { label: '三年级', value: '三年级' },
+        { label: '四年级', value: '四年级' },
+        { label: '五/六年级', value: '五年级' }
       ]
     }
   },
@@ -195,7 +195,7 @@ export default {
         // 编辑时需要保留原有 birth_date，新建时用年级推算
         let birthDate = this.formData.birth_date
         if (!birthDate) {
-          const gradeAgeMap = { pre: 5, '1': 7, '2': 8, '3': 9, '4': 10, '5+': 11 }
+          const gradeAgeMap = { '幼儿园': 5, '一年级': 7, '二年级': 8, '三年级': 9, '四年级': 10, '五年级': 11 }
           const age = gradeAgeMap[this.formData.grade] || 8
           const birthYear = new Date().getFullYear() - age
           birthDate = `${birthYear}-06-01`

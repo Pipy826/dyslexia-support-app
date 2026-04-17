@@ -24,10 +24,21 @@ class PhoneRequest(BaseModel):
     phone: str
 
 
+class LoginByCodeRequest(BaseModel):
+    phone: str
+    code: str
+
+
 @router.post("/register", response_model=Token)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new parent user"""
-    if user_data.phone and user_data.code:
+    # 手机号注册时必须验证验证码；纯用户名注册（无手机号）则跳过
+    if user_data.phone:
+        if not user_data.code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="手机号注册必须提供验证码"
+            )
         entry = verification_codes.get(user_data.phone)
         if not entry:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码不存在或已过期")
@@ -106,8 +117,10 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.post("/login-by-code", response_model=Token)
-def login_by_code(phone: str, code: str, db: Session = Depends(get_db)):
+def login_by_code(data: LoginByCodeRequest, db: Session = Depends(get_db)):
     """Login with phone + verification code (auto-register if not exists)"""
+    phone = data.phone
+    code = data.code
     entry = verification_codes.get(phone)
     if not entry:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码不存在或已过期")
@@ -172,8 +185,9 @@ def send_verification_code(request: PhoneRequest):
     }
 
     # TODO: 生产环境接入真实短信服务（如阿里云SMS、腾讯云SMS）
-    # 开发模式下将验证码打印到日志
-    print(f"[DEV] 验证码 {phone}: {code}（{CODE_EXPIRE_SECONDS}秒内有效）")
+    # 仅在 DEBUG 模式下将验证码打印到日志，生产环境不输出
+    if settings.DEBUG:
+        print(f"[DEV] 验证码 {phone}: {code}（{CODE_EXPIRE_SECONDS}秒内有效）")
 
     return {"message": "验证码已发送", "expires_in": CODE_EXPIRE_SECONDS}
 

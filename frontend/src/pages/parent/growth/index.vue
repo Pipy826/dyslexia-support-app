@@ -188,9 +188,40 @@ export default {
     },
 
     buildDimensionHistory(scores) {
-      // 从 scores 中提取维度历史（需要后端返回 dimensions 字段）
-      // 这里做简化处理，实际可扩展
-      this.dimensionHistory = []
+      if (!scores || scores.length < 2) {
+        this.dimensionHistory = []
+        return
+      }
+      const dimNames = {
+        visual_discrimination: '视觉辨识',
+        phonological: '音形映射',
+        character_order: '字序组织',
+        spelling: '拼写输出',
+        reading_comprehension: '阅读理解',
+        semantic_integration: '语义整合',
+        information_extraction: '信息提取',
+        attention: '注意力',
+      }
+      // 收集所有出现过的维度
+      const allDims = new Set()
+      scores.forEach(s => {
+        const dims = s.dimensions || {}
+        Object.keys(dims).forEach(d => allDims.add(d))
+      })
+      this.dimensionHistory = [...allDims].map(key => {
+        const dimScores = scores.map(s => {
+          const dims = s.dimensions || {}
+          return dims[key] !== undefined ? dims[key] : null
+        }).filter(v => v !== null)
+        const first = dimScores[0] ?? 0
+        const last = dimScores[dimScores.length - 1] ?? 0
+        return {
+          key,
+          name: dimNames[key] || key,
+          scores: dimScores,
+          trend: last - first,
+        }
+      })
     },
 
     getRiskClass(level) {

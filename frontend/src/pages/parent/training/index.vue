@@ -243,7 +243,11 @@ export default {
         if (!reports || reports.length === 0) return
         const latest = reports[0]
         let dims = {}
-        try { dims = JSON.parse(latest.dimensions || '{}') } catch (e) {}
+        try {
+          // 后端 dimensions 可能是字符串（JSON）或已解析的对象
+          const raw = latest.dimensions
+          dims = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {})
+        } catch (e) { dims = {} }
         const dimAdvice = {
           visual_discrimination: { text: '重点：每天5分钟形近字辨别练习', color: 'orange' },
           attention:             { text: '重点：训练时使用计时器，控制在15分钟内', color: 'orange' },
@@ -347,13 +351,13 @@ export default {
       })
     },
     taskIcon(type) {
-      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', reading: 'ph-book-open' }[type] || 'ph-star'
+      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', comprehension: 'ph-book-open', reading: 'ph-book-open' }[type] || 'ph-star'
     },
     taskColor(type) {
-      return { visual: 'orange', spelling: 'blue', reading: 'green' }[type] || 'blue'
+      return { visual: 'orange', spelling: 'blue', comprehension: 'green', reading: 'green' }[type] || 'blue'
     },
     taskDesc(type) {
-      return { visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆', reading: '培养语感与阅读兴趣' }[type] || ''
+      return { visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆', comprehension: '培养语感与阅读兴趣', reading: '培养语感与阅读兴趣' }[type] || ''
     },
     goToScreening() {
       uni.navigateTo({ url: '/pages/parent/screening/index' })

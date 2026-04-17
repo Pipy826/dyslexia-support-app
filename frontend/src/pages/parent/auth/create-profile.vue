@@ -115,18 +115,18 @@ export default {
       formData: {
         name: '',
         gender: 'boy',
-        grade: '1',
+        grade: '一年级',
         hasDifficulty: false,
         hasProfessionalEval: false,
         avatar_url: ''
       },
       gradeOptions: [
-        { label: '学龄前', value: 'pre' },
-        { label: '一年级', value: '1' },
-        { label: '二年级', value: '2' },
-        { label: '三年级', value: '3' },
-        { label: '四年级', value: '4' },
-        { label: '五/六年级', value: '5+' }
+        { label: '学龄前', value: '幼儿园' },
+        { label: '一年级', value: '一年级' },
+        { label: '二年级', value: '二年级' },
+        { label: '三年级', value: '三年级' },
+        { label: '四年级', value: '四年级' },
+        { label: '五/六年级', value: '五年级' }
       ],
       uploading: false
     }
@@ -159,7 +159,7 @@ export default {
         return
       }
       // birth_date 必填，用年级推算一个默认生日
-      const gradeAgeMap = { pre: 5, '1': 7, '2': 8, '3': 9, '4': 10, '5+': 11 }
+      const gradeAgeMap = { '幼儿园': 5, '一年级': 7, '二年级': 8, '三年级': 9, '四年级': 10, '五年级': 11 }
       const age = gradeAgeMap[this.formData.grade] || 8
       const birthYear = new Date().getFullYear() - age
       const birthDate = `${birthYear}-01-01`
@@ -170,7 +170,8 @@ export default {
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
           birth_date: birthDate,
           grade: this.formData.grade,
-          has_difficulty: this.formData.hasDifficulty,
+          // 任一项勾选均标记为 has_difficulty，供筛查系统调整侧重点
+          has_difficulty: this.formData.hasDifficulty || this.formData.hasProfessionalEval,
           avatar_url: this.formData.avatar_url || null
         })
         setCurrentChild(child)

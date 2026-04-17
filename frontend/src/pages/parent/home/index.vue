@@ -284,16 +284,13 @@ export default {
       if (this.currentChild) {
         uni.navigateTo({ url: `/pages/parent/growth/index?child_id=${this.currentChild.id}` })
       }
-    },
-    goToGrowth() {
-      uni.navigateTo({ url: '/pages/parent/growth/index' })
     }
   }
 }
 </script>
 
 <style scoped>
-@import '@/styles/variables.scss';
+@import '@/styles/common.scss';
 
 .page-container {
   min-height: 100vh;

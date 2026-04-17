@@ -108,17 +108,6 @@ EMOTIONAL_SUPPORT_SYSTEM_PROMPT = """你是一位专业的家长心理支持顾�
 - 语气温暖、坚定、充满希望
 - 总字数200字以内"""
 
-ADAPTIVE_DIFFICULTY_PROMPT = """你是一位专业的儿童认知评估专家。
-请根据孩子当前的答题表现，判断是否需要调整难度，并给出建议。
-
-只返回JSON格式：
-{
-  "should_adjust": true/false,
-  "direction": "up"/"down"/"stay",
-  "reason": "简短原因（10字以内）",
-  "confidence": 0.0-1.0
-}"""
-
 
 # ── 核心 HTTP 调用 ──────────────────────────────────────────────────────────
 
@@ -484,13 +473,6 @@ async def generate_child_encouragement(
             return f"{child_name}已经很努力了！🌈 下次一定会更好！"
 
 
-# ── 兼容旧接口（保持向后兼容） ───────────────────────────────────────────────
-
-def get_rule_based_response(message: str, context: Optional[Dict] = None) -> str:
-    """已废弃：保留此函数签名以兼容旧代码，实际不再使用规则回复"""
-    return "正在连接AI助手，请稍候..."
-
-
 # ── 功能 5：成长趋势分析 ─────────────────────────────────────────────────────
 
 async def generate_growth_analysis(
@@ -656,57 +638,141 @@ async def generate_emotional_support(
         )
 
 
-# ── 功能 8：自适应难度判断 ───────────────────────────────────────────────────
+# ── 功能 8：自适应难度判断（纯规则，不走 LLM） ──────────────────────────────
+
+# 各难度等级的时限区间 [min, max]（秒）
+_TIME_LIMIT_RANGE = {
+    "L1": (8.0,  12.0),
+    "L2": (6.0,   8.0),
+    "L3": (4.0,   6.0),
+}
+# 学龄前补偿：在 L1 基础上再乘以此系数
+_PRESCHOOL_MULTIPLIER = 1.5
+
+# 效率阈值
+_EFFICIENCY_UP_THRESHOLD   = 0.80   # 正确率 ≥ 80% 且用时 ≤ 基准 60% → 考虑升难度/缩时限
+_EFFICIENCY_DOWN_THRESHOLD = 0.50   # 正确率 < 50% → 考虑降难度/放宽时限
+_TIME_SHRINK_STEP          = 0.5    # 每次缩进时限的步长（秒）
+_TIME_EXPAND_STEP          = 1.0    # 每次放宽时限的步长（秒）
+
 
 async def evaluate_adaptive_difficulty(
     game_type: str,
     current_difficulty: str,
     recent_answers: List[Dict],
+    current_time_limit: float = None,
+    grade: str = None,
 ) -> Dict:
     """
-    根据最近答题表现，判断是否需要调整难度。
-    recent_answers: 最近5-10题的答题记录，每项包含 is_correct, time_spent
-    返回: { should_adjust, direction, reason, confidence }
+    根据最近答题表现，判断是否需要调整难度或动态缩进时限。
+
+    逻辑：
+    1. 计算最近 N 题的正确率和平均反应时效率
+    2. 效率高（正确率 ≥ 80% 且反应时 ≤ 基准 60%）：
+       - 时限还有缩进空间 → 缩进时限（不升难度，先压时间）
+       - 时限已到下限 → 升难度，时限重置为新难度上限
+    3. 效率低（正确率 < 50%）：
+       - 先放宽时限（不降难度）
+       - 时限已到上限 → 降难度，时限重置为新难度上限
+    4. 其余 → 保持不变
+
+    返回：
+    {
+      "should_adjust": bool,
+      "direction": "up" | "down" | "stay",
+      "new_time_limit": float,          # 建议的新时限（秒）
+      "difficulty_changed": bool,
+      "new_difficulty": str,
+      "reason": str,
+      "accuracy": float,
+      "avg_reaction_ratio": float,      # 平均用时 / 基准时限
+    }
     """
     if len(recent_answers) < 3:
-        return {"should_adjust": False, "direction": "stay", "reason": "题目不足", "confidence": 0.5}
+        return {
+            "should_adjust": False, "direction": "stay",
+            "new_time_limit": current_time_limit,
+            "difficulty_changed": False, "new_difficulty": current_difficulty,
+            "reason": "题目不足", "accuracy": 0.0, "avg_reaction_ratio": 1.0,
+        }
 
-    correct_count = sum(1 for a in recent_answers if a.get("is_correct", False))
     total = len(recent_answers)
+    correct_count = sum(1 for a in recent_answers if a.get("is_correct", False))
     accuracy = correct_count / total
 
-    times = [a.get("time_spent", 5) for a in recent_answers if a.get("time_spent")]
-    avg_time = sum(times) / len(times) if times else 5
+    # 反应时效率：用时 / 基准时限，越小越快
+    time_min, time_max = _TIME_LIMIT_RANGE.get(current_difficulty, (8.0, 12.0))
+    base_time = current_time_limit or time_max
+    times = [a.get("time_spent") for a in recent_answers if a.get("time_spent") and not a.get("is_timeout")]
+    avg_reaction_ratio = (sum(times) / len(times) / base_time) if times else 1.0
 
-    game_names = {"visual": "视觉辨识", "spelling": "拼字识别", "comprehension": "文字理解"}
-    diff_names = {"L1": "初级", "L2": "中级", "L3": "高级"}
+    difficulty_levels = ["L1", "L2", "L3"]
+    current_idx = difficulty_levels.index(current_difficulty) if current_difficulty in difficulty_levels else 0
 
-    user_message = (
-        f"游戏类型：{game_names.get(game_type, game_type)}，当前难度：{diff_names.get(current_difficulty, current_difficulty)}。"
-        f"最近{total}题：正确率{accuracy:.0%}，平均用时{avg_time:.1f}秒。"
-        f"请判断是否需要调整难度。"
-    )
+    # 学龄前补偿：时限下限不低于 L1 下限 × 补偿系数
+    preschool_grades = {"preschool", "幼儿园", "学前"}
+    is_preschool = grade and grade.strip() in preschool_grades
+    effective_time_min = time_min * (_PRESCHOOL_MULTIPLIER if is_preschool else 1.0)
+    effective_time_max = time_max * (_PRESCHOOL_MULTIPLIER if is_preschool else 1.0)
+    current_tl = current_time_limit or effective_time_max
 
-    try:
-        result = await call_llm(
-            system_prompt=ADAPTIVE_DIFFICULTY_PROMPT,
-            user_message=user_message,
-            temperature=0.3,
-            max_tokens=100,
-        )
-        result = result.strip()
-        if result.startswith("```"):
-            result = result.split("```")[1]
-            if result.startswith("json"):
-                result = result[4:]
-        return json.loads(result)
-    except Exception:
-        # 规则降级
-        if accuracy >= 0.85 and avg_time < 4 and current_difficulty != "L3":
-            return {"should_adjust": True, "direction": "up", "reason": "表现优秀", "confidence": 0.8}
-        elif accuracy < 0.5 and current_difficulty != "L1":
-            return {"should_adjust": True, "direction": "down", "reason": "正确率偏低", "confidence": 0.8}
-        return {"should_adjust": False, "direction": "stay", "reason": "表现正常", "confidence": 0.7}
+    # ── 判断逻辑 ──────────────────────────────────────────────────────────────
+    if accuracy >= _EFFICIENCY_UP_THRESHOLD and avg_reaction_ratio <= 0.6:
+        # 表现优秀：先缩时限
+        new_tl = round(current_tl - _TIME_SHRINK_STEP, 1)
+        if new_tl >= effective_time_min:
+            return {
+                "should_adjust": True, "direction": "up",
+                "new_time_limit": new_tl,
+                "difficulty_changed": False, "new_difficulty": current_difficulty,
+                "reason": "表现优秀，压缩时限",
+                "accuracy": accuracy, "avg_reaction_ratio": avg_reaction_ratio,
+            }
+        elif current_idx < len(difficulty_levels) - 1:
+            # 时限已到下限，升难度
+            new_diff = difficulty_levels[current_idx + 1]
+            new_range = _TIME_LIMIT_RANGE.get(new_diff, (6.0, 8.0))
+            new_tl = new_range[1] * (_PRESCHOOL_MULTIPLIER if is_preschool else 1.0)
+            return {
+                "should_adjust": True, "direction": "up",
+                "new_time_limit": new_tl,
+                "difficulty_changed": True, "new_difficulty": new_diff,
+                "reason": "时限已压至下限，升级难度",
+                "accuracy": accuracy, "avg_reaction_ratio": avg_reaction_ratio,
+            }
+
+    elif accuracy < _EFFICIENCY_DOWN_THRESHOLD:
+        # 表现较差：先放宽时限
+        new_tl = round(current_tl + _TIME_EXPAND_STEP, 1)
+        if new_tl <= effective_time_max:
+            return {
+                "should_adjust": True, "direction": "down",
+                "new_time_limit": new_tl,
+                "difficulty_changed": False, "new_difficulty": current_difficulty,
+                "reason": "正确率偏低，放宽时限",
+                "accuracy": accuracy, "avg_reaction_ratio": avg_reaction_ratio,
+            }
+        elif current_idx > 0:
+            # 时限已到上限，降难度
+            new_diff = difficulty_levels[current_idx - 1]
+            new_range = _TIME_LIMIT_RANGE.get(new_diff, (8.0, 12.0))
+            new_tl = new_range[1] * (_PRESCHOOL_MULTIPLIER if is_preschool else 1.0)
+            return {
+                "should_adjust": True, "direction": "down",
+                "new_time_limit": new_tl,
+                "difficulty_changed": True, "new_difficulty": new_diff,
+                "reason": "时限已放至上限，降低难度",
+                "accuracy": accuracy, "avg_reaction_ratio": avg_reaction_ratio,
+            }
+
+    # 保持不变
+    return {
+        "should_adjust": False, "direction": "stay",
+        "new_time_limit": current_tl,
+        "difficulty_changed": False, "new_difficulty": current_difficulty,
+        "reason": "表现正常",
+        "accuracy": accuracy, "avg_reaction_ratio": avg_reaction_ratio,
+    }
 
 
 # ── 兼容旧接口（保持向后兼容） ───────────────────────────────────────────────

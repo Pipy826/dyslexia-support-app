@@ -10,6 +10,13 @@ from ..models.user import User
 router = APIRouter(prefix="/api/upload", tags=["文件上传"])
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+# content_type → 安全扩展名映射，避免使用用户提供的文件名扩展名
+_EXT_MAP = {
+    "image/jpeg": "jpg",
+    "image/png":  "png",
+    "image/gif":  "gif",
+    "image/webp": "webp",
+}
 
 
 def _ensure_upload_dir():
@@ -37,7 +44,8 @@ async def upload_avatar(
 
     _ensure_upload_dir()
 
-    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "jpg"
+    # 扩展名由 content_type 决定，不信任用户提供的文件名
+    ext = _EXT_MAP.get(file.content_type, "jpg")
     filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = os.path.join(settings.UPLOAD_DIR, filename)
 
@@ -51,10 +59,10 @@ async def upload_avatar(
 @router.get("/files/{filename}")
 async def get_file(filename: str):
     """获取上传的文件"""
+    # 路径穿越检查必须在文件系统操作之前
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="非法文件名")
     filepath = os.path.join(settings.UPLOAD_DIR, filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="文件不存在")
-    # 防止路径穿越
-    if ".." in filename or "/" in filename:
-        raise HTTPException(status_code=400, detail="非法文件名")
     return FileResponse(filepath)

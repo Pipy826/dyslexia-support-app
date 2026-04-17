@@ -120,7 +120,14 @@ export default {
       return new Date().getFullYear() - new Date(birthDate).getFullYear()
     },
     gradeLabel(grade) {
-      const map = { pre: '学龄前', '1': '一年级', '2': '二年级', '3': '三年级', '4': '四年级', '5+': '五六年级' }
+      const map = {
+        '幼儿园': '学龄前', '学前': '学龄前', 'preschool': '学龄前',
+        '一年级': '一年级', '二年级': '二年级', '三年级': '三年级',
+        '四年级': '四年级', '五年级': '五/六年级', '六年级': '六年级',
+        // 兼容旧数据
+        'pre': '学龄前', '1': '一年级', '2': '二年级',
+        '3': '三年级', '4': '四年级', '5+': '五/六年级'
+      }
       return map[grade] || grade || '未知年级'
     },
     logout() {

@@ -14,7 +14,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
-from datetime import datetime
+import logging
+from datetime import datetime, date
 
 from ..database import get_db
 from ..models.ai_chat import AIConversation
@@ -38,6 +39,30 @@ from ..models.user import User
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/ai", tags=["AI问答"])
+logger = logging.getLogger(__name__)
+
+
+# ── 工具函数 ─────────────────────────────────────────────────────────────────
+
+def _safe_json_loads(value: Optional[str], default=None):
+    """安全解析 JSON 字符串，解析失败时返回 default（默认空字典）"""
+    if default is None:
+        default = {}
+    if not value:
+        return default
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning(f"Failed to parse JSON value: {value!r:.100}")
+        return default
+
+
+def _calc_age(birth_date: date) -> int:
+    """根据出生日期计算当前年龄（周岁）"""
+    today = datetime.now().date()
+    return today.year - birth_date.year - (
+        (today.month, today.day) < (birth_date.month, birth_date.day)
+    )
 
 
 # ── 辅助：构建孩子上下文 ─────────────────────────────────────────────────────
@@ -54,14 +79,10 @@ def _build_child_context(child_id: Optional[int], db: Session, current_user: Use
     if not child:
         return {}
 
-    context = {"child_name": child.name}
-
-    # 计算年龄
-    today = datetime.now().date()
-    age = today.year - child.birth_date.year - (
-        (today.month, today.day) < (child.birth_date.month, child.birth_date.day)
-    )
-    context["child_age"] = age
+    context = {
+        "child_name": child.name,
+        "child_age": _calc_age(child.birth_date),
+    }
 
     # 最新报告
     report = db.query(Report).filter(
@@ -72,7 +93,7 @@ def _build_child_context(child_id: Optional[int], db: Session, current_user: Use
         context["risk_level"] = report.risk_level
         context["overall_score"] = report.overall_score
         if report.dimensions:
-            context["dimensions"] = json.loads(report.dimensions)
+            context["dimensions"] = _safe_json_loads(report.dimensions)
 
     return context
 
@@ -254,12 +275,9 @@ async def report_interpretation(
         raise HTTPException(status_code=404, detail="报告不存在")
 
     child = report.child
-    today = datetime.now().date()
-    age = today.year - child.birth_date.year - (
-        (today.month, today.day) < (child.birth_date.month, child.birth_date.day)
-    )
+    age = _calc_age(child.birth_date)
 
-    dimensions = json.loads(report.dimensions) if report.dimensions else {}
+    dimensions = _safe_json_loads(report.dimensions)
 
     interpretation = await generate_report_interpretation(
         child_name=child.name,
@@ -310,12 +328,9 @@ async def ai_training_plan(
     if not report:
         raise HTTPException(status_code=404, detail="暂无筛查报告，请先完成筛查")
 
-    today = datetime.now().date()
-    age = today.year - child.birth_date.year - (
-        (today.month, today.day) < (child.birth_date.month, child.birth_date.day)
-    )
+    age = _calc_age(child.birth_date)
 
-    dimensions = json.loads(report.dimensions) if report.dimensions else {}
+    dimensions = _safe_json_loads(report.dimensions)
 
     # 已完成训练次数
     completed_count = db.query(TrainingTask).filter(
@@ -398,10 +413,7 @@ async def growth_analysis(
         Report.child_id == child_id
     ).order_by(Report.created_at.asc()).all()
 
-    today = datetime.now().date()
-    age = today.year - child.birth_date.year - (
-        (today.month, today.day) < (child.birth_date.month, child.birth_date.day)
-    )
+    age = _calc_age(child.birth_date)
 
     reports_data = [
         {
@@ -425,7 +437,12 @@ async def growth_analysis(
         "report_count": len(reports),
         "analysis": analysis,
         "scores": [
-            {"date": r.created_at.isoformat()[:10], "score": r.overall_score, "risk_level": r.risk_level}
+            {
+                "date": r.created_at.isoformat()[:10],
+                "score": r.overall_score,
+                "risk_level": r.risk_level,
+                "dimensions": _safe_json_loads(r.dimensions),
+            }
             for r in reports
         ],
     }
@@ -447,11 +464,6 @@ async def daily_tip(
     if not child:
         raise HTTPException(status_code=404, detail="孩子档案不存在")
 
-    today = datetime.now().date()
-    age = today.year - child.birth_date.year - (
-        (today.month, today.day) < (child.birth_date.month, child.birth_date.day)
-    )
-
     # 获取最新报告
     report = db.query(Report).filter(
         Report.child_id == child_id
@@ -464,13 +476,17 @@ async def daily_tip(
             "has_report": False,
         }
 
-    dimensions = json.loads(report.dimensions) if report.dimensions else {}
+    age = _calc_age(child.birth_date)
+    dimensions = _safe_json_loads(report.dimensions)
 
     # 今日已完成任务数
     from ..models.training import TrainingTask
+    from datetime import date as _date
+    today_start = datetime.combine(_date.today(), datetime.min.time())
     today_completed = db.query(TrainingTask).filter(
         TrainingTask.child_id == child_id,
         TrainingTask.status == "completed",
+        TrainingTask.completed_at >= today_start,
     ).count()
 
     tip = await generate_daily_tip(
@@ -511,12 +527,9 @@ async def emotional_support(
         raise HTTPException(status_code=404, detail="报告不存在")
 
     child = report.child
-    today = datetime.now().date()
-    age = today.year - child.birth_date.year - (
-        (today.month, today.day) < (child.birth_date.month, child.birth_date.day)
-    )
+    age = _calc_age(child.birth_date)
 
-    dimensions = json.loads(report.dimensions) if report.dimensions else {}
+    dimensions = _safe_json_loads(report.dimensions)
 
     support = await generate_emotional_support(
         child_name=child.name,
@@ -540,6 +553,8 @@ class AdaptiveDifficultyRequest(BaseModel):
     game_type: str
     current_difficulty: str
     recent_answers: List[dict]
+    current_time_limit: Optional[float] = None
+    grade: Optional[str] = None
 
 
 @router.post("/adaptive-difficulty")
@@ -548,10 +563,12 @@ async def adaptive_difficulty(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """根据答题表现，AI 判断是否需要调整难度"""
+    """根据答题表现（正确率 + 反应时效率），动态调整难度或缩进时限"""
     result = await evaluate_adaptive_difficulty(
         game_type=data.game_type,
         current_difficulty=data.current_difficulty,
         recent_answers=data.recent_answers,
+        current_time_limit=data.current_time_limit,
+        grade=data.grade,
     )
     return result

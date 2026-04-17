@@ -81,7 +81,10 @@ def get_report_dimensions(
         raise HTTPException(status_code=404, detail="Report not found")
 
     import json
-    dimensions = json.loads(report.dimensions) if report.dimensions else {}
+    try:
+        dimensions = json.loads(report.dimensions) if report.dimensions else {}
+    except (json.JSONDecodeError, TypeError):
+        dimensions = {}
 
     return {
         "report_id": report.id,

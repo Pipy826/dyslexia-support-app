@@ -215,15 +215,38 @@ export default {
           this.isThinking = false;
           this._abortStream = null;
         },
-        // onError
+        // onError：流式失败时降级，但用户消息已入库，直接用普通模式获取 AI 回复
         (err) => {
           console.error('流式失败，降级到普通模式', err);
+          // 移除空的 AI 占位消息
           this.messages.splice(aiMsgIndex, 1);
           this.isStreaming = false;
           this.isThinking = false;
-          this.sendNormal(text);
+          // 降级：只获取 AI 回复，不重新发送用户消息（避免重复入库）
+          this.fetchNormalReply(text);
         }
       );
+    },
+
+    // 仅获取 AI 回复（不保存用户消息，用于流式降级场景）
+    async fetchNormalReply(text) {
+      this.isThinking = true;
+      try {
+        const res = await chat({
+          child_id: this.currentChild?.id,
+          message: text,
+        });
+        this.messages.push({
+          role: 'assistant',
+          message: res.reply,
+          created_at: new Date().toISOString(),
+        });
+        this.scrollToBottom();
+      } catch (e) {
+        uni.showToast({ title: '发送失败，请重试', icon: 'none' });
+      } finally {
+        this.isThinking = false;
+      }
     },
 
     async sendNormal(text) {

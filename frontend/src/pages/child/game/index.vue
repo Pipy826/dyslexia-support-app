@@ -133,6 +133,8 @@ export default {
       difficultyLevels: ['L1', 'L2', 'L3'],
       showDifficultyToast: false,
       difficultyToastText: '',
+      difficultyOverridden: false,  // true 表示自适应已手动覆盖 grade 映射
+      currentTimeLimit: null,       // 动态时限（null 时回退到题目自带的 time_limit）
     }
   },
   computed: {
@@ -147,7 +149,7 @@ export default {
   onLoad(options) {
     this.child = getCurrentChild()
     if (options.game_type) this.gameType = options.game_type
-    if (options.difficulty) this.difficulty = options.difficulty
+    // difficulty 不再从路由参数接收，统一由后端根据 grade 映射
     this.initScreening()
   },
   onUnload() {
@@ -197,8 +199,20 @@ export default {
 
     async loadQuestions() {
       try {
-        const res = await getQuestions(this.gameType, this.difficulty, 10)
+        // 首次加载：传 grade 让后端自动映射难度；自适应调难时 difficulty 已更新，直接传
+        const options = this.difficultyOverridden
+          ? { difficulty: this.difficulty, count: 10 }
+          : { grade: this.child?.grade, count: 10 }
+
+        const res = await getQuestions(this.gameType, options)
+        // 后端返回实际使用的 difficulty，同步到本地（首次加载时尤其重要）
+        if (res.difficulty) this.difficulty = res.difficulty
+
         this.questions = res.questions || []
+        // 首次加载：用第一题的 time_limit 初始化动态时限
+        if (!this.difficultyOverridden && this.questions.length > 0) {
+          this.currentTimeLimit = this.questions[0].time_limit ?? null
+        }
         this.correctAnswerMap = {}
         this.questions.forEach(q => {
           if (q.correct_index !== undefined) {
@@ -228,7 +242,8 @@ export default {
     startTimer() {
       this.clearTimer()
       const q = this.currentQuestion
-      this.timeLeft = q?.time_limit || 10
+      // 优先用动态时限，回退到题目自带的 time_limit；用 || 而非 ?? 以过滤 0 值
+      this.timeLeft = this.currentTimeLimit || q?.time_limit || 10
       this.timerInterval = setInterval(() => {
         this.timeLeft--
         if (this.timeLeft <= 0) {
@@ -246,7 +261,8 @@ export default {
     },
 
     autoSubmitCurrent() {
-      const timeSpent = this.currentQuestion?.time_limit || 10
+      // 超时时 time_spent = 实际动态时限，Math.round 保证传 int（pydantic 要求）
+      const timeSpent = Math.round(this.currentTimeLimit || this.currentQuestion?.time_limit || 10)
       this.answers.push({
         question_id: this.currentQuestion.id,
         answer: -1,
@@ -291,7 +307,7 @@ export default {
       if (this.selectedAnswer === null || this.showFeedback) return
       this.clearTimer()  // 倒计时作废
 
-      const timeSpent = Math.round((this.currentQuestion?.time_limit || 10) - this.timeLeft)
+      const timeSpent = Math.round((this.currentTimeLimit ?? this.currentQuestion?.time_limit ?? 10) - this.timeLeft)
       const correctIndex = this.correctAnswerMap[this.currentQuestion.id]
       const isCorrect = correctIndex !== undefined ? this.selectedAnswer === correctIndex : null
       const reactionTime = this.firstClickTime ? this.firstClickTime - this.questionStartTime : null
@@ -351,21 +367,32 @@ export default {
           game_type: this.gameType,
           current_difficulty: this.difficulty,
           recent_answers: recent,
+          current_time_limit: this.currentTimeLimit,
+          grade: this.child?.grade || null,
         })
 
         if (!result.should_adjust) return
 
-        const levels = this.difficultyLevels
-        const currentIdx = levels.indexOf(this.difficulty)
+        // 更新动态时限（无论是否换难度都要更新）
+        if (result.new_time_limit != null) {
+          this.currentTimeLimit = result.new_time_limit
+        }
 
-        if (result.direction === 'up' && currentIdx < levels.length - 1) {
-          this.difficulty = levels[currentIdx + 1]
-          this.showDifficultyHint('难度提升了！你真棒 🚀')
+        if (result.difficulty_changed) {
+          this.difficulty = result.new_difficulty
+          this.difficultyOverridden = true
+          if (result.direction === 'up') {
+            this.showDifficultyHint('难度提升了！你真棒 🚀')
+          } else {
+            this.showDifficultyHint('换个简单一点的试试 💪')
+          }
           await this.appendQuestions()
-        } else if (result.direction === 'down' && currentIdx > 0) {
-          this.difficulty = levels[currentIdx - 1]
-          this.showDifficultyHint('换个简单一点的试试 💪')
-          await this.appendQuestions()
+        } else {
+          // 只调时限，不换题
+          if (result.direction === 'up') {
+            this.showDifficultyHint('节奏加快啦，继续冲！⚡')
+          }
+          // 放宽时限不提示，避免打击孩子信心
         }
       } catch (e) {
         // 静默失败，不影响游戏
@@ -374,7 +401,9 @@ export default {
 
     async appendQuestions() {
       try {
-        const res = await getQuestions(this.gameType, this.difficulty, 5)
+        // 自适应调难追加题目：明确传 difficulty，标记已手动覆盖
+        this.difficultyOverridden = true
+        const res = await getQuestions(this.gameType, { difficulty: this.difficulty, count: 5 })
         const newQs = (res.questions || []).filter(
           q => !this.questions.find(existing => existing.id === q.id)
         )

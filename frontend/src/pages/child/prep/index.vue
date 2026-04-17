@@ -47,7 +47,6 @@ export default {
   data() {
     return {
       gameType: 'visual',
-      selectedDifficulty: 'L1'
     }
   },
   computed: {
@@ -60,23 +59,16 @@ export default {
   },
   onLoad(options) {
     if (options.game_type) this.gameType = options.game_type
-    // 根据儿童年级自动匹配难度
-    const child = getCurrentChild()
-    this.selectedDifficulty = this._gradeToLevel(child?.grade)
+    // difficulty 由 game/index.vue 根据 grade 向后端请求，prep 不再自行映射
   },
   methods: {
-    _gradeToLevel(grade) {
-      // 学龄前/一年级 → L1，二三年级 → L2，四年级及以上 → L3
-      if (!grade || grade === 'pre' || grade === '1') return 'L1'
-      if (grade === '2' || grade === '3') return 'L2'
-      return 'L3'
-    },
     goBack() {
       uni.navigateBack()
     },
     startGame() {
+      // 只传 game_type，难度由后端根据孩子档案的 grade 自动映射
       uni.navigateTo({
-        url: `/pages/child/game/index?game_type=${this.gameType}&difficulty=${this.selectedDifficulty}`
+        url: `/pages/child/game/index?game_type=${this.gameType}`
       })
     }
   }
