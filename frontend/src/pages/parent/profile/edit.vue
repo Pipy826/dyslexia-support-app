@@ -75,6 +75,21 @@
         </view>
       </view>
 
+      <!-- 出生年份 -->
+      <view class="input-group">
+        <label class="input-label">出生年份 <text class="label-hint">（用于精准匹配题目难度）</text></label>
+        <view class="birth-year-row">
+          <view
+            v-for="y in birthYearOptions"
+            :key="y"
+            :class="['year-option', { active: formData.birth_year === y }]"
+            @click="formData.birth_year = y"
+          >
+            {{ y }}年
+          </view>
+        </view>
+      </view>
+
       <!-- 是否发现困难 -->
       <view class="difficulty-notice" :class="{ checked: formData.hasDifficulty }">
         <view class="notice-checkbox" @click="formData.hasDifficulty = !formData.hasDifficulty">
@@ -118,6 +133,7 @@ export default {
         name: '',
         gender: 'boy',
         grade: '一年级',
+        birth_year: new Date().getFullYear() - 7,
         hasDifficulty: false,
         hasProfessionalEval: false,
         avatar_url: ''
@@ -132,6 +148,16 @@ export default {
       ]
     }
   },
+  computed: {
+    birthYearOptions() {
+      const currentYear = new Date().getFullYear()
+      const years = []
+      for (let age = 3; age <= 13; age++) {
+        years.push(currentYear - age)
+      }
+      return years
+    }
+  },
   onLoad(options) {
     if (options.id) {
       this.childId = parseInt(options.id)
@@ -143,10 +169,15 @@ export default {
     async loadChild() {
       try {
         const child = await getChild(this.childId)
+        // 从 birth_date 解析出生年份
+        const birthYear = child.birth_date
+          ? parseInt(child.birth_date.split('-')[0])
+          : new Date().getFullYear() - 7
         this.formData = {
           name: child.name,
           gender: child.gender === 'female' ? 'girl' : 'boy',
-          grade: child.grade || '1',
+          grade: child.grade || '一年级',
+          birth_year: birthYear,
           hasDifficulty: child.has_difficulty || false,
           hasProfessionalEval: false,
           avatar_url: child.avatar_url || '',
@@ -191,20 +222,10 @@ export default {
         return
       }
 
-      try {
-        // 编辑时需要保留原有 birth_date，新建时用年级推算
-        let birthDate = this.formData.birth_date
-        if (!birthDate) {
-          const gradeAgeMap = { '幼儿园': 5, '一年级': 7, '二年级': 8, '三年级': 9, '四年级': 10, '五年级': 11 }
-          const age = gradeAgeMap[this.formData.grade] || 8
-          const birthYear = new Date().getFullYear() - age
-          birthDate = `${birthYear}-06-01`
-        }
-
-        const data = {
+      try {        const data = {
           name: this.formData.name,
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
-          birth_date: birthDate,
+          birth_date: `${this.formData.birth_year}-06-01`,
           grade: this.formData.grade,
           has_difficulty: this.formData.hasDifficulty,
           avatar_url: this.formData.avatar_url || null
@@ -444,6 +465,38 @@ export default {
   border-color: #3B82F6;
   color: #3B82F6;
   font-weight: 700;
+}
+
+/* 出生年份选择 */
+.birth-year-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.year-option {
+  padding: 18rpx 24rpx;
+  background: #F9FAFB;
+  border: 2rpx solid #F3F4F6;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: #6B7280;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.year-option.active {
+  background: #EFF6FF;
+  border-color: #3B82F6;
+  color: #3B82F6;
+  font-weight: 700;
+}
+
+.label-hint {
+  font-size: 20rpx;
+  color: #9CA3AF;
+  font-weight: 400;
 }
 
 /* 困难提示 */

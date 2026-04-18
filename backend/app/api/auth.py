@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 from pydantic import BaseModel
 import random
 import time
+import threading
 
 from ..database import get_db
 from ..models.user import User
@@ -15,9 +16,51 @@ from .deps import get_current_user
 router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 # {phone: {"code": "1234", "expires_at": timestamp}}
+# 使用线程锁保证并发安全
 verification_codes: dict = {}
+_codes_lock = threading.Lock()
 
 CODE_EXPIRE_SECONDS = 300  # 5分钟过期
+
+
+def _get_code(phone: str):
+    """线程安全地获取验证码条目"""
+    with _codes_lock:
+        return verification_codes.get(phone)
+
+
+def _set_code(phone: str, code: str):
+    """线程安全地设置验证码"""
+    with _codes_lock:
+        verification_codes[phone] = {
+            "code": code,
+            "expires_at": time.time() + CODE_EXPIRE_SECONDS
+        }
+
+
+def _delete_code(phone: str):
+    """线程安全地删除验证码"""
+    with _codes_lock:
+        verification_codes.pop(phone, None)
+
+
+def _validate_code(phone: str, code: str) -> tuple[bool, str]:
+    """
+    验证验证码，返回 (is_valid, error_message)。
+    验证成功后自动删除验证码（消耗型）。
+    """
+    with _codes_lock:
+        entry = verification_codes.get(phone)
+        if not entry:
+            return False, "验证码不存在或已过期"
+        if time.time() > entry["expires_at"]:
+            verification_codes.pop(phone, None)
+            return False, "验证码已过期，请重新获取"
+        if entry["code"] != code:
+            return False, "验证码错误"
+        # 验证成功，消耗验证码
+        verification_codes.pop(phone, None)
+        return True, ""
 
 
 class PhoneRequest(BaseModel):
@@ -39,15 +82,9 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="手机号注册必须提供验证码"
             )
-        entry = verification_codes.get(user_data.phone)
-        if not entry:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码不存在或已过期")
-        if time.time() > entry["expires_at"]:
-            del verification_codes[user_data.phone]
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码已过期，请重新获取")
-        if entry["code"] != user_data.code:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码错误")
-        del verification_codes[user_data.phone]
+        valid, err = _validate_code(user_data.phone, user_data.code)
+        if not valid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err)
     
     if user_data.username:
         existing_user = db.query(User).filter(User.username == user_data.username).first()
@@ -119,26 +156,18 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 @router.post("/login-by-code", response_model=Token)
 def login_by_code(data: LoginByCodeRequest, db: Session = Depends(get_db)):
     """Login with phone + verification code (auto-register if not exists)"""
-    phone = data.phone
-    code = data.code
-    entry = verification_codes.get(phone)
-    if not entry:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码不存在或已过期")
-    if time.time() > entry["expires_at"]:
-        del verification_codes[phone]
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码已过期，请重新获取")
-    if entry["code"] != code:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="验证码错误")
-    del verification_codes[phone]
+    valid, err = _validate_code(data.phone, data.code)
+    if not valid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err)
 
     # 查找或自动注册
-    user = db.query(User).filter(User.phone == phone).first()
+    user = db.query(User).filter(User.phone == data.phone).first()
     if not user:
         import secrets
         user = User(
-            username=phone,
+            username=data.phone,
             password_hash=get_password_hash(secrets.token_hex(16)),
-            phone=phone
+            phone=data.phone
         )
         db.add(user)
         db.commit()
@@ -171,7 +200,7 @@ def send_verification_code(request: PhoneRequest):
         )
 
     # 防刷：60秒内不能重复发送
-    entry = verification_codes.get(phone)
+    entry = _get_code(phone)
     if entry and time.time() < entry["expires_at"] - CODE_EXPIRE_SECONDS + 60:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -179,10 +208,7 @@ def send_verification_code(request: PhoneRequest):
         )
 
     code = ''.join([str(random.randint(0, 9)) for _ in range(4)])
-    verification_codes[phone] = {
-        "code": code,
-        "expires_at": time.time() + CODE_EXPIRE_SECONDS
-    }
+    _set_code(phone, code)
 
     # TODO: 生产环境接入真实短信服务（如阿里云SMS、腾讯云SMS）
     # 仅在 DEBUG 模式下将验证码打印到日志，生产环境不输出
@@ -193,13 +219,14 @@ def send_verification_code(request: PhoneRequest):
 
 
 @router.post("/verify-code")
-def verify_code(request: PhoneRequest, code: str):
+def verify_code_check(request: PhoneRequest, code: str):
     """Verify phone code (不消耗验证码，仅校验)"""
     phone = request.phone
-    entry = verification_codes.get(phone)
-    if not entry:
-        return {"valid": False, "reason": "验证码不存在"}
-    if time.time() > entry["expires_at"]:
-        del verification_codes[phone]
-        return {"valid": False, "reason": "验证码已过期"}
-    return {"valid": entry["code"] == code}
+    with _codes_lock:
+        entry = verification_codes.get(phone)
+        if not entry:
+            return {"valid": False, "reason": "验证码不存在"}
+        if time.time() > entry["expires_at"]:
+            verification_codes.pop(phone, None)
+            return {"valid": False, "reason": "验证码已过期"}
+        return {"valid": entry["code"] == code}

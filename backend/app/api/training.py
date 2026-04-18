@@ -53,9 +53,14 @@ def create_task(
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
 
+    # 兼容前端传入 'reading'，映射到后端合法类型 'comprehension'
+    task_type = data.task_type
+    if task_type == "reading":
+        task_type = "comprehension"
+
     task = TrainingTask(
         child_id=data.child_id,
-        task_type=data.task_type,
+        task_type=task_type,
         task_name=data.task_name,
         scheduled_date=data.scheduled_date
     )
@@ -85,10 +90,10 @@ def update_task_progress(
         task.status = data.status
     if data.progress is not None:
         task.progress = data.progress
+        # 防止重复完成：只有当前状态不是 completed 时才发放奖励
         if data.progress >= 100 and task.status != "completed":
             task.status = "completed"
             task.completed_at = datetime.utcnow()
-            # 通过进度接口完成任务时同样发放奖励，与 /complete 接口保持一致
             reward = Reward(
                 child_id=task.child_id,
                 reward_type="star",

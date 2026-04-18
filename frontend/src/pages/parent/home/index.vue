@@ -210,10 +210,8 @@ export default {
         const reports = await getReports(this.currentChild.id)
         this.recentReport = reports[0] || null
         this.buildActivities(reports)
-        // 有报告才加载每日贴士
-        if (this.recentReport) {
-          this.loadDailyTip()
-        }
+        // 无论是否有报告都尝试加载每日贴士（接口有降级处理）
+        this.loadDailyTip()
       } catch (e) {
         console.error('加载报告失败', e)
       }

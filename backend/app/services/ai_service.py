@@ -650,7 +650,7 @@ _TIME_LIMIT_RANGE = {
 _PRESCHOOL_MULTIPLIER = 1.5
 
 # 效率阈值
-_EFFICIENCY_UP_THRESHOLD   = 0.80   # 正确率 ≥ 80% 且用时 ≤ 基准 60% → 考虑升难度/缩时限
+_EFFICIENCY_UP_THRESHOLD   = 0.75   # 正确率 ≥ 75% 且用时 ≤ 基准 70% → 考虑升难度/缩时限（原80%+60%过于严苛）
 _EFFICIENCY_DOWN_THRESHOLD = 0.50   # 正确率 < 50% → 考虑降难度/放宽时限
 _TIME_SHRINK_STEP          = 0.5    # 每次缩进时限的步长（秒）
 _TIME_EXPAND_STEP          = 1.0    # 每次放宽时限的步长（秒）
@@ -717,7 +717,7 @@ async def evaluate_adaptive_difficulty(
     current_tl = current_time_limit or effective_time_max
 
     # ── 判断逻辑 ──────────────────────────────────────────────────────────────
-    if accuracy >= _EFFICIENCY_UP_THRESHOLD and avg_reaction_ratio <= 0.6:
+    if accuracy >= _EFFICIENCY_UP_THRESHOLD and avg_reaction_ratio <= 0.7:
         # 表现优秀：先缩时限
         new_tl = round(current_tl - _TIME_SHRINK_STEP, 1)
         if new_tl >= effective_time_min:

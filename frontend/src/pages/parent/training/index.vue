@@ -297,11 +297,15 @@ export default {
       if (!this.currentChild) return
       try {
         const allTasks = await getTasks(this.currentChild.id)
-        // 今日任务：取最近3条
-        const today = new Date().toISOString().split('T')[0]
+        // 今日任务：使用 UTC 日期与后端保持一致（后端 scheduled_date 存的是 UTC 日期）
+        const today = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z')
+        const todayStr = today.toISOString().split('T')[0]
         let todayTasks = allTasks.filter(t => {
-          const d = t.scheduled_date || t.created_at?.split('T')[0]
-          return d === today
+          // scheduled_date 是纯日期字符串（YYYY-MM-DD），直接比较
+          if (t.scheduled_date) return t.scheduled_date === todayStr
+          // 没有 scheduled_date 时，用 created_at 的 UTC 日期
+          if (t.created_at) return t.created_at.split('T')[0] === todayStr
+          return false
         })
         // 如果没有今日任务，自动创建默认任务
         if (todayTasks.length === 0 && allTasks.length === 0) {
@@ -328,8 +332,7 @@ export default {
       for (const t of defaults) {
         try { await createTask(t) } catch (e) { /* ignore */ }
       }
-    },
-    async doCompleteTask(task) {
+    },    async doCompleteTask(task) {
       if (task.status === 'completed') return
       try {
         await completeTask(task.id)
@@ -346,18 +349,19 @@ export default {
       // reading 映射到 comprehension（后端不支持 reading 类型）
       const typeMap = { reading: 'comprehension' }
       const gameType = typeMap[task.task_type] || task.task_type || 'visual'
+      const gradeParam = this.currentChild?.grade ? `&grade=${encodeURIComponent(this.currentChild.grade)}` : ''
       uni.navigateTo({
-        url: `/pages/child/prep/index?game_type=${gameType}`
+        url: `/pages/child/prep/index?game_type=${gameType}${gradeParam}`
       })
     },
     taskIcon(type) {
-      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', comprehension: 'ph-book-open', reading: 'ph-book-open' }[type] || 'ph-star'
+      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', comprehension: 'ph-book-open', reading: 'ph-book-open', working_memory: 'ph-brain', rapid_naming: 'ph-lightning', motor_coordination: 'ph-hand' }[type] || 'ph-star'
     },
     taskColor(type) {
-      return { visual: 'orange', spelling: 'blue', comprehension: 'green', reading: 'green' }[type] || 'blue'
+      return { visual: 'orange', spelling: 'blue', comprehension: 'green', reading: 'green', working_memory: 'orange', rapid_naming: 'blue', motor_coordination: 'green' }[type] || 'blue'
     },
     taskDesc(type) {
-      return { visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆', comprehension: '培养语感与阅读兴趣', reading: '培养语感与阅读兴趣' }[type] || ''
+      return { visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆', comprehension: '培养语感与阅读兴趣', reading: '培养语感与阅读兴趣', working_memory: '提升工作记忆容量', rapid_naming: '提高命名速度与音韵意识', motor_coordination: '训练精细动作协调能力' }[type] || ''
     },
     goToScreening() {
       uni.navigateTo({ url: '/pages/parent/screening/index' })

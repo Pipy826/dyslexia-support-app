@@ -24,33 +24,65 @@
         <view class="switch-btn" @click="showChildPicker" v-if="children.length > 1">切换</view>
       </view>
 
-      <!-- 发起筛查动作区 -->
-      <view class="section-title">开始新筛查</view>
-      <view class="screening-card">
-        <view class="screening-header">
-          <view class="screening-icon blue">
-            <text class="ph ph-game-controller"></text>
+      <!-- 无孩子档案提示 -->
+      <view class="no-child-tip" v-if="!currentChild">
+        <text class="ph ph-info"></text>
+        <text>请先添加孩子档案，以获取个性化推荐筛查项目</text>
+      </view>
+
+      <!-- 推荐筛查项目区 -->
+      <view class="section-title">推荐筛查项目</view>
+      <view class="recommended-grid">
+        <view
+          class="game-card"
+          v-for="gameType in getRecommendedGames(currentChild ? currentChild.grade : null)"
+          :key="gameType"
+          @click="showHandoverModal(gameType)"
+          :style="{ '--card-color': gameTypeColor(gameType) }"
+        >
+          <view class="game-card-icon" :style="{ background: gameTypeColorBg(gameType) }">
+            <text :class="['ph', gameTypeIcon(gameType)]" :style="{ color: gameTypeColor(gameType) }"></text>
           </view>
-          <view class="screening-info">
-            <view class="screening-name">综合读写能力初筛</view>
-            <view class="screening-desc">通过拼写、视觉辨识、阅读理解等互动游戏，全面评估孩子的基础能力状态。</view>
+          <view class="game-card-body">
+            <view class="game-card-name">{{ gameTypeName(gameType) }}</view>
+            <view class="game-card-desc">{{ gameTypeDesc(gameType) }}</view>
+          </view>
+          <view class="game-card-arrow">
+            <text class="ph ph-caret-right" :style="{ color: gameTypeColor(gameType) }"></text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 自定义筛查折叠区 -->
+      <view class="custom-section">
+        <view class="custom-header" @click="showCustomPicker = !showCustomPicker">
+          <view class="section-title" style="margin-bottom: 0;">自定义筛查</view>
+          <view class="custom-toggle">
+            <text :class="['ph', showCustomPicker ? 'ph-caret-up' : 'ph-caret-down']"></text>
           </view>
         </view>
 
-        <!-- 家长须知 -->
-        <view class="notice-box">
-          <view class="notice-title">
-            <text class="ph ph-warning"></text> 家长准备须知
-          </view>
-          <ul class="notice-list">
-            <li>耗时约 10-15 分钟，请确保时间充足。</li>
-            <li>找一个安静、无打扰的环境。</li>
-            <li class="highlight">评测过程中请让孩子独立完成，家长切勿提示答案。</li>
-          </ul>
+        <view class="custom-grid" v-if="showCustomPicker">
+          <template v-for="gameType in ALL_GAME_TYPES" :key="gameType">
+            <view
+              class="game-card custom-card"
+              v-if="!(getGradeGroup(currentChild ? currentChild.grade : null) === 'preschool' && gameType === 'spelling')"
+              @click="showHandoverModal(gameType)"
+              :style="{ '--card-color': gameTypeColor(gameType) }"
+            >
+              <view class="game-card-icon" :style="{ background: gameTypeColorBg(gameType) }">
+                <text :class="['ph', gameTypeIcon(gameType)]" :style="{ color: gameTypeColor(gameType) }"></text>
+              </view>
+              <view class="game-card-body">
+                <view class="game-card-name">{{ gameTypeName(gameType) }}</view>
+                <view class="game-card-desc">{{ gameTypeDesc(gameType) }}</view>
+              </view>
+              <view class="game-card-arrow">
+                <text class="ph ph-caret-right" :style="{ color: gameTypeColor(gameType) }"></text>
+              </view>
+            </view>
+          </template>
         </view>
-
-        <!-- 发起按钮 -->
-        <button class="start-btn" @click="showHandoverModal">进入儿童端开始筛查</button>
       </view>
 
       <!-- 历史记录区 -->
@@ -73,7 +105,7 @@
             <view class="history-title">{{ gameTypeName(item.game_type) }}筛查</view>
             <view class="history-time">{{ formatDate(item.created_at) }}</view>
           </view>
-          <view class="history-score" v-if="item.score !== undefined">{{ item.score }}分</view>
+          <view class="history-score" v-if="item.score > 0">{{ item.score }}分</view>
           <view class="history-badge" :class="item.risk_level">{{ riskLabel(item.risk_level) }}</view>
         </view>
       </view>
@@ -84,7 +116,7 @@
           <text class="ph ph-clock"></text>
         </view>
         <view class="empty-text">暂无历史筛查记录</view>
-        <view class="empty-hint">完成初筛后将在这里生成成长报告</view>
+        <view class="empty-hint">完成筛查后将在这里生成成长报告</view>
       </view>
     </view>
 
@@ -114,10 +146,13 @@
     <!-- 交接设备提示弹窗 -->
     <view class="modal-overlay" v-if="showModal" @click="hideModal">
       <view class="modal-content" @click.stop>
-        <view class="modal-icon">
-          <text class="ph ph-device-mobile"></text>
+        <view class="modal-icon" :style="{ background: gameTypeColorBg(selectedGameType) }">
+          <text :class="['ph', gameTypeIcon(selectedGameType)]" :style="{ color: gameTypeColor(selectedGameType), fontSize: '52rpx' }"></text>
         </view>
         <view class="modal-title">请把手机交给孩子</view>
+        <view class="modal-game-tag" :style="{ background: gameTypeColorBg(selectedGameType), color: gameTypeColor(selectedGameType) }">
+          {{ gameTypeName(selectedGameType) }}
+        </view>
         <view class="modal-desc">即将进入儿童互动模式。<br>系统将在游戏过程中自动记录数据，结束后会自动生成报告。</view>
         <button class="modal-btn primary" @click="transferToChild">已交给孩子，开始游戏</button>
         <button class="modal-btn secondary" @click="hideModal">稍后再测</button>
@@ -133,6 +168,14 @@ import { getScreeningHistory } from '../../../api/screening.js'
 import { getReportByScreening } from '../../../api/report.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
+const RECOMMENDED_GAMES = {
+  preschool:     ['visual', 'working_memory', 'motor_coordination'],
+  lower_primary: ['visual', 'spelling', 'comprehension', 'rapid_naming'],
+  upper_primary: ['visual', 'spelling', 'comprehension', 'working_memory', 'rapid_naming'],
+}
+
+const ALL_GAME_TYPES = ['visual', 'spelling', 'comprehension', 'working_memory', 'rapid_naming', 'motor_coordination']
+
 export default {
   components: { TabBar },
   data() {
@@ -141,7 +184,10 @@ export default {
       children: [],
       showModal: false,
       showPicker: false,
-      screeningHistory: []
+      showCustomPicker: false,
+      screeningHistory: [],
+      selectedGameType: null,
+      ALL_GAME_TYPES,
     }
   },
   onShow() {
@@ -182,8 +228,74 @@ export default {
       const d = new Date(dateStr)
       return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
     },
+    getGradeGroup(grade) {
+      if (!grade) return 'lower_primary'
+      const preschool = ['幼儿园', '学前', 'preschool']
+      const lower = ['一年级', '二年级', 'grade_1', 'grade_2']
+      const upper = ['三年级', '四年级', '五年级', '六年级', 'grade_3', 'grade_4', 'grade_5', 'grade_6']
+      if (preschool.includes(grade)) return 'preschool'
+      if (lower.includes(grade)) return 'lower_primary'
+      if (upper.includes(grade)) return 'upper_primary'
+      return 'lower_primary'
+    },
+    getRecommendedGames(grade) {
+      const group = this.getGradeGroup(grade)
+      return RECOMMENDED_GAMES[group] || RECOMMENDED_GAMES.lower_primary
+    },
     gameTypeName(type) {
-      return { visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解' }[type] || type
+      const map = {
+        visual: '视觉辨识',
+        spelling: '拼字识别',
+        comprehension: '文字理解',
+        working_memory: '工作记忆',
+        rapid_naming: '快速命名',
+        motor_coordination: '精细动作',
+      }
+      return map[type] || type
+    },
+    gameTypeIcon(type) {
+      const map = {
+        visual: 'ph-eye',
+        spelling: 'ph-text-aa',
+        comprehension: 'ph-book-open',
+        working_memory: 'ph-brain',
+        rapid_naming: 'ph-lightning',
+        motor_coordination: 'ph-hand',
+      }
+      return map[type] || 'ph-game-controller'
+    },
+    gameTypeDesc(type) {
+      const map = {
+        visual: '通过图形辨别训练，评估视觉感知与注意力集中能力',
+        spelling: '识别汉字笔画与字形，评估拼写与字形记忆能力',
+        comprehension: '阅读短文并回答问题，评估语义理解与信息提取能力',
+        working_memory: '记忆并复现序列信息，评估短时记忆与工作记忆容量',
+        rapid_naming: '快速识别并命名图形或文字，评估命名速度与音韵意识',
+        motor_coordination: '判断图形线条整齐度，评估精细动作控制与视动整合',
+      }
+      return map[type] || ''
+    },
+    gameTypeColor(type) {
+      const map = {
+        visual: '#4F9EF8',
+        spelling: '#A78BFA',
+        comprehension: '#22C55E',
+        working_memory: '#F97316',
+        rapid_naming: '#EAB308',
+        motor_coordination: '#EC4899',
+      }
+      return map[type] || '#4F9EF8'
+    },
+    gameTypeColorBg(type) {
+      const map = {
+        visual: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
+        spelling: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)',
+        comprehension: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)',
+        working_memory: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)',
+        rapid_naming: 'linear-gradient(135deg, #FEFCE8, #FEF9C3)',
+        motor_coordination: 'linear-gradient(135deg, #FDF2F8, #FCE7F3)',
+      }
+      return map[type] || 'linear-gradient(135deg, #EFF6FF, #DBEAFE)'
     },
     riskLabel(level) {
       return { low: '低风险', medium: '中风险', high: '高风险' }[level] || '未知'
@@ -203,15 +315,15 @@ export default {
         const report = await getReportByScreening(screening.id)
         uni.navigateTo({ url: `/pages/parent/report/detail?id=${report.id}` })
       } catch (e) {
-        // 报告不存在时跳到报告列表页
         uni.navigateTo({ url: `/pages/parent/report/index?child_id=${this.currentChild.id}` })
       }
     },
-    showHandoverModal() {
+    showHandoverModal(gameType) {
       if (!this.currentChild) {
         uni.showToast({ title: '请先添加孩子档案', icon: 'none' })
         return
       }
+      this.selectedGameType = gameType
       this.showModal = true
     },
     hideModal() {
@@ -219,14 +331,17 @@ export default {
     },
     transferToChild() {
       this.showModal = false
-      uni.navigateTo({ url: '/pages/child/home/index' })
+      const gradeParam = this.currentChild?.grade ? `&grade=${encodeURIComponent(this.currentChild.grade)}` : ''
+      uni.navigateTo({
+        url: `/pages/child/prep/index?game_type=${this.selectedGameType}${gradeParam}`
+      })
     }
   }
 }
 </script>
 
 <style scoped>
-/* 创意筛查页面 */
+/* 筛查页面 */
 .page-container { min-height: 100vh; background: #F5F7FA; padding-bottom: 160rpx; }
 
 .page-header {
@@ -240,6 +355,7 @@ export default {
 
 .page-content { padding: 24rpx 32rpx; }
 
+/* 孩子信息卡 */
 .child-info-card {
   display: flex; align-items: center; gap: 20rpx; background: #FFFFFF;
   border-radius: 20rpx; padding: 24rpx; margin-bottom: 24rpx;
@@ -261,6 +377,16 @@ export default {
   background: linear-gradient(135deg, #EFF6FF, #DBEAFE); padding: 8rpx 20rpx; border-radius: 12rpx;
 }
 
+/* 无孩子提示 */
+.no-child-tip {
+  display: flex; align-items: center; gap: 12rpx;
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border-radius: 16rpx; padding: 20rpx 24rpx; margin-bottom: 24rpx;
+  font-size: 22rpx; color: #92400E; font-weight: 500;
+}
+.no-child-tip .ph { font-size: 28rpx; color: #F59E0B; flex-shrink: 0; }
+
+/* 区域标题 */
 .section-title {
   font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 16rpx;
   display: flex; align-items: center; gap: 8rpx;
@@ -270,34 +396,53 @@ export default {
   background: linear-gradient(180deg, #4F9EF8, #A78BFA); border-radius: 2rpx;
 }
 
-.screening-card {
-  background: #FFFFFF; border-radius: 24rpx; padding: 32rpx;
-  margin-bottom: 24rpx; box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.04);
+/* 推荐游戏卡片列表 */
+.recommended-grid { display: flex; flex-direction: column; gap: 12rpx; margin-bottom: 24rpx; }
+
+.game-card {
+  background: #FFFFFF; border-radius: 20rpx; padding: 24rpx;
+  display: flex; align-items: center; gap: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
+  border-left: 4rpx solid var(--card-color, #4F9EF8);
 }
-.screening-header { display: flex; gap: 20rpx; margin-bottom: 28rpx; }
-.screening-icon { width: 80rpx; height: 80rpx; border-radius: 20rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.screening-icon.blue { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); }
-.screening-icon.blue .ph { font-size: 40rpx; color: #4F9EF8; }
-.screening-info { flex: 1; }
-.screening-name { font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 6rpx; }
-.screening-desc { font-size: 22rpx; color: #718096; line-height: 1.5; font-weight: 500; }
+.game-card:active { transform: scale(0.98); box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.06); }
 
-.notice-box { background: #F8FAFF; border-radius: 16rpx; padding: 24rpx; margin-bottom: 28rpx; border: 1rpx solid #E5E7EB; }
-.notice-title { font-size: 20rpx; font-weight: 700; color: #718096; margin-bottom: 12rpx; display: flex; align-items: center; gap: 6rpx; }
-.notice-title .ph { color: #F57F17; font-size: 24rpx; }
-.notice-list { list-style: none; padding: 0; margin: 0; }
-.notice-list li { font-size: 22rpx; color: #718096; line-height: 1.8; display: flex; align-items: flex-start; gap: 12rpx; font-weight: 500; }
-.notice-list li::before { content: ''; width: 6rpx; height: 6rpx; border-radius: 50%; background: #A0AEC0; margin-top: 14rpx; flex-shrink: 0; }
-.notice-list li.highlight { color: #F57F17; font-weight: 600; }
-.notice-list li.highlight::before { background: #F57F17; }
-
-.start-btn {
-  width: 100%; background: linear-gradient(135deg, #4F9EF8, #3B82F6); color: #FFFFFF;
-  border-radius: 16rpx; padding: 28rpx; font-size: 28rpx; font-weight: 700;
-  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.2); transition: all 0.2s;
+.game-card-icon {
+  width: 80rpx; height: 80rpx; border-radius: 20rpx;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.start-btn:active { transform: scale(0.97); }
+.game-card-icon .ph { font-size: 40rpx; }
 
+.game-card-body { flex: 1; min-width: 0; }
+.game-card-name { font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 6rpx; }
+.game-card-desc { font-size: 22rpx; color: #718096; line-height: 1.5; font-weight: 500; }
+
+.game-card-arrow .ph { font-size: 28rpx; }
+
+/* 自定义筛查区 */
+.custom-section {
+  background: #FFFFFF; border-radius: 20rpx; padding: 24rpx;
+  margin-bottom: 24rpx; box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+.custom-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0;
+}
+.custom-toggle .ph { font-size: 28rpx; color: #A0AEC0; }
+
+.custom-grid {
+  display: flex; flex-direction: column; gap: 12rpx;
+  margin-top: 16rpx; padding-top: 16rpx;
+  border-top: 1rpx solid #F0F0F0;
+}
+.custom-card {
+  box-shadow: none;
+  background: #FAFAFA;
+  border-radius: 16rpx;
+}
+
+/* 历史记录 */
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64rpx 40rpx; opacity: 0.7; }
@@ -306,6 +451,7 @@ export default {
 .empty-text { font-size: 26rpx; color: #A0AEC0; font-weight: 600; }
 .empty-hint { font-size: 22rpx; color: #D1D5DB; margin-top: 6rpx; font-weight: 500; }
 
+/* 弹窗 */
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4rpx); z-index: 9999;
@@ -323,11 +469,13 @@ export default {
 
 .modal-icon {
   width: 100rpx; height: 100rpx; border-radius: 24rpx;
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-  display: flex; align-items: center; justify-content: center; margin-bottom: 24rpx;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 20rpx;
 }
-.modal-icon .ph { font-size: 52rpx; color: #4F9EF8; }
 .modal-title { font-size: 32rpx; font-weight: 800; color: #2D3748; margin-bottom: 12rpx; text-align: center; }
+.modal-game-tag {
+  font-size: 22rpx; font-weight: 700; padding: 8rpx 24rpx; border-radius: 20rpx;
+  margin-bottom: 16rpx;
+}
 .modal-desc { font-size: 24rpx; color: #718096; text-align: center; line-height: 1.6; margin-bottom: 32rpx; font-weight: 500; }
 .modal-btn { width: 100%; border-radius: 16rpx; padding: 26rpx; font-size: 26rpx; font-weight: 700; margin-bottom: 16rpx; transition: all 0.2s; }
 .modal-btn:active { transform: scale(0.97); }
@@ -357,6 +505,7 @@ export default {
 .history-badge.medium { background: linear-gradient(135deg, #FFF9C4, #FFE082); color: #F57F17; }
 .history-badge.high { background: linear-gradient(135deg, #FFF5F5, #FFE4E4); color: #FF6B6B; }
 
+/* 儿童切换弹窗 */
 .picker-sheet {
   background: #FFFFFF; width: 100%; border-radius: 32rpx 32rpx 0 0;
   padding: 32rpx 32rpx calc(32rpx + env(safe-area-inset-bottom));

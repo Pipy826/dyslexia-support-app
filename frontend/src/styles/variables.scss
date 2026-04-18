@@ -1,20 +1,26 @@
-// 全局样式变量 - 儿童友好卡通风格 🎨
-// 配色系统 - 明亮活泼的色彩
-$text-main: #2D3748;    // 柔和深灰主字体
-$text-sub: #718096;     // 温和灰色副字体
-$bg-main: #FFFEF9;       // 温暖米白背景
-$bg-sub: #FFF8E7;       // 温暖浅黄背景
+// 全局样式变量 - 手绘涂鸦风格 ✏️
+// 配色系统 - 水彩蜡笔色调（降低饱和度，更像手绘颜料）
+$text-main: #2C2416;    // 深棕墨水色主字体
+$text-sub: #7A6A55;     // 温暖棕灰副字体
+$bg-main: #FDF8F0;       // 温暖羊皮纸背景
+$bg-sub: #FFF3DC;       // 浅黄便签背景
 
-// 主题色 - 可爱糖果色系
-$primary-blue: #4F9EF8;    // 天空蓝 - 主要按钮
-$success-green: #22C55E;    // 草地绿 - 成功/良好状态
-$warning-orange: #FFA726;   // 橘子橙 - 风险/待办/偏弱
-$accent-red: #FF6B6B;       // 草莓红 - 警示/错题/高风险
-$star-yellow: #FFD93D;      // 星星金黄
-$purple-magic: #A78BFA;     // 魔法紫
-$pink-candy: #FF9ECD;       // 糖果粉
+// 主题色 - 水彩蜡笔色系（比原来更柔和、更有手绘感）
+$primary-blue: #4A8FD4;    // 水彩蓝 - 主要按钮
+$success-green: #5BAD6F;    // 草地绿 - 成功/良好状态
+$warning-orange: #E8922A;   // 蜡笔橙 - 风险/待办/偏弱
+$accent-red: #D95F5F;       // 水彩红 - 警示/错题/高风险
+$star-yellow: #F5C842;      // 蜡笔黄
+$purple-magic: #9B7FD4;     // 水彩紫
+$pink-candy: #E8849A;       // 水彩粉
 
-// 儿童端额外配色 - 彩虹色系
+// 手绘风专用色
+$sketch-border: #2C2416;    // 手绘线条颜色（深棕）
+$sketch-border-light: #8B7355; // 浅色手绘线条
+$paper-texture: #FDF8F0;    // 纸张底色
+$paper-shadow: #C4A882;     // 纸张投影色
+
+// 儿童端额外配色 - 彩虹蜡笔色系
 $child-primary: $primary-blue;
 $child-success: $success-green;
 $child-accent: $accent-red;
@@ -28,24 +34,28 @@ $parent-secondary: $success-green;
 $parent-bg: $bg-main;
 $parent-text: $text-main;
 
-// 圆角规范 - 更圆润可爱
-$border-radius-sm: 28rpx;    // 小圆角
-$border-radius-md: 36rpx;     // 中圆角
-$border-radius-lg: 56rpx;     // 大圆角
-$border-radius-xl: 72rpx;     // 超大圆角
+// 圆角规范 - 手绘风用较小圆角，更像手画的方框
+$border-radius-sm: 12rpx;    // 小圆角
+$border-radius-md: 18rpx;     // 中圆角
+$border-radius-lg: 28rpx;     // 大圆角
+$border-radius-xl: 40rpx;     // 超大圆角
 $border-radius-full: 9999rpx; // 完全圆形
 
-// 阴影规范 - 柔和立体感
-$shadow-card: 0 8rpx 24rpx rgba(0, 0, 0, 0.08), 0 2rpx 8rpx rgba(0, 0, 0, 0.04);   // 卡片阴影
-$shadow-sm: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
-$shadow-md: 0 12rpx 40rpx rgba(0, 0, 0, 0.12);
-$shadow-lg: 0 20rpx 60rpx rgba(0, 0, 0, 0.15);
+// 阴影规范 - 手绘偏移投影（像铅笔画的阴影）
+$shadow-card: 4rpx 6rpx 0 rgba(44, 36, 22, 0.15);   // 卡片手绘阴影
+$shadow-sm: 3rpx 4rpx 0 rgba(44, 36, 22, 0.12);
+$shadow-md: 5rpx 8rpx 0 rgba(44, 36, 22, 0.15);
+$shadow-lg: 6rpx 10rpx 0 rgba(44, 36, 22, 0.18);
 
-// 按钮阴影 - 更明显的立体感
-$shadow-blue-btn: 0 8rpx 20rpx rgba(79, 158, 248, 0.35), 0 4rpx 8rpx rgba(79, 158, 248, 0.2);
-$shadow-green-btn: 0 8rpx 20rpx rgba(34, 197, 94, 0.35), 0 4rpx 8rpx rgba(34, 197, 94, 0.2);
-$shadow-orange-btn: 0 8rpx 20rpx rgba(255, 167, 38, 0.35), 0 4rpx 8rpx rgba(255, 167, 38, 0.2);
-$shadow-purple-btn: 0 8rpx 20rpx rgba(167, 139, 250, 0.35), 0 4rpx 8rpx rgba(167, 139, 250, 0.2);
+// 按钮阴影 - 手绘偏移投影
+$shadow-blue-btn: 4rpx 6rpx 0 rgba(74, 143, 212, 0.45);
+$shadow-green-btn: 4rpx 6rpx 0 rgba(91, 173, 111, 0.45);
+$shadow-orange-btn: 4rpx 6rpx 0 rgba(232, 146, 42, 0.45);
+$shadow-purple-btn: 4rpx 6rpx 0 rgba(155, 127, 212, 0.45);
+
+// 手绘边框粗细
+$sketch-border-width: 3rpx;
+$sketch-border-width-thick: 4rpx;
 
 // 风险等级颜色
 $risk-low: $success-green;      // 低风险/良好
@@ -53,21 +63,25 @@ $risk-medium: $warning-orange;   // 中风险/需关注/偏弱
 $risk-high: $accent-red;        // 高风险/警示
 
 // 布局尺寸 - 优化手机端
-$nav-height: 120rpx;           // 底部导航高度 - 降低高度
+$nav-height: 120rpx;           // 底部导航高度
 $top-safe-area: 64rpx;         // 顶部安全区
 $content-padding: 32rpx;        // 内容区内边距
 
 :root {
-  --text-main: #2D3748;
-  --text-sub: #718096;
-  --bg-main: #FFFEF9;
-  --bg-sub: #FFF8E7;
-  --primary-blue: #4F9EF8;
-  --success-green: #22C55E;
-  --warning-orange: #FFA726;
-  --accent-red: #FF6B6B;
-  --star-yellow: #FFD93D;
-  --purple-magic: #A78BFA;
-  --pink-candy: #FF9ECD;
+  --text-main: #2C2416;
+  --text-sub: #7A6A55;
+  --bg-main: #FDF8F0;
+  --bg-sub: #FFF3DC;
+  --primary-blue: #4A8FD4;
+  --success-green: #5BAD6F;
+  --warning-orange: #E8922A;
+  --accent-red: #D95F5F;
+  --star-yellow: #F5C842;
+  --purple-magic: #9B7FD4;
+  --pink-candy: #E8849A;
+  --sketch-border: #2C2416;
+  --paper-shadow: #C4A882;
   --content-padding: 48rpx;
+  // 手绘字体
+  --font-sketch: 'ZCOOL KuaiLe', 'Ma Shan Zheng', 'PingFang SC', cursive;
 }

@@ -48,7 +48,20 @@
           </view>
         </view>
 
-        <!-- 拼字/理解：竖向列表 -->
+        <!-- 工作记忆序列：突出显示序列内容 -->
+        <view class="options-list" v-else-if="currentQuestion.type === 'working_memory_sequence'">
+          <view
+            v-for="(option, index) in currentQuestion.options"
+            :key="index"
+            :class="['option-item', 'option-sequence', getOptionClass(index)]"
+            @click="selectAnswer(index)"
+          >
+            <view class="option-label">{{ ['A','B','C','D'][index] }}</view>
+            <view class="option-text">{{ option }}</view>
+          </view>
+        </view>
+
+        <!-- 其他题型：竖向列表 -->
         <view class="options-list" v-else>
           <view
             v-for="(option, index) in currentQuestion.options"
@@ -109,6 +122,7 @@ export default {
     return {
       gameType: 'visual',
       difficulty: 'L1',
+      grade: '',          // 孩子年级，用于后端难度映射
       questions: [],
       currentIndex: 0,
       selectedAnswer: null,
@@ -149,7 +163,13 @@ export default {
   onLoad(options) {
     this.child = getCurrentChild()
     if (options.game_type) this.gameType = options.game_type
-    // difficulty 不再从路由参数接收，统一由后端根据 grade 映射
+    // grade 优先从路由参数取（prep 页面传入），其次从 child 对象取
+    // 这样即使 storage 里的 child 对象没有 grade 字段也能正常工作
+    if (options.grade) {
+      this.grade = options.grade
+    } else if (this.child?.grade) {
+      this.grade = this.child.grade
+    }
     this.initScreening()
   },
   onUnload() {
@@ -202,7 +222,7 @@ export default {
         // 首次加载：传 grade 让后端自动映射难度；自适应调难时 difficulty 已更新，直接传
         const options = this.difficultyOverridden
           ? { difficulty: this.difficulty, count: 10 }
-          : { grade: this.child?.grade, count: 10 }
+          : { grade: this.grade || this.child?.grade, count: 10 }
 
         const res = await getQuestions(this.gameType, options)
         // 后端返回实际使用的 difficulty，同步到本地（首次加载时尤其重要）
@@ -368,7 +388,7 @@ export default {
           current_difficulty: this.difficulty,
           recent_answers: recent,
           current_time_limit: this.currentTimeLimit,
-          grade: this.child?.grade || null,
+          grade: this.grade || this.child?.grade || null,
         })
 
         if (!result.should_adjust) return
@@ -795,6 +815,12 @@ export default {
 .option-item.selected .option-text { color: #4F9EF8; }
 .option-item.correct .option-text { color: #22C55E; }
 .option-item.wrong .option-text { color: #FF6B6B; }
+
+/* 工作记忆序列选项：字体稍小以容纳更长文字 */
+.option-sequence .option-text {
+  font-size: 24rpx;
+  line-height: 1.5;
+}
 
 /* 答题反馈遮罩 */
 .feedback-overlay {

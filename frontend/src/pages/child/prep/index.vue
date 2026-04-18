@@ -47,28 +47,52 @@ export default {
   data() {
     return {
       gameType: 'visual',
+      grade: '',
     }
   },
   computed: {
     gameName() {
-      return { visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解' }[this.gameType] || '综合挑战'
+      const names = {
+        visual: '视觉辨识',
+        spelling: '拼字识别',
+        comprehension: '文字理解',
+        working_memory: '工作记忆',
+        rapid_naming: '快速命名',
+        motor_coordination: '精细动作',
+      }
+      return names[this.gameType] || '综合挑战'
     },
     gameIcon() {
-      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', comprehension: 'ph-book-open' }[this.gameType] || 'ph-star'
+      const icons = {
+        visual: 'ph-eye',
+        spelling: 'ph-text-aa',
+        comprehension: 'ph-book-open',
+        working_memory: 'ph-brain',
+        rapid_naming: 'ph-lightning',
+        motor_coordination: 'ph-hand',
+      }
+      return icons[this.gameType] || 'ph-star'
     }
   },
   onLoad(options) {
     if (options.game_type) this.gameType = options.game_type
-    // difficulty 由 game/index.vue 根据 grade 向后端请求，prep 不再自行映射
+    // grade 优先从路由参数取，其次从 storage 里的 child 对象取
+    if (options.grade) {
+      this.grade = options.grade
+    } else {
+      const child = getCurrentChild()
+      this.grade = child?.grade || ''
+    }
   },
   methods: {
     goBack() {
       uni.navigateBack()
     },
     startGame() {
-      // 只传 game_type，难度由后端根据孩子档案的 grade 自动映射
+      // 传 game_type 和 grade，难度由后端根据 grade 自动映射
+      const gradeParam = this.grade ? `&grade=${this.grade}` : ''
       uni.navigateTo({
-        url: `/pages/child/game/index?game_type=${this.gameType}`
+        url: `/pages/child/game/index?game_type=${this.gameType}${gradeParam}`
       })
     }
   }

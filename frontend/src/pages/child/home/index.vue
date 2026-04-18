@@ -45,6 +45,17 @@
           {{ g.name }}
         </view>
       </view>
+      <view class="game-types-row2">
+        <view
+          v-for="g in gameTypes2"
+          :key="g.type"
+          :class="['game-type-btn', { active: selectedGameType === g.type }]"
+          @click="selectedGameType = g.type"
+        >
+          <text :class="'ph ' + g.icon"></text>
+          {{ g.name }}
+        </view>
+      </view>
 
       <!-- 开始按钮 -->
       <button class="start-btn" @click="startChallenge">
@@ -81,9 +92,14 @@ export default {
       totalStars: 0,
       selectedGameType: 'visual',
       gameTypes: [
-        { type: 'visual', name: '视觉', icon: 'ph-eye' },
-        { type: 'spelling', name: '拼字', icon: 'ph-puzzle-piece' },
-        { type: 'comprehension', name: '理解', icon: 'ph-book-open' }
+        { type: 'visual',            name: '视觉', icon: 'ph-eye' },
+        { type: 'spelling',          name: '拼字', icon: 'ph-text-aa' },
+        { type: 'comprehension',     name: '理解', icon: 'ph-book-open' },
+      ],
+      gameTypes2: [
+        { type: 'working_memory',    name: '记忆', icon: 'ph-brain' },
+        { type: 'rapid_naming',      name: '命名', icon: 'ph-lightning' },
+        { type: 'motor_coordination',name: '动作', icon: 'ph-hand' },
       ]
     }
   },
@@ -117,8 +133,9 @@ export default {
         uni.showToast({ title: '请先在家长端添加档案', icon: 'none' })
         return
       }
+      const gradeParam = this.child.grade ? `&grade=${encodeURIComponent(this.child.grade)}` : ''
       uni.navigateTo({
-        url: `/pages/child/prep/index?game_type=${this.selectedGameType}`
+        url: `/pages/child/prep/index?game_type=${this.selectedGameType}${gradeParam}`
       })
     },
     goToTraining() {
@@ -336,9 +353,18 @@ export default {
   display: flex;
   flex-direction: row;
   width: 100%;
+  margin-bottom: 10rpx;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.game-types-row2 {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
   margin-bottom: 20rpx;
   flex-shrink: 0;
-  overflow: hidden;      /* 禁止横向滚动 */
+  overflow: hidden;
 }
 
 .game-type-btn {

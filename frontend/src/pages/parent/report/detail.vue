@@ -23,20 +23,62 @@
       </view>
 
       <!-- 能力维度评分 -->
-      <view class="section-title">能力多维剖析</view>
-      <view class="ability-card">
-        <view class="ability-item" v-for="(score, dim) in dimensions" :key="dim">
+      <view class="section-title">本次筛查维度</view>
+      <view class="tested-hint">
+        <text class="ph ph-info"></text>
+        本报告仅展示本次「{{ getGameTypeName(report.game_type) }}」筛查的维度。完成全部6项筛查后，可在成长分析中查看综合能力图。
+      </view>
+      <view class="ability-card" v-for="group in getGroupedDimensions()" :key="group.label">
+        <view class="group-header">
+          <text :class="['ph', group.icon]"></text>
+          <view class="group-label">{{ group.label }}</view>
+        </view>
+        <view class="ability-item" v-for="item in group.items" :key="item.dim">
           <view class="ability-header">
-            <view class="ability-name">{{ getDimName(dim) }}</view>
-            <view class="ability-tag" :class="getScoreClass(score)">{{ getScoreLabel(score) }}</view>
+            <view class="ability-name">{{ getDimName(item.dim) }}</view>
+            <view class="ability-tag" :class="getScoreClass(item.score)">{{ getScoreLabel(item.score) }}</view>
           </view>
           <view class="progress-track">
-            <view class="progress-fill" :class="getScoreClass(score)" :style="{ width: score + '%' }"></view>
+            <view class="progress-fill" :class="getScoreClass(item.score)" :style="{ width: item.score + '%' }"></view>
           </view>
-          <view class="ability-hint">{{ getDimHint(dim, score) }}</view>
+          <view class="ability-hint">{{ getDimHint(item.dim, item.score) }}</view>
         </view>
       </view>
 
+      <!-- 综合能力总览（所有筛查合并） -->
+      <template v-if="Object.keys(mergedDimensions).length > 0">
+        <view class="section-title">综合能力总览</view>
+
+        <!-- 未完成提示 -->
+        <view class="pending-hint" v-if="!isMergedComplete">
+          <text class="ph ph-clock"></text>
+          <view class="pending-text">
+            已完成 {{ completedGameTypes.length }}/6 项筛查。
+            尚未完成：{{ pendingGameTypes.map(g => getGameTypeName(g)).join('、') }}
+          </view>
+        </view>
+        <view class="complete-hint" v-else>
+          <text class="ph ph-check-circle"></text>
+          <view>已完成全部6项筛查，以下为综合能力图谱</view>
+        </view>
+
+        <view class="ability-card" v-for="group in getMergedGroupedDimensions()" :key="'merged-' + group.label">
+          <view class="group-header">
+            <text :class="['ph', group.icon]"></text>
+            <view class="group-label">{{ group.label }}</view>
+          </view>
+          <view class="ability-item" v-for="item in group.items" :key="'m-' + item.dim">
+            <view class="ability-header">
+              <view class="ability-name">{{ getDimName(item.dim) }}</view>
+              <view class="ability-tag" :class="getScoreClass(item.score)">{{ getScoreLabel(item.score) }}</view>
+            </view>
+            <view class="progress-track">
+              <view class="progress-fill" :class="getScoreClass(item.score)" :style="{ width: item.score + '%' }"></view>
+            </view>
+            <view class="ability-hint">{{ getDimHint(item.dim, item.score) }}</view>
+          </view>
+        </view>
+      </template>
       <!-- AI 个性化解读 -->
       <view class="section-title">AI 个性化解读</view>
       <view class="ai-interpretation-card">
@@ -137,9 +179,38 @@
 </template>
 
 <script>
-import { getReport, getReportDimensions } from '../../../api/report.js'
+import { getReport } from '../../../api/report.js'
+import { getMergedDimensions } from '../../../api/report.js'
 import { getReportInterpretation, getEmotionalSupport } from '../../../api/ai.js'
 import { getCurrentChild } from '../../../utils/auth.js'
+
+const DIMENSION_GROUPS = [
+  {
+    label: '视觉与注意力',
+    icon: 'ph-eye',
+    dims: ['visual_discrimination', 'attention'],
+  },
+  {
+    label: '语音与拼写',
+    icon: 'ph-text-aa',
+    dims: ['spelling', 'phonological', 'character_order'],
+  },
+  {
+    label: '阅读理解',
+    icon: 'ph-book-open',
+    dims: ['reading_comprehension', 'semantic_integration', 'information_extraction'],
+  },
+  {
+    label: '记忆与命名',
+    icon: 'ph-brain',
+    dims: ['working_memory_capacity', 'short_term_memory', 'rapid_naming_speed', 'phonological_awareness'],
+  },
+  {
+    label: '动作协调',
+    icon: 'ph-hand',
+    dims: ['fine_motor_control', 'visual_motor_integration'],
+  },
+]
 
 export default {
   data() {
@@ -147,6 +218,11 @@ export default {
       reportId: null,
       report: null,
       dimensions: null,
+      // 综合能力图谱（所有筛查合并）
+      mergedDimensions: {},
+      completedGameTypes: [],
+      pendingGameTypes: [],
+      isMergedComplete: false,
       currentChild: null,
       aiInterpretation: '',
       aiLoading: false,
@@ -160,13 +236,24 @@ export default {
     this.currentChild = getCurrentChild()
     this.loadReport()
   },
+  computed: {
+    childGrade() {
+      return this.currentChild?.grade || ''
+    }
+  },
   methods: {
     async loadReport() {
       try {
         this.report = await getReport(this.reportId)
-        const dimRes = await getReportDimensions(this.reportId)
-        const raw = dimRes.dimensions
-        this.dimensions = (typeof raw === 'string') ? JSON.parse(raw) : (raw || {})
+        // dimensions 已包含在 report 响应中，直接解析，无需额外请求
+        const raw = this.report.dimensions
+        this.dimensions = (typeof raw === 'string') ? JSON.parse(raw || '{}') : (raw || {})
+        // 同时加载该孩子的综合维度
+        if (this.currentChild?.id) {
+          this.loadMergedDimensions(this.currentChild.id)
+        } else if (this.report?.child_id) {
+          this.loadMergedDimensions(this.report.child_id)
+        }
         // 报告加载完后自动获取AI解读
         this.loadAiInterpretation()
         // 高风险时自动触发情绪支持
@@ -175,6 +262,17 @@ export default {
         }
       } catch (e) {
         console.error('加载报告失败', e)
+      }
+    },
+    async loadMergedDimensions(childId) {
+      try {
+        const res = await getMergedDimensions(childId)
+        this.mergedDimensions = res.merged_dimensions || {}
+        this.completedGameTypes = res.completed_game_types || []
+        this.pendingGameTypes = res.pending_game_types || []
+        this.isMergedComplete = res.is_complete || false
+      } catch (e) {
+        console.error('加载综合维度失败', e)
       }
     },
     async loadAiInterpretation() {
@@ -214,6 +312,17 @@ export default {
       }
       return titles[level] || level
     },
+    getGameTypeName(type) {
+      const names = {
+        visual: '视觉辨识',
+        spelling: '拼字识别',
+        comprehension: '文字理解',
+        working_memory: '工作记忆',
+        rapid_naming: '快速命名',
+        motor_coordination: '精细动作',
+      }
+      return names[type] || type || '综合'
+    },
     getDimName(dim) {
       const names = {
         visual_discrimination: '视觉辨识能力',
@@ -223,7 +332,13 @@ export default {
         reading_comprehension: '阅读理解能力',
         semantic_integration: '语义整合能力',
         information_extraction: '信息提取能力',
-        attention: '任务注意力'
+        attention: '任务注意力',
+        working_memory_capacity: '工作记忆容量',
+        short_term_memory: '短时记忆能力',
+        rapid_naming_speed: '快速命名速度',
+        phonological_awareness: '音韵意识',
+        fine_motor_control: '精细动作控制',
+        visual_motor_integration: '视动整合能力'
       }
       return names[dim] || dim
     },
@@ -237,7 +352,13 @@ export default {
         reading_comprehension: '能准确理解句子和短文的核心意思。',
         semantic_integration:  '句间关系理解正常，语义整合能力良好。',
         information_extraction:'能从文中快速定位关键信息。',
-        attention:             '能持续专注完成任务，注意力稳定。'
+        attention:             '能持续专注完成任务，注意力稳定。',
+        working_memory_capacity: '工作记忆容量充足，能有效保持和处理多项信息。',
+        short_term_memory:     '短时记忆能力良好，能准确复现短序列信息。',
+        rapid_naming_speed:    '命名速度流畅，能快速准确地识别并说出名称。',
+        phonological_awareness:'音韵意识良好，能准确感知和操作语音单元。',
+        fine_motor_control:    '精细动作控制良好，手部动作协调稳定。',
+        visual_motor_integration: '视动整合能力良好，眼手协调配合流畅。'
       }
       const weak = {
         visual_discrimination: '易混淆形近字，视觉扫描时容易漏字或看错。',
@@ -247,11 +368,70 @@ export default {
         reading_comprehension: '理解句子和短文时存在困难，容易遗漏关键信息。',
         semantic_integration:  '句间关系理解存在偏差，语义整合能力需加强。',
         information_extraction:'从文中提取关键信息时容易遗漏或混淆。',
-        attention:             '持续专注能力不足，连续任务中表现有波动。'
+        attention:             '持续专注能力不足，连续任务中表现有波动。',
+        working_memory_capacity: '工作记忆容量有限，同时处理多项信息时容易出错。',
+        short_term_memory:     '短时记忆保持时间较短，序列信息容易遗忘。',
+        rapid_naming_speed:    '命名速度偏慢，快速识别图形或文字时反应时间较长。',
+        phonological_awareness:'音韵意识薄弱，对语音的感知和操作存在困难。',
+        fine_motor_control:    '精细动作控制有待加强，手部动作协调性需要练习。',
+        visual_motor_integration: '视动整合能力有待提升，眼手协调配合需要加强。'
       }
       if (score >= 75) return good[dim] || ''
       if (score >= 60) return `${weak[dim] || ''} 建议适当加强练习。`
       return `${weak[dim] || ''} 这是当前需要重点关注的能力维度。`
+    },
+    getGroupedDimensions() {
+      const preschoolGrades = ['幼儿园', '学前', 'preschool']
+      const isPreschool = preschoolGrades.includes(this.childGrade)
+      const dims = this.dimensions || {}
+
+      // 如果没有任何维度数据，返回空
+      if (!Object.keys(dims).length) return []
+
+      const result = []
+      for (const group of DIMENSION_GROUPS) {
+        const items = []
+        for (const dim of group.dims) {
+          // 学龄前排除 phonological 维度
+          if (isPreschool && dim === 'phonological') continue
+          // 只显示本次筛查实际测到的维度（在 dims 中存在且值为数字）
+          if (!(dim in dims)) continue
+          const val = dims[dim]
+          if (typeof val === 'number') {
+            items.push({ dim, score: val, untested: false })
+          }
+          // 不再显示"未测"条目，直接跳过
+        }
+        // 只保留有至少一个维度的分组
+        if (items.length > 0) {
+          result.push({ label: group.label, icon: group.icon, items })
+        }
+      }
+      return result
+    },
+    // 综合能力图谱：合并所有筛查的维度
+    getMergedGroupedDimensions() {
+      const preschoolGrades = ['幼儿园', '学前', 'preschool']
+      const isPreschool = preschoolGrades.includes(this.childGrade)
+      const dims = this.mergedDimensions || {}
+      if (!Object.keys(dims).length) return []
+
+      const result = []
+      for (const group of DIMENSION_GROUPS) {
+        const items = []
+        for (const dim of group.dims) {
+          if (isPreschool && dim === 'phonological') continue
+          if (!(dim in dims)) continue
+          const val = dims[dim]
+          if (typeof val === 'number') {
+            items.push({ dim, score: val })
+          }
+        }
+        if (items.length > 0) {
+          result.push({ label: group.label, icon: group.icon, items })
+        }
+      }
+      return result
     },
     getScoreClass(score) {
       if (score >= 75) return 'green'
@@ -349,6 +529,71 @@ export default {
 /* 页面内容 */
 .page-content { padding: 24rpx 32rpx; }
 
+/* 本次筛查提示 */
+.tested-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10rpx;
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border: 1rpx solid #FDE68A;
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 16rpx;
+  font-size: 22rpx;
+  color: #92400E;
+  line-height: 1.6;
+  font-weight: 500;
+}
+.tested-hint .ph {
+  font-size: 24rpx;
+  color: #F59E0B;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+}
+
+/* 未完成提示 */
+.pending-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10rpx;
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border: 1rpx solid #FDE68A;
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 16rpx;
+  font-size: 22rpx;
+  color: #92400E;
+  line-height: 1.6;
+  font-weight: 500;
+}
+.pending-hint .ph {
+  font-size: 24rpx;
+  color: #F59E0B;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+}
+.pending-text { flex: 1; }
+
+/* 已完成提示 */
+.complete-hint {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+  border: 1rpx solid #BBF7D0;
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 16rpx;
+  font-size: 22rpx;
+  color: #166534;
+  font-weight: 600;
+}
+.complete-hint .ph {
+  font-size: 26rpx;
+  color: #22C55E;
+  flex-shrink: 0;
+}
+
 /* 概览卡片 */
 .overview-card {
   background: #FFFFFF;
@@ -433,6 +678,18 @@ export default {
 .progress-fill.red { background: linear-gradient(90deg, #FF6B6B, #FF8E8E); }
 
 .ability-hint { font-size: 20rpx; color: #A0AEC0; font-weight: 500; }
+
+.group-header {
+  display: flex; align-items: center; gap: 10rpx;
+  margin-bottom: 20rpx; padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+.group-header .ph { font-size: 28rpx; color: #4F9EF8; }
+.group-label { font-size: 24rpx; font-weight: 700; color: #718096; }
+
+.ability-tag.untested { background: #F5F5F5; color: #A0AEC0; }
+.progress-fill.untested { background: #E5E7EB; }
+.ability-hint.untested-hint { color: #D1D5DB; font-style: italic; }
 
 /* AI 解读卡片 - 蓝色替代紫色 */
 .ai-interpretation-card {

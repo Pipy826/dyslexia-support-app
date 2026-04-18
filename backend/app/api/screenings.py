@@ -13,7 +13,10 @@ from ..schemas.screening import (
     ScreeningStart, ScreeningSubmit, ScreeningResponse,
     GameQuestionsResponse, QuestionOption
 )
-from ..games import VISUAL_QUESTIONS, SPELLING_QUESTIONS, COMPREHENSION_QUESTIONS
+from ..games import (
+    VISUAL_QUESTIONS, SPELLING_QUESTIONS, COMPREHENSION_QUESTIONS,
+    WORKING_MEMORY_QUESTIONS, RAPID_NAMING_QUESTIONS, MOTOR_COORDINATION_QUESTIONS,
+)
 from .deps import get_current_user
 from ..models.user import User
 
@@ -29,6 +32,18 @@ TASK_TEMPLATES = {
     "reading_comprehension": {"task_type": "comprehension", "task_name": "阅读理解练习"},
     "semantic_integration":  {"task_type": "comprehension", "task_name": "语义整合训练"},
     "information_extraction":{"task_type": "comprehension", "task_name": "信息提取练习"},
+    "working_memory_capacity":{"task_type": "working_memory", "task_name": "工作记忆强化训练"},
+    "short_term_memory":     {"task_type": "working_memory", "task_name": "短时记忆练习"},
+    "rapid_naming_speed":    {"task_type": "rapid_naming", "task_name": "快速命名训练"},
+    "phonological_awareness":{"task_type": "rapid_naming", "task_name": "音韵意识练习"},
+    "fine_motor_control":    {"task_type": "motor_coordination", "task_name": "精细动作训练"},
+    "visual_motor_integration":{"task_type": "motor_coordination", "task_name": "视动整合练习"},
+}
+
+# 合法的 task_type 集合（前端传入时做校验）
+VALID_TASK_TYPES = {
+    "visual", "spelling", "comprehension", "working_memory",
+    "rapid_naming", "motor_coordination",
 }
 
 DEFAULT_TASKS_BY_RISK = {
@@ -104,48 +119,135 @@ router = APIRouter(prefix="/api/screenings", tags=["筛查"])
 GAME_QUESTIONS = {
     "visual": VISUAL_QUESTIONS,
     "spelling": SPELLING_QUESTIONS,
-    "comprehension": COMPREHENSION_QUESTIONS
+    "comprehension": COMPREHENSION_QUESTIONS,
+    "working_memory": WORKING_MEMORY_QUESTIONS,
+    "rapid_naming": RAPID_NAMING_QUESTIONS,
+    "motor_coordination": MOTOR_COORDINATION_QUESTIONS,
 }
 
 # 学龄 → 难度等级 + 时限补偿系数映射
 # time_multiplier: 在题目原始 time_limit 基础上乘以该系数
+# allowed_game_types: 该学龄段推荐的游戏类型列表
+# excluded_question_types: 该学龄段需要过滤掉的题目 type 值列表
 GRADE_DIFFICULTY_MAP = {
     # 学龄前 / 幼儿园
-    "preschool":  {"difficulty": "L1", "time_multiplier": 1.5},
-    "幼儿园":      {"difficulty": "L1", "time_multiplier": 1.5},
-    "学前":        {"difficulty": "L1", "time_multiplier": 1.5},
+    "preschool":  {
+        "difficulty": "L1",
+        "time_multiplier": 1.5,
+        "allowed_game_types": ["visual", "working_memory", "motor_coordination"],
+        "excluded_question_types": ["spelling_recognition"],
+    },
+    "幼儿园":      {
+        "difficulty": "L1",
+        "time_multiplier": 1.5,
+        "allowed_game_types": ["visual", "working_memory", "motor_coordination"],
+        "excluded_question_types": ["spelling_recognition"],
+    },
+    "学前":        {
+        "difficulty": "L1",
+        "time_multiplier": 1.5,
+        "allowed_game_types": ["visual", "working_memory", "motor_coordination"],
+        "excluded_question_types": ["spelling_recognition"],
+    },
     # 1-2 年级
-    "grade_1":    {"difficulty": "L1", "time_multiplier": 1.0},
-    "grade_2":    {"difficulty": "L1", "time_multiplier": 1.0},
-    "一年级":      {"difficulty": "L1", "time_multiplier": 1.0},
-    "二年级":      {"difficulty": "L1", "time_multiplier": 1.0},
+    "grade_1":    {
+        "difficulty": "L1",
+        "time_multiplier": 1.2,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "grade_2":    {
+        "difficulty": "L1",
+        "time_multiplier": 1.2,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "一年级":      {
+        "difficulty": "L1",
+        "time_multiplier": 1.2,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "二年级":      {
+        "difficulty": "L1",
+        "time_multiplier": 1.2,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "rapid_naming"],
+        "excluded_question_types": [],
+    },
     # 3-4 年级
-    "grade_3":    {"difficulty": "L2", "time_multiplier": 1.0},
-    "grade_4":    {"difficulty": "L2", "time_multiplier": 1.0},
-    "三年级":      {"difficulty": "L2", "time_multiplier": 1.0},
-    "四年级":      {"difficulty": "L2", "time_multiplier": 1.0},
+    "grade_3":    {
+        "difficulty": "L2",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "grade_4":    {
+        "difficulty": "L2",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "三年级":      {
+        "difficulty": "L2",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "四年级":      {
+        "difficulty": "L2",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
     # 5-6 年级
-    "grade_5":    {"difficulty": "L3", "time_multiplier": 1.0},
-    "grade_6":    {"difficulty": "L3", "time_multiplier": 1.0},
-    "五年级":      {"difficulty": "L3", "time_multiplier": 1.0},
-    "六年级":      {"difficulty": "L3", "time_multiplier": 1.0},
+    "grade_5":    {
+        "difficulty": "L3",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "grade_6":    {
+        "difficulty": "L3",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "五年级":      {
+        "difficulty": "L3",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
+    "六年级":      {
+        "difficulty": "L3",
+        "time_multiplier": 1.0,
+        "allowed_game_types": ["visual", "spelling", "comprehension", "working_memory", "rapid_naming"],
+        "excluded_question_types": [],
+    },
 }
 
 # 未匹配到 grade 时的默认值
-_DEFAULT_GRADE_CONFIG = {"difficulty": "L1", "time_multiplier": 1.0}
+_DEFAULT_GRADE_CONFIG = {
+    "difficulty": "L1",
+    "time_multiplier": 1.0,
+    "allowed_game_types": [],
+    "excluded_question_types": [],
+}
 
 
-def _resolve_difficulty(grade: str | None, explicit_difficulty: str | None) -> tuple[str, float]:
+def _resolve_difficulty(grade: str | None, explicit_difficulty: str | None) -> tuple[str, float, list]:
     """
-    返回 (difficulty, time_multiplier)。
+    返回 (difficulty, time_multiplier, excluded_question_types)。
     优先级：显式传入的 difficulty > grade 映射 > 默认值。
+    注意：即使显式传入 difficulty，仍然应用 grade 对应的 time_multiplier 和 excluded_question_types。
     """
-    if explicit_difficulty:
-        return explicit_difficulty, 1.0
     if grade:
         cfg = GRADE_DIFFICULTY_MAP.get(grade.strip(), _DEFAULT_GRADE_CONFIG)
-        return cfg["difficulty"], cfg["time_multiplier"]
-    return _DEFAULT_GRADE_CONFIG["difficulty"], _DEFAULT_GRADE_CONFIG["time_multiplier"]
+        difficulty = explicit_difficulty if explicit_difficulty else cfg["difficulty"]
+        return difficulty, cfg["time_multiplier"], cfg.get("excluded_question_types", [])
+    if explicit_difficulty:
+        return explicit_difficulty, 1.0, []
+    return _DEFAULT_GRADE_CONFIG["difficulty"], _DEFAULT_GRADE_CONFIG["time_multiplier"], []
 
 
 @router.get("/questions/{game_type}")
@@ -168,16 +270,21 @@ def get_questions(
     if game_type not in GAME_QUESTIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid game type. Must be one of: {list(GAME_QUESTIONS.keys())}"
+            detail=f"不支持的游戏类型，可选：{list(GAME_QUESTIONS.keys())}"
         )
 
-    resolved_difficulty, time_multiplier = _resolve_difficulty(grade, difficulty)
+    resolved_difficulty, time_multiplier, excluded_question_types = _resolve_difficulty(grade, difficulty)
 
     questions_db = GAME_QUESTIONS.get(game_type, {})
     level_questions = questions_db.get(resolved_difficulty, [])
 
+    # 按学龄段过滤不适龄题型（如学龄前过滤拼音题）
+    if excluded_question_types:
+        level_questions = [q for q in level_questions if q.get("type") not in excluded_question_types]
+
     # 取指定数量，包含 correct_index 供前端即时反馈
     # 学龄前补偿：time_limit 乘以系数并取整
+    available_count = len(level_questions)
     questions_for_client = []
     for q in level_questions[:count]:
         if time_multiplier != 1.0:
@@ -185,13 +292,17 @@ def get_questions(
             q["time_limit"] = round(q.get("time_limit", 10) * time_multiplier)
         questions_for_client.append(q)
 
-    return {
+    response = {
         "questions": questions_for_client,
         "game_type": game_type,
         "difficulty": resolved_difficulty,
         "grade": grade,
         "time_multiplier": time_multiplier,
     }
+    # 仅当过滤后题目不足 count 时才附加 available_count（向后兼容）
+    if available_count < count:
+        response["available_count"] = available_count
+    return response
 
 
 @router.post("/start", response_model=ScreeningResponse)
@@ -340,8 +451,8 @@ async def submit_screening(
     db.commit()
     db.refresh(report)
 
-    # 计算孩子年龄
-    today_date = datetime.now().date()
+    # 计算孩子年龄（统一使用 UTC 日期，与数据库保持一致）
+    today_date = datetime.utcnow().date()
     age = today_date.year - child.birth_date.year - (
         (today_date.month, today_date.day) < (child.birth_date.month, child.birth_date.day)
     )

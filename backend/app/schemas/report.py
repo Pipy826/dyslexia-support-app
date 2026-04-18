@@ -12,6 +12,7 @@ class ReportResponse(BaseModel):
     summary: Optional[str] = None
     recommendations: Optional[str] = None
     dimensions: Optional[str] = None  # JSON string
+    game_type: Optional[str] = None   # 来自关联的 Screening，方便前端展示
     created_at: datetime
 
     class Config:

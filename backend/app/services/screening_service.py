@@ -73,9 +73,12 @@ def calculate_score(answers: List[Dict], game_type: str) -> tuple:
 
     # 游戏类型 → 能力维度映射
     dimension_map = {
-        "visual": ["visual_discrimination", "attention"],
-        "spelling": ["spelling", "phonological", "character_order"],
-        "comprehension": ["reading_comprehension", "semantic_integration", "information_extraction"]
+        "visual":             ["visual_discrimination", "attention"],
+        "spelling":           ["spelling", "phonological", "character_order"],
+        "comprehension":      ["reading_comprehension", "semantic_integration", "information_extraction"],
+        "working_memory":     ["working_memory_capacity", "short_term_memory"],
+        "rapid_naming":       ["rapid_naming_speed", "phonological_awareness"],
+        "motor_coordination": ["fine_motor_control", "visual_motor_integration"],
     }
     dimensions = dimension_map.get(game_type, ["general"])
 
@@ -83,16 +86,25 @@ def calculate_score(answers: List[Dict], game_type: str) -> tuple:
     for dim in dimensions:
         if dim == "attention":
             # 用反应时变异系数估算注意力：CV = std / mean，CV 越小越专注
-            times = [a.get("time_spent", 0) for a in answers if a.get("time_spent") and not a.get("is_timeout")]
+            # 只统计未超时且有有效用时的答题记录
+            times = [
+                a.get("time_spent", 0)
+                for a in answers
+                if a.get("time_spent") and not a.get("is_timeout") and a.get("time_spent") > 0
+            ]
             if len(times) >= 3:
                 mean_t = sum(times) / len(times)
-                variance = sum((t - mean_t) ** 2 for t in times) / len(times)
-                std_t = variance ** 0.5
-                cv = std_t / mean_t if mean_t > 0 else 1.0
-                # CV=0 → 100分；CV=1.0 → 0分；线性映射
-                attention_score = max(0, int((1.0 - min(cv, 1.0)) * 100))
+                if mean_t > 0:
+                    variance = sum((t - mean_t) ** 2 for t in times) / len(times)
+                    std_t = variance ** 0.5
+                    cv = std_t / mean_t
+                    # CV=0 → 100分；CV≥1.0 → 0分；线性映射
+                    attention_score = max(0, int((1.0 - min(cv, 1.0)) * 100))
+                else:
+                    attention_score = 50  # 无法计算时给中间分
             else:
-                attention_score = total_score
+                # 有效答题数不足3题，无法可靠估算注意力，给中间分而非直接用总分
+                attention_score = min(total_score, 70)
             dimension_scores.append({"dimension": dim, "score": attention_score})
         else:
             dimension_scores.append({"dimension": dim, "score": total_score})

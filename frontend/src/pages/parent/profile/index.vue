@@ -22,7 +22,7 @@
       <!-- 儿童档案管理区 -->
       <view class="section-title">儿童档案管理</view>
       <view class="children-scroll">
-        <!-- 档案 1 -->
+        <!-- 档案列表 -->
         <view class="child-card selected" v-for="child in children" :key="child.id" @click="editChild(child.id)">
           <view class="child-dot"></view>
           <view class="child-avatar">
@@ -32,8 +32,10 @@
             <view class="child-name">{{ child.name }}</view>
             <view class="child-meta">{{ calcAge(child.birth_date) }}岁 / {{ gradeLabel(child.grade) }}</view>
           </view>
-        </view>
-        <!-- 添加按钮 -->
+          <view class="child-delete-btn" @click.stop="confirmDeleteChild(child)">
+            <text class="ph ph-trash"></text>
+          </view>
+        </view>        <!-- 添加按钮 -->
         <view class="add-child-card" @click="goToCreateProfile">
           <view class="add-avatar">
             <text class="ph ph-plus"></text>
@@ -86,7 +88,7 @@
 
 <script>
 import { getUser, clearAuth, getCurrentChild } from '../../../utils/auth.js'
-import { getChildren } from '../../../api/child.js'
+import { getChildren, deleteChild } from '../../../api/child.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
 export default {
@@ -147,6 +149,25 @@ export default {
     },
     editChild(id) {
       uni.navigateTo({ url: `/pages/parent/profile/edit?id=${id}` })
+    },
+    confirmDeleteChild(child) {
+      uni.showModal({
+        title: '删除档案',
+        content: `确定要删除"${child.name}"的档案吗？删除后所有相关数据将无法恢复。`,
+        confirmText: '删除',
+        confirmColor: '#FF6B6B',
+        success: async (res) => {
+          if (res.confirm) {
+            try {
+              await deleteChild(child.id)
+              uni.showToast({ title: '档案已删除', icon: 'success' })
+              await this.loadChildren()
+            } catch (e) {
+              uni.showToast({ title: '删除失败，请重试', icon: 'none' })
+            }
+          }
+        }
+      })
     }
   }
 }
@@ -339,8 +360,29 @@ export default {
   font-weight: 500;
 }
 
-.add-child-card {
-  min-width: 160rpx;
+.child-delete-btn {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: rgba(255, 107, 107, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.child-delete-btn:active {
+  background: rgba(255, 107, 107, 0.25);
+  transform: scale(0.9);
+}
+
+.child-delete-btn .ph {
+  font-size: 22rpx;
+  color: #FF6B6B;
+}
+
+.add-child-card {  min-width: 160rpx;
   background: #FFFFFF;
   border-radius: 20rpx;
   padding: 24rpx 20rpx;

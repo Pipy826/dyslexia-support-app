@@ -75,6 +75,21 @@
         </view>
       </view>
 
+      <!-- 出生年份 -->
+      <view class="input-group">
+        <label class="input-label">出生年份 <text class="label-hint">（用于精准匹配题目难度）</text></label>
+        <view class="birth-year-row">
+          <view
+            v-for="y in birthYearOptions"
+            :key="y"
+            :class="['year-option', { active: formData.birth_year === y }]"
+            @click="formData.birth_year = y"
+          >
+            {{ y }}年
+          </view>
+        </view>
+      </view>
+
       <!-- 是否发现困难 -->
       <view class="difficulty-notice" :class="{ checked: formData.hasDifficulty }">
         <view class="notice-checkbox" @click="formData.hasDifficulty = !formData.hasDifficulty">
@@ -116,6 +131,7 @@ export default {
         name: '',
         gender: 'boy',
         grade: '一年级',
+        birth_year: new Date().getFullYear() - 7,
         hasDifficulty: false,
         hasProfessionalEval: false,
         avatar_url: ''
@@ -129,6 +145,17 @@ export default {
         { label: '五/六年级', value: '五年级' }
       ],
       uploading: false
+    }
+  },
+  computed: {
+    birthYearOptions() {
+      const currentYear = new Date().getFullYear()
+      // 3岁（学龄前）到 13岁（六年级）
+      const years = []
+      for (let age = 3; age <= 13; age++) {
+        years.push(currentYear - age)
+      }
+      return years
     }
   },
   methods: {
@@ -158,17 +185,11 @@ export default {
         uni.showToast({ title: '请输入孩子姓名或昵称', icon: 'none' })
         return
       }
-      // birth_date 必填，用年级推算一个默认生日
-      const gradeAgeMap = { '幼儿园': 5, '一年级': 7, '二年级': 8, '三年级': 9, '四年级': 10, '五年级': 11 }
-      const age = gradeAgeMap[this.formData.grade] || 8
-      const birthYear = new Date().getFullYear() - age
-      const birthDate = `${birthYear}-01-01`
-
       try {
         const child = await createChild({
           name: this.formData.name,
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
-          birth_date: birthDate,
+          birth_date: `${this.formData.birth_year}-06-01`,
           grade: this.formData.grade,
           // 任一项勾选均标记为 has_difficulty，供筛查系统调整侧重点
           has_difficulty: this.formData.hasDifficulty || this.formData.hasProfessionalEval,
@@ -400,9 +421,40 @@ export default {
   font-weight: 700;
 }
 
-/* 困难提示 */
-.difficulty-notice {
+/* 出生年份选择 */
+.birth-year-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.year-option {
+  padding: 18rpx 24rpx;
+  background: #F9FAFB;
+  border: 2rpx solid #F3F4F6;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: #6B7280;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.year-option.active {
   background: #EFF6FF;
+  border-color: #3B82F6;
+  color: #3B82F6;
+  font-weight: 700;
+}
+
+.label-hint {
+  font-size: 20rpx;
+  color: #9CA3AF;
+  font-weight: 400;
+}
+
+/* 困难提示 */
+.difficulty-notice {  background: #EFF6FF;
   border: 2rpx solid #DBEAFE;
   border-radius: 32rpx;
   padding: 32rpx;
