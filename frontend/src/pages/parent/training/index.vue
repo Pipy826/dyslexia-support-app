@@ -406,35 +406,72 @@ export default {
 }
 </script>
 
+
 <style scoped>
+/* 训练页面 - 统一创意风格 */
 .page-container {
   min-height: 100vh;
-  background: #FFFFFF;
-  padding-bottom: 196rpx;
+  background: #F5F7FA;
+  padding-bottom: 160rpx;
 }
 
-/* AI 训练计划入口 Banner */
+/* 头部 - 与首页一致的紧凑设计 */
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20rpx);
+  padding: 56rpx 32rpx 20rpx;
+  box-shadow: 0 1rpx 0 rgba(0, 0, 0, 0.04);
+}
+
+.header-title {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: #2D3748;
+  margin-bottom: 4rpx;
+}
+
+.header-subtitle {
+  font-size: 20rpx;
+  color: #A0AEC0;
+  font-weight: 500;
+}
+
+/* 页面内容 */
+.page-content {
+  padding: 24rpx 32rpx;
+}
+
+/* AI 训练计划入口 Banner - 蓝色渐变替代紫色 */
 .ai-plan-banner {
-  background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
-  border-radius: 40rpx;
-  padding: 32rpx 40rpx;
-  margin-bottom: 32rpx;
+  background: linear-gradient(135deg, #4F9EF8 0%, #3B82F6 100%);
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 24rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.25);
+  transition: all 0.2s;
+}
+
+.ai-plan-banner:active {
+  transform: scale(0.98);
 }
 
 .ai-plan-left {
   display: flex;
   align-items: center;
-  gap: 24rpx;
+  gap: 20rpx;
 }
 
 .ai-plan-icon {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.2);
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 16rpx;
+  background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -442,58 +479,68 @@ export default {
 }
 
 .ai-plan-icon .ph {
-  font-size: 40rpx;
+  font-size: 36rpx;
   color: #FFFFFF;
 }
 
 .ai-plan-title {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: #FFFFFF;
 }
 
 .ai-plan-sub {
-  font-size: 22rpx;
-  color: rgba(255,255,255,0.75);
-  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 3rpx;
 }
 
 .ai-plan-arrow {
-  font-size: 36rpx;
-  color: rgba(255,255,255,0.7);
+  font-size: 32rpx;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* AI 计划弹窗 */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4rpx);
   z-index: 9999;
   display: flex;
   align-items: flex-end;
+  animation: fadeIn 0.2s;
 }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal-content {
   background: #FFFFFF;
   width: 100%;
-  border-radius: 64rpx 64rpx 0 0;
-  padding: 48rpx;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 32rpx;
   max-height: 85vh;
   overflow-y: auto;
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 .modal-header {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  margin-bottom: 40rpx;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
 }
 
 .modal-avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: #7C3AED;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 16rpx;
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -501,461 +548,455 @@ export default {
 }
 
 .modal-avatar .ph {
-  font-size: 36rpx;
+  font-size: 32rpx;
   color: #FFFFFF;
 }
 
 .modal-title {
   flex: 1;
-  font-size: 36rpx;
+  font-size: 32rpx;
   font-weight: 700;
-  color: #1F2937;
+  color: #2D3748;
 }
 
 .modal-close .ph {
-  font-size: 40rpx;
-  color: #9CA3AF;
+  font-size: 36rpx;
+  color: #A0AEC0;
 }
 
 .modal-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0;
-  gap: 32rpx;
+  padding: 64rpx 0;
+  gap: 24rpx;
 }
 
 .loading-spinner {
-  width: 80rpx;
-  height: 80rpx;
-  border: 6rpx solid #EDE9FE;
-  border-top-color: #7C3AED;
+  width: 64rpx;
+  height: 64rpx;
+  border: 5rpx solid #DBEAFE;
+  border-top-color: #4F9EF8;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .loading-text {
   font-size: 26rpx;
-  color: #7C3AED;
+  color: #4F9EF8;
+  font-weight: 600;
 }
 
 .plan-summary {
-  font-size: 28rpx;
-  color: #374151;
+  font-size: 26rpx;
+  color: #2D3748;
   line-height: 1.7;
-  background: #F5F3FF;
-  border-radius: 24rpx;
-  padding: 28rpx;
-  margin-bottom: 16rpx;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 12rpx;
+  font-weight: 500;
 }
 
 .plan-duration {
-  font-size: 22rpx;
-  color: #9CA3AF;
-  margin-bottom: 32rpx;
+  font-size: 20rpx;
+  color: #A0AEC0;
+  margin-bottom: 24rpx;
+  font-weight: 500;
 }
 
 .plan-tasks {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
-  margin-bottom: 40rpx;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
 }
 
 .plan-task-item {
-  background: #F9FAFB;
-  border-radius: 32rpx;
-  padding: 32rpx;
-  border: 1rpx solid #F3F4F6;
+  background: #F8FAFF;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
 }
 
 .plan-task-header {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  margin-bottom: 16rpx;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
 }
 
 .plan-task-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 24rpx;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 14rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.plan-task-icon .ph { font-size: 36rpx; }
-.plan-task-icon.orange { background: #FEF3C7; }
-.plan-task-icon.orange .ph { color: #F59E0B; }
-.plan-task-icon.blue { background: #EFF6FF; }
-.plan-task-icon.blue .ph { color: #3B82F6; }
-.plan-task-icon.green { background: #ECFDF5; }
-.plan-task-icon.green .ph { color: #10B981; }
+.plan-task-icon .ph { font-size: 30rpx; }
+.plan-task-icon.orange { background: linear-gradient(135deg, #FFF9C4, #FFE082); }
+.plan-task-icon.orange .ph { color: #F57F17; }
+.plan-task-icon.blue { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); }
+.plan-task-icon.blue .ph { color: #4F9EF8; }
+.plan-task-icon.green { background: linear-gradient(135deg, #F0FDF4, #DCFCE7); }
+.plan-task-icon.green .ph { color: #22C55E; }
 
 .plan-task-name {
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 700;
-  color: #1F2937;
+  color: #2D3748;
 }
 
 .plan-task-meta {
-  font-size: 22rpx;
-  color: #9CA3AF;
-  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #A0AEC0;
+  margin-top: 2rpx;
+  font-weight: 500;
 }
 
 .plan-task-desc {
-  font-size: 26rpx;
-  color: #4B5563;
+  font-size: 24rpx;
+  color: #718096;
   line-height: 1.6;
-  margin-bottom: 12rpx;
+  margin-bottom: 10rpx;
+  font-weight: 500;
 }
 
 .plan-task-tip {
-  font-size: 22rpx;
-  color: #7C3AED;
+  font-size: 20rpx;
+  color: #4F9EF8;
   display: flex;
   align-items: center;
-  gap: 8rpx;
+  gap: 6rpx;
+  font-weight: 600;
 }
 
-.plan-task-tip .ph { font-size: 24rpx; }
+.plan-task-tip .ph { font-size: 22rpx; }
 
 .apply-plan-btn {
   width: 100%;
-  background: #7C3AED;
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
   color: #FFFFFF;
-  border-radius: 40rpx;
-  padding: 32rpx;
-  font-size: 30rpx;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  font-size: 28rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
+  gap: 10rpx;
+  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.25);
+  transition: all 0.2s;
 }
 
-.apply-plan-btn .ph { font-size: 32rpx; }
+.apply-plan-btn:active { transform: scale(0.97); }
+.apply-plan-btn .ph { font-size: 28rpx; }
 
 .modal-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 48rpx 0;
-  gap: 32rpx;
+  gap: 24rpx;
 }
 
 .modal-empty-text {
-  font-size: 28rpx;
-  color: #6B7280;
+  font-size: 26rpx;
+  color: #718096;
   text-align: center;
   line-height: 1.7;
+  font-weight: 500;
 }
 
 .generate-btn {
-  background: #7C3AED;
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
   color: #FFFFFF;
-  border-radius: 40rpx;
-  padding: 28rpx 64rpx;
-  font-size: 30rpx;
+  border-radius: 16rpx;
+  padding: 24rpx 56rpx;
+  font-size: 28rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 10rpx;
+  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.25);
+  transition: all 0.2s;
 }
 
-.generate-btn .ph { font-size: 32rpx; }
-
-/* 头部 */
-.page-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: #FFFFFF;
-  padding: 96rpx 48rpx 32rpx;
-}
-
-.header-title {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #1F2937;
-  margin-bottom: 8rpx;
-}
-
-.header-subtitle {
-  font-size: 22rpx;
-  color: #9CA3AF;
-}
-
-/* 页面内容 */
-.page-content {
-  padding: 32rpx 48rpx;
-}
+.generate-btn:active { transform: scale(0.97); }
+.generate-btn .ph { font-size: 28rpx; }
 
 /* 今日卡片 */
 .today-card {
-  background: #F9FAFB;
-  border-radius: 48rpx;
-  padding: 48rpx;
-  margin-bottom: 48rpx;
-  border: 1rpx solid #F3F4F6;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .today-decoration {
   position: absolute;
-  right: -32rpx;
-  top: -32rpx;
-  width: 160rpx;
-  height: 160rpx;
+  right: -24rpx;
+  top: -24rpx;
+  width: 120rpx;
+  height: 120rpx;
   border-radius: 50%;
-  background: #ECFDF5;
-  opacity: 0.5;
+  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+  opacity: 0.6;
 }
 
 .today-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32rpx;
+  margin-bottom: 24rpx;
   position: relative;
   z-index: 1;
 }
 
 .today-title {
-  font-size: 36rpx;
+  font-size: 30rpx;
   font-weight: 700;
-  color: #1F2937;
+  color: #2D3748;
 }
 
 .today-meta {
-  font-size: 22rpx;
-  color: #9CA3AF;
-  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #A0AEC0;
+  margin-top: 3rpx;
+  font-weight: 500;
 }
 
 .count-ring {
-  width: 96rpx;
-  height: 96rpx;
+  width: 80rpx;
+  height: 80rpx;
   border-radius: 50%;
-  border: 8rpx solid #10B981;
+  border: 6rpx solid #22C55E;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #FFFFFF;
-  font-size: 28rpx;
+  font-size: 24rpx;
   font-weight: 700;
-  color: #10B981;
+  color: #22C55E;
 }
 
 /* 贴士 */
 .tips-box {
-  background: #FFFFFF;
-  border-radius: 32rpx;
-  padding: 24rpx;
+  background: #F8FAFF;
+  border-radius: 16rpx;
+  padding: 20rpx;
   display: flex;
-  gap: 24rpx;
+  gap: 16rpx;
   align-items: flex-start;
-  border: 1rpx solid #F3F4F6;
   position: relative;
   z-index: 1;
 }
 
 .tips-box .ph {
-  font-size: 36rpx;
-  color: #EF4444;
+  font-size: 28rpx;
+  color: #FF6B6B;
   flex-shrink: 0;
 }
 
 .tips-text {
   font-size: 22rpx;
-  color: #4B5563;
+  color: #718096;
   line-height: 1.7;
+  font-weight: 500;
 }
 
 .tips-text .bold {
   font-weight: 700;
+  color: #2D3748;
 }
 
 /* 区域标题 */
 .section-title {
-  font-size: 36rpx;
+  font-size: 28rpx;
   font-weight: 700;
-  color: #1F2937;
-  margin-bottom: 24rpx;
+  color: #2D3748;
+  margin-bottom: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 4rpx;
+  height: 22rpx;
+  background: linear-gradient(180deg, #4F9EF8, #22C55E);
+  border-radius: 2rpx;
 }
 
 /* 任务列表 */
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
-  margin-bottom: 48rpx;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
 }
 
 .task-card {
   background: #FFFFFF;
-  border-radius: 40rpx;
-  padding: 32rpx;
+  border-radius: 20rpx;
+  padding: 24rpx;
   display: flex;
   align-items: center;
-  gap: 32rpx;
-  border: 1rpx solid #F3F4F6;
+  gap: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  transition: all 0.2s;
 }
 
+.task-card:active { transform: scale(0.98); }
+
 .task-icon {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 32rpx;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.task-icon .ph {
-  font-size: 48rpx;
-}
+.task-icon .ph { font-size: 40rpx; }
+.task-icon.orange { background: linear-gradient(135deg, #FFF9C4, #FFE082); }
+.task-icon.orange .ph { color: #F57F17; }
+.task-icon.blue { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); }
+.task-icon.blue .ph { color: #4F9EF8; }
+.task-icon.green { background: linear-gradient(135deg, #F0FDF4, #DCFCE7); }
+.task-icon.green .ph { color: #22C55E; }
 
-.task-icon.orange {
-  background: #FEF3C7;
-}
-.task-icon.orange .ph {
-  color: #F59E0B;
-}
-
-.task-icon.blue {
-  background: #EFF6FF;
-}
-.task-icon.blue .ph {
-  color: #3B82F6;
-}
-
-.task-icon.green {
-  background: #ECFDF5;
-}
-.task-icon.green .ph {
-  color: #10B981;
-}
-
-.task-info {
-  flex: 1;
-}
+.task-info { flex: 1; }
 
 .task-name {
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 700;
-  color: #1F2937;
+  color: #2D3748;
 }
 
 .task-desc {
-  font-size: 22rpx;
-  color: #9CA3AF;
-  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #A0AEC0;
+  margin-top: 3rpx;
+  font-weight: 500;
 }
 
 .task-btn {
-  padding: 16rpx 32rpx;
-  background: #3B82F6;
+  padding: 14rpx 28rpx;
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
   color: #FFFFFF;
-  border-radius: 32rpx;
+  border-radius: 14rpx;
   font-size: 22rpx;
   font-weight: 700;
+  box-shadow: 0 2rpx 8rpx rgba(59, 130, 246, 0.2);
+  transition: all 0.2s;
 }
 
+.task-btn:active { transform: scale(0.95); }
+
 .task-btn.done {
-  background: #F3F4F6;
-  color: #9CA3AF;
+  background: #F5F5F5;
+  color: #A0AEC0;
+  box-shadow: none;
 }
 
 /* 里程碑卡片 */
 .milestone-card {
-  background: #F9FAFB;
-  border: 1rpx solid #F3F4F6;
-  border-radius: 32rpx;
-  padding: 32rpx;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 24rpx;
   display: flex;
   align-items: center;
-  gap: 24rpx;
-  margin-bottom: 48rpx;
+  gap: 20rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
 .milestone-card.active {
-  background: #ECFDF5;
-  border-color: #6EE7B7;
+  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+  box-shadow: 0 2rpx 12rpx rgba(34, 197, 94, 0.1);
 }
 
 .milestone-card .ph {
-  font-size: 64rpx;
+  font-size: 48rpx;
   color: #D1D5DB;
   flex-shrink: 0;
 }
 
-.milestone-card.active .ph {
-  color: #10B981;
-}
+.milestone-card.active .ph { color: #22C55E; }
 
 .milestone-title {
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 700;
-  color: #374151;
+  color: #2D3748;
 }
 
 .milestone-desc {
-  font-size: 22rpx;
-  color: #6B7280;
-  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: #A0AEC0;
+  margin-top: 3rpx;
+  font-weight: 500;
 }
 
 .milestone-desc .highlight {
   font-weight: 700;
-  color: #3B82F6;
+  color: #4F9EF8;
 }
 
 .reassess-mini-btn {
-  padding: 16rpx 28rpx;
-  background: #10B981;
+  padding: 12rpx 24rpx;
+  background: linear-gradient(135deg, #22C55E, #16A34A);
   color: #FFFFFF;
-  border-radius: 24rpx;
-  font-size: 22rpx;
+  border-radius: 12rpx;
+  font-size: 20rpx;
   font-weight: 700;
   flex-shrink: 0;
+  box-shadow: 0 2rpx 8rpx rgba(34, 197, 94, 0.2);
 }
 
 /* 本周重点 */
 .week-card {
-  background: #F9FAFB;
-  border-radius: 32rpx;
-  padding: 32rpx 40rpx;
-  border: 1rpx solid #F3F4F6;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: 16rpx;
 }
+
 .week-item {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
 }
+
 .week-dot {
-  width: 16rpx;
-  height: 16rpx;
+  width: 12rpx;
+  height: 12rpx;
   border-radius: 50%;
   flex-shrink: 0;
 }
-.week-dot.blue { background: #3B82F6; }
-.week-dot.orange { background: #F59E0B; }
-.week-dot.green { background: #10B981; }
+
+.week-dot.blue { background: #4F9EF8; }
+.week-dot.orange { background: #F57F17; }
+.week-dot.green { background: #22C55E; }
+
 .week-text {
-  font-size: 26rpx;
-  color: #4B5563;
+  font-size: 24rpx;
+  color: #718096;
   line-height: 1.5;
+  font-weight: 500;
 }
 </style>

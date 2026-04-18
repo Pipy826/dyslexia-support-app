@@ -1,170 +1,162 @@
-/* 全局通用样式 - 参照原型图极简风格 */
+/* 创意互动风格 - 手机端小程序优化 🎨 */
 @use './variables.scss' as *;
 
 page {
-  font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 28rpx;
   line-height: 1.6;
   color: $text-main;
-  background-color: $bg-sub;
+  background: $bg-main;
 }
 
-/* 容器 */
+/* === 容器系统 === */
 .container {
   padding: $content-padding;
   min-height: 100vh;
 }
 
-/* 卡片 - 原型图规范 */
+/* === 卡片系统 - 悬浮磁贴风格 === */
 .card {
   background: $bg-main;
-  border-radius: $border-radius-lg;
-  padding: 48rpx;
-  box-shadow: $shadow-card;
+  border-radius: 32rpx;
+  padding: 40rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.04);
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1rpx 8rpx rgba(0, 0, 0, 0.06);
 }
 
 .card-sm {
   background: $bg-main;
-  border-radius: $border-radius-sm;
-  padding: 32rpx;
-  box-shadow: $shadow-card;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.03);
 }
 
-/* 标题 */
+/* === 标题系统 === */
 .card-title {
-  font-size: 36rpx;
-  font-weight: 600;
+  font-size: 32rpx;
+  font-weight: 700;
   color: $text-main;
-  margin-bottom: 24rpx;
+  margin-bottom: 20rpx;
 }
 
 .section-title {
-  font-size: 36rpx;
+  font-size: 32rpx;
   font-weight: 700;
   color: $text-main;
-  margin-bottom: 32rpx;
+  margin-bottom: 24rpx;
+  position: relative;
+  padding-left: 20rpx;
 }
 
-/* 按钮 - 原型图规范 */
+.section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6rpx;
+  height: 28rpx;
+  background: linear-gradient(180deg, $primary-blue, $purple-magic);
+  border-radius: 3rpx;
+}
+
+/* === 按钮系统 - 扁平化触感设计 === */
 .btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 48rpx;  /* rounded-3xl */
-  font-size: 32rpx;
+  border-radius: 20rpx;
+  font-size: 28rpx;
   font-weight: 600;
-  transition: all 0.3s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn:active::before {
+  width: 300rpx;
+  height: 300rpx;
 }
 
 .btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .btn-primary {
-  background: $primary-blue;
+  background: linear-gradient(135deg, $primary-blue 0%, #3B82F6 100%);
   color: #fff;
-  padding: 32rpx 48rpx;
-  box-shadow: $shadow-blue-btn;
+  padding: 28rpx 40rpx;
+  box-shadow: 0 4rpx 12rpx rgba(79, 158, 248, 0.25);
 }
 
 .btn-primary-full {
   width: 100%;
-  background: $primary-blue;
+  background: linear-gradient(135deg, $primary-blue 0%, #3B82F6 100%);
   color: #fff;
   padding: 32rpx;
-  border-radius: 48rpx;
-  font-size: 40rpx;
+  border-radius: 20rpx;
+  font-size: 32rpx;
   font-weight: 700;
-  box-shadow: $shadow-blue-btn;
+  box-shadow: 0 4rpx 16rpx rgba(79, 158, 248, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
 .btn-secondary {
   background: $bg-sub;
   color: $text-main;
-  padding: 24rpx 48rpx;
+  padding: 24rpx 40rpx;
   border: 2rpx solid #E5E7EB;
 }
 
-/* 输入框 */
+/* === 输入框 === */
 .input {
   width: 100%;
-  padding: 24rpx 32rpx;
+  padding: 24rpx 28rpx;
   border: 2rpx solid #E5E7EB;
-  border-radius: $border-radius-sm;
+  border-radius: 16rpx;
   font-size: 28rpx;
-  background: $bg-sub;
+  background: $bg-main;
+  transition: all 0.2s;
 }
 
 .input:focus {
   border-color: $primary-blue;
-  background: $bg-main;
+  background: #F0F7FF;
+  box-shadow: 0 0 0 4rpx rgba(79, 158, 248, 0.1);
 }
 
-/* 底部导航 - 原型图规范 */
-.tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: $nav-height;
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-start;
-  padding: 16rpx 32rpx;
-  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
-  background: $bg-main;
-  border-top: 1rpx solid #F3F4F6;
-  z-index: 999;
-}
+/* === 底部导航样式由 tab-bar 组件自身 scoped 样式控制，此处不重复定义 === */
 
-.tab-bar-4 {
-  /* 4个导航项 */
-}
-
-.tab-bar-5 {
-  /* 5个导航项 */
-  padding-left: 16rpx;
-  padding-right: 16rpx;
-}
-
-.tab-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8rpx;
-  color: #9CA3AF;
-}
-
-.tab-item.active {
-  color: $primary-blue;
-}
-
-.tab-icon {
-  font-size: 44rpx;
-  line-height: 1;
-}
-
-.tab-label {
-  font-size: 20rpx;
-  font-weight: 500;
-}
-
-.tab-label-bold {
-  font-size: 20rpx;
-  font-weight: 700;
-}
-
-/* 风险等级标签 */
+/* === 风险等级标签 === */
 .risk-badge {
-  display: inline-block;
-  padding: 8rpx 24rpx;
-  border-radius: 50rpx;
-  font-size: 24rpx;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  padding: 6rpx 20rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 600;
 }
 
 .risk-low {
@@ -182,127 +174,127 @@ page {
   color: $accent-red;
 }
 
-/* 进度条 */
+/* === 进度条 - 流动动画 === */
 .progress-bar {
   width: 100%;
-  height: 16rpx;
-  background: #F3F4F6;
-  border-radius: 8rpx;
+  height: 12rpx;
+  background: #F0F0F0;
+  border-radius: 6rpx;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 8rpx;
-  transition: width 0.5s;
+  border-radius: 6rpx;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
 }
 
 .progress-green {
-  background: $success-green;
+  background: linear-gradient(90deg, #22C55E, #4ADE80);
 }
 
 .progress-orange {
-  background: $warning-orange;
+  background: linear-gradient(90deg, #FFA726, #FFD54F);
 }
 
 .progress-blue {
-  background: $primary-blue;
+  background: linear-gradient(90deg, #4F9EF8, #A78BFA);
 }
 
-/* 头像圆形 */
+/* === 头像系统 === */
 .avatar {
-  width: 80rpx;
-  height: 80rpx;
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  background: #EFF6FF;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
   color: $primary-blue;
+  border: 2rpx solid rgba(79, 158, 248, 0.2);
 }
 
 .avatar-sm {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 24rpx;
-  background: $bg-main;
-  color: $text-sub;
+  width: 56rpx;
+  height: 56rpx;
+  font-size: 22rpx;
 }
 
 .avatar-lg {
-  width: 128rpx;
-  height: 128rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 48rpx;
-  background: #EFF6FF;
-  color: $primary-blue;
+  width: 96rpx;
+  height: 96rpx;
+  font-size: 40rpx;
 }
 
-/* 功能入口图标 */
+/* === 图标容器 === */
 .entry-icon {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: $border-radius-sm;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 48rpx;
+  font-size: 44rpx;
   background: $bg-main;
-  box-shadow: $shadow-card;
-  border: 1rpx solid #F9FAFB;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s;
 }
 
-/* 动态卡片 */
-.activity-card {
-  background: $bg-main;
-  padding: 32rpx;
-  border-radius: 40rpx;
-  border: 1rpx solid #F3F4F6;
-  display: flex;
-  align-items: center;
-  gap: 32rpx;
+.entry-icon:active {
+  transform: scale(0.92);
 }
 
-/* 列表项 */
+/* === 列表项 === */
 .list-item {
   background: $bg-main;
-  padding: 40rpx;
-  border-radius: 40rpx;
-  border: 1rpx solid #F3F4F6;
+  padding: 32rpx;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
-  gap: 32rpx;
+  gap: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.03);
+  transition: all 0.2s;
 }
 
 .list-item:active {
+  transform: scale(0.98);
   background: $bg-sub;
 }
 
-/* 分割线 */
+/* === 分割线 === */
 .divider {
   height: 1rpx;
   background: #F3F4F6;
+  margin: 24rpx 0;
 }
 
-/* 标签 */
+/* === 标签系统 === */
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 8rpx;
-  padding: 8rpx 24rpx;
-  border-radius: 50rpx;
-  font-size: 20rpx;
-  font-weight: 700;
+  gap: 6rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 600;
 }
 
 .tag-blue {
@@ -325,7 +317,12 @@ page {
   color: $accent-red;
 }
 
-/* 弹窗遮罩 */
+.tag-purple {
+  background: rgba($purple-magic, 0.1);
+  color: $purple-magic;
+}
+
+/* === 弹窗系统 === */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -333,21 +330,40 @@ page {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4rpx);
   z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: center;
+  animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-content {
   background: $bg-main;
-  width: 80%;
-  max-width: 640rpx;
-  border-radius: $border-radius-xl;
-  padding: 48rpx;
+  width: 85%;
+  max-width: 600rpx;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx;
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 空状态 */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === 空状态 === */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -358,28 +374,47 @@ page {
 }
 
 .empty-icon {
-  width: 128rpx;
-  height: 128rpx;
+  width: 120rpx;
+  height: 120rpx;
   border-radius: 50%;
   background: $bg-sub;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 64rpx;
+  font-size: 56rpx;
   color: #D1D5DB;
-  margin-bottom: 24rpx;
+  margin-bottom: 20rpx;
 }
 
-/* 动画 - 儿童端专用 */
+/* === 动画库 === */
 @keyframes bounce {
   0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-30rpx); }
-  60% { transform: translateY(-14rpx); }
+  40% { transform: translateY(-20rpx); }
+  60% { transform: translateY(-10rpx); }
 }
 
 @keyframes popIn {
-  0% { transform: scale(0.5); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12rpx); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .animate-bounce {
@@ -387,5 +422,63 @@ page {
 }
 
 .animate-pop-in {
-  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation: popIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* === 触觉反馈类 === */
+.haptic-light:active {
+  transform: scale(0.98);
+}
+
+.haptic-medium:active {
+  transform: scale(0.95);
+}
+
+.haptic-heavy:active {
+  transform: scale(0.92);
+}
+
+/* === 玻璃态效果 === */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20rpx);
+  border: 1rpx solid rgba(255, 255, 255, 0.3);
+}
+
+/* === 渐变背景库 === */
+.gradient-blue {
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+}
+
+.gradient-green {
+  background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+}
+
+.gradient-orange {
+  background: linear-gradient(135deg, #FFF8E7 0%, #FFE4B5 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
+}
+
+/* === 阴影层级 === */
+.shadow-sm {
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.shadow-md {
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.shadow-lg {
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
 }

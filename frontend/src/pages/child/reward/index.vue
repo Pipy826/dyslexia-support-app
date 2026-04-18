@@ -129,13 +129,26 @@ export default {
 }
 </script>
 
+
 <style scoped>
+/* 创意奖励页面 - 全屏庆祝 */
 .page-container {
   min-height: 100vh;
-  background: linear-gradient(180deg, #FEF3C7 0%, #FFFFFF 50%);
+  background: #FFFEF9;
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
+  position: relative;
+  overflow: hidden;
+}
+
+.page-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, #FFF9C4 0%, transparent 100%);
+  pointer-events: none;
 }
 
 .stars-area {
@@ -143,151 +156,81 @@ export default {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  padding-top: 120rpx;
-  padding-bottom: 40rpx;
+  padding-top: 80rpx;
+  padding-bottom: 32rpx;
+  position: relative;
+  z-index: 1;
 }
 
 .star { display: flex; align-items: center; justify-content: center; }
-.star.left, .star.right { font-size: 80rpx; color: #F59E0B; padding-bottom: 40rpx; }
-.star.center { font-size: 128rpx; color: #F59E0B; }
+.star.left, .star.right {
+  font-size: 72rpx; color: #FFD93D; padding-bottom: 32rpx;
+  filter: drop-shadow(0 4rpx 8rpx rgba(255, 217, 61, 0.4));
+}
+.star.center {
+  font-size: 120rpx; color: #FFD93D;
+  filter: drop-shadow(0 6rpx 16rpx rgba(255, 217, 61, 0.5));
+  animation: starPulse 2s ease-in-out infinite;
+}
+@keyframes starPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
 .content-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 48rpx 120rpx;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0 32rpx 80rpx; position: relative; z-index: 1;
 }
 
-.congrats-title {
-  font-size: 64rpx;
-  font-weight: 700;
-  color: #374151;
-  margin-bottom: 24rpx;
-}
+.congrats-title { font-size: 56rpx; font-weight: 800; color: #2D3748; margin-bottom: 16rpx; letter-spacing: 2rpx; }
 
-.congrats-desc {
-  font-size: 32rpx;
-  color: #6B7280;
-  text-align: center;
-  line-height: 1.6;
-  margin-bottom: 32rpx;
-}
-.congrats-desc .highlight {
-  font-size: 48rpx;
-  font-weight: 700;
-  color: #F59E0B;
-}
+.congrats-desc { font-size: 28rpx; color: #718096; text-align: center; line-height: 1.7; margin-bottom: 32rpx; font-weight: 500; }
+.congrats-desc .highlight { font-size: 44rpx; font-weight: 800; color: #F57F17; }
 
-/* AI 鼓励话语 */
-.ai-encouragement {
-  display: flex;
-  align-items: flex-end;
-  gap: 16rpx;
-  margin-bottom: 40rpx;
-  max-width: 640rpx;
-  width: 100%;
-}
-
+.ai-encouragement { display: flex; align-items: flex-end; gap: 12rpx; margin-bottom: 32rpx; max-width: 600rpx; width: 100%; }
 .ai-enc-avatar {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  background: #7C3AED;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  width: 64rpx; height: 64rpx; border-radius: 50%;
+  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(124, 58, 237, 0.25);
 }
-
-.ai-enc-avatar .ph {
-  font-size: 36rpx;
-  color: #FFFFFF;
-}
-
+.ai-enc-avatar .ph { font-size: 32rpx; color: #FFFFFF; }
 .ai-enc-bubble {
-  background: #F5F3FF;
-  border: 2rpx solid #DDD6FE;
-  border-radius: 32rpx;
-  border-bottom-left-radius: 8rpx;
-  padding: 24rpx 28rpx;
-  flex: 1;
+  background: linear-gradient(135deg, #F5F3FF, #EDE9FE); border: 2rpx solid #DDD6FE;
+  border-radius: 24rpx; border-bottom-left-radius: 6rpx; padding: 20rpx 24rpx; flex: 1;
+  box-shadow: 0 2rpx 12rpx rgba(124, 58, 237, 0.08);
 }
+.ai-enc-text { font-size: 26rpx; color: #2D3748; line-height: 1.6; font-weight: 500; }
 
-.ai-enc-text {
-  font-size: 30rpx;
-  color: #374151;
-  line-height: 1.6;
-}
-
-/* 加载中 */
-.ai-encouragement-loading {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 40rpx;
-  height: 72rpx;
-  align-items: center;
-}
-
-.enc-dots {
-  display: flex;
-  gap: 12rpx;
-}
-
-.enc-dot {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: 50%;
-  background: #7C3AED;
-  animation: enc-bounce 1.2s infinite;
-}
-
+.ai-encouragement-loading { display: flex; justify-content: center; margin-bottom: 32rpx; height: 64rpx; align-items: center; }
+.enc-dots { display: flex; gap: 12rpx; }
+.enc-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: #A78BFA; animation: enc-bounce 1.2s infinite; }
 .enc-dot:nth-child(2) { animation-delay: 0.2s; }
 .enc-dot:nth-child(3) { animation-delay: 0.4s; }
-
 @keyframes enc-bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-  40% { transform: scale(1); opacity: 1; }
+  0%, 80%, 100% { transform: scale(0.6) translateY(0); opacity: 0.4; }
+  40% { transform: scale(1.1) translateY(-10rpx); opacity: 1; }
 }
 
 .total-stars {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  background: #FEF3C7;
-  padding: 16rpx 40rpx;
-  border-radius: 50rpx;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #D97706;
-  margin-bottom: 64rpx;
-  border: 1rpx solid #FDE68A;
+  display: flex; align-items: center; gap: 10rpx;
+  background: linear-gradient(135deg, #FFF9C4, #FFE082);
+  padding: 16rpx 36rpx; border-radius: 20rpx; font-size: 26rpx; font-weight: 700; color: #E65100;
+  margin-bottom: 48rpx; box-shadow: 0 4rpx 12rpx rgba(255, 213, 79, 0.25);
 }
-.total-stars .ph { font-size: 32rpx; color: #F59E0B; }
+.total-stars .ph { font-size: 28rpx; color: #F57F17; }
 
 .return-btn {
-  width: 100%;
-  max-width: 640rpx;
-  background: #3B82F6;
-  color: #FFFFFF;
-  border-radius: 64rpx;
-  padding: 32rpx;
-  font-size: 40rpx;
-  font-weight: 700;
-  box-shadow: 0 8rpx 24rpx rgba(59,130,246,0.3);
+  width: 100%; max-width: 600rpx;
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6); color: #FFFFFF;
+  border-radius: 20rpx; padding: 32rpx; font-size: 36rpx; font-weight: 800;
+  box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.3); letter-spacing: 2rpx; transition: all 0.2s;
 }
+.return-btn:active { transform: scale(0.97); }
 
-.parent-note {
-  font-size: 22rpx;
-  color: #D1D5DB;
-  margin-top: 48rpx;
-}
+.parent-note { font-size: 22rpx; color: #CBD5E0; margin-top: 32rpx; font-weight: 500; }
 
 @keyframes popIn {
   0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.05); }
   100% { transform: scale(1); opacity: 1; }
 }
-.pop-in {
-  opacity: 0;
-  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-}
+.pop-in { opacity: 0; animation: popIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 </style>

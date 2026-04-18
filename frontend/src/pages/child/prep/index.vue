@@ -76,43 +76,61 @@ export default {
 </script>
 
 <style scoped>
+/* 创意准备页面 - 简洁引导 */
 .page-container {
   min-height: 100vh;
-  background: #FFFFFF;
+  background: #F8FAFF;
   display: flex;
   flex-direction: column;
 }
 
-.back-btn { padding: 96rpx 48rpx 16rpx; }
-.back-btn .ph { font-size: 40rpx; color: #9CA3AF; }
+.back-btn {
+  padding: 56rpx 32rpx 16rpx;
+  display: inline-flex;
+}
+
+.back-btn .ph {
+  font-size: 36rpx;
+  color: #718096;
+  transition: all 0.2s;
+}
+
+.back-btn:active .ph {
+  color: #4F9EF8;
+  transform: translateX(-4rpx);
+}
 
 .content-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 64rpx 64rpx;
+  padding: 0 32rpx 64rpx;
 }
 
 .game-badge {
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  background: #EFF6FF;
-  color: #3B82F6;
-  padding: 12rpx 32rpx;
-  border-radius: 50rpx;
-  font-size: 26rpx;
+  gap: 10rpx;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  color: #4F9EF8;
+  padding: 10rpx 24rpx;
+  border-radius: 16rpx;
+  font-size: 24rpx;
   font-weight: 700;
-  margin-bottom: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(79, 158, 248, 0.15);
 }
-.game-badge .ph { font-size: 28rpx; }
+
+.game-badge .ph {
+  font-size: 26rpx;
+}
 
 .title {
-  font-size: 44rpx;
-  font-weight: 700;
-  color: #374151;
-  margin-bottom: 56rpx;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #2D3748;
+  margin-bottom: 40rpx;
   text-align: center;
 }
 
@@ -120,63 +138,100 @@ export default {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
-  margin-bottom: 48rpx;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
 }
 
 .tip-card {
   display: flex;
   align-items: center;
-  gap: 32rpx;
-  padding: 28rpx 32rpx;
-  border-radius: 32rpx;
+  gap: 24rpx;
+  padding: 24rpx;
+  border-radius: 20rpx;
+  transition: all 0.2s;
 }
-.tip-card.blue { background: #EFF6FF; }
-.tip-card.green { background: #ECFDF5; }
-.tip-card.orange { background: #FEF3C7; }
+
+.tip-card:active {
+  transform: scale(0.98);
+}
+
+.tip-card.blue {
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+}
+
+.tip-card.green {
+  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+}
+
+.tip-card.orange {
+  background: linear-gradient(135deg, #FFF9C4, #FFE082);
+}
 
 .tip-icon {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 50%;
-  background: #FFFFFF;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 18rpx;
+  background: rgba(255, 255, 255, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
   flex-shrink: 0;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
 }
-.tip-icon .ph { font-size: 44rpx; }
-.tip-card.blue .tip-icon .ph { color: #3B82F6; }
-.tip-card.green .tip-icon .ph { color: #10B981; }
-.tip-card.orange .tip-icon .ph { color: #F59E0B; }
 
-.tip-text { font-size: 32rpx; font-weight: 600; color: #374151; }
+.tip-icon .ph {
+  font-size: 36rpx;
+}
+
+.tip-card.blue .tip-icon .ph { color: #4F9EF8; }
+.tip-card.green .tip-icon .ph { color: #22C55E; }
+.tip-card.orange .tip-icon .ph { color: #F57F17; }
+
+.tip-text {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #2D3748;
+}
 
 /* 难度提示 */
 .difficulty-hint {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  background: #FFFBEB;
-  border: 1rpx solid #FDE68A;
-  border-radius: 32rpx;
-  padding: 24rpx 40rpx;
-  margin-bottom: 48rpx;
+  gap: 12rpx;
+  background: #FFFFFF;
+  border: 2rpx solid #FFE082;
+  border-radius: 20rpx;
+  padding: 20rpx 28rpx;
+  margin-bottom: 40rpx;
   width: 100%;
+  box-shadow: 0 2rpx 8rpx rgba(255, 213, 79, 0.15);
 }
-.difficulty-icon { font-size: 36rpx; color: #F59E0B; }
-.difficulty-text { font-size: 28rpx; color: #92400E; font-weight: 600; }
+
+.difficulty-icon {
+  font-size: 32rpx;
+  color: #F57F17;
+}
+
+.difficulty-text {
+  font-size: 26rpx;
+  color: #92400E;
+  font-weight: 600;
+}
 
 .ready-btn {
   width: 100%;
-  max-width: 640rpx;
-  background: #10B981;
+  background: linear-gradient(135deg, #22C55E, #16A34A);
   color: #FFFFFF;
-  border-radius: 64rpx;
+  border-radius: 20rpx;
   padding: 32rpx;
-  font-size: 40rpx;
-  font-weight: 700;
-  box-shadow: 0 8rpx 24rpx rgba(16,185,129,0.3);
+  font-size: 36rpx;
+  font-weight: 800;
+  box-shadow: 0 4rpx 16rpx rgba(34, 197, 94, 0.3);
+  letter-spacing: 2rpx;
+  transition: all 0.2s;
+}
+
+.ready-btn:active {
+  transform: scale(0.97);
 }
 </style>

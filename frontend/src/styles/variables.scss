@@ -1,22 +1,26 @@
-// 全局样式变量 - 参照原型图设计规范
-// 配色系统
-$text-main: #374151;    // 深灰色主字体
-$text-sub: #6B7280;     // 浅灰色副字体
-$bg-main: #FFFFFF;       // 主背景白
-$bg-sub: #F9FAFB;       // 极浅灰背景
+// 全局样式变量 - 儿童友好卡通风格 🎨
+// 配色系统 - 明亮活泼的色彩
+$text-main: #2D3748;    // 柔和深灰主字体
+$text-sub: #718096;     // 温和灰色副字体
+$bg-main: #FFFEF9;       // 温暖米白背景
+$bg-sub: #FFF8E7;       // 温暖浅黄背景
 
-// 主题色
-$primary-blue: #3B82F6;    // 点缀蓝 - 主要按钮
-$success-green: #10B981;    // 点缀绿 - 成功/良好状态
-$warning-orange: #F59E0B;   // 点缀橘黄 - 风险/待办/偏弱
-$accent-red: #EF4444;       // 点缀红 - 警示/错题/高风险
-$star-yellow: #F59E0B;      // 星星黄
+// 主题色 - 可爱糖果色系
+$primary-blue: #4F9EF8;    // 天空蓝 - 主要按钮
+$success-green: #22C55E;    // 草地绿 - 成功/良好状态
+$warning-orange: #FFA726;   // 橘子橙 - 风险/待办/偏弱
+$accent-red: #FF6B6B;       // 草莓红 - 警示/错题/高风险
+$star-yellow: #FFD93D;      // 星星金黄
+$purple-magic: #A78BFA;     // 魔法紫
+$pink-candy: #FF9ECD;       // 糖果粉
 
-// 儿童端额外配色
+// 儿童端额外配色 - 彩虹色系
 $child-primary: $primary-blue;
 $child-success: $success-green;
 $child-accent: $accent-red;
 $child-bg: $bg-main;
+$child-purple: $purple-magic;
+$child-pink: $pink-candy;
 
 // 家长端配色
 $parent-primary: $primary-blue;
@@ -24,40 +28,46 @@ $parent-secondary: $success-green;
 $parent-bg: $bg-main;
 $parent-text: $text-main;
 
-// 圆角规范 (原型图规范)
-$border-radius-sm: 24rpx;    // rounded-2xl
-$border-radius-md: 32rpx;     // rounded-3xl
-$border-radius-lg: 48rpx;     // rounded-[24px]
-$border-radius-xl: 64rpx;     // rounded-[32px]
+// 圆角规范 - 更圆润可爱
+$border-radius-sm: 28rpx;    // 小圆角
+$border-radius-md: 36rpx;     // 中圆角
+$border-radius-lg: 56rpx;     // 大圆角
+$border-radius-xl: 72rpx;     // 超大圆角
+$border-radius-full: 9999rpx; // 完全圆形
 
-// 阴影规范 (极简风格)
-$shadow-card: 0 4rpx 20rpx rgba(0, 0, 0, 0.03);   // card-shadow 极简阴影
-$shadow-sm: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
-$shadow-md: 0 8rpx 32rpx rgba(0, 0, 0, 0.1);
-$shadow-lg: 0 25rpx 50rpx -12rpx rgba(0, 0, 0, 0.1);
+// 阴影规范 - 柔和立体感
+$shadow-card: 0 8rpx 24rpx rgba(0, 0, 0, 0.08), 0 2rpx 8rpx rgba(0, 0, 0, 0.04);   // 卡片阴影
+$shadow-sm: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+$shadow-md: 0 12rpx 40rpx rgba(0, 0, 0, 0.12);
+$shadow-lg: 0 20rpx 60rpx rgba(0, 0, 0, 0.15);
 
-// 按钮阴影
-$shadow-blue-btn: 0 4rpx 12rpx rgba(59, 130, 246, 0.2);
-$shadow-green-btn: 0 4rpx 12rpx rgba(16, 185, 129, 0.2);
+// 按钮阴影 - 更明显的立体感
+$shadow-blue-btn: 0 8rpx 20rpx rgba(79, 158, 248, 0.35), 0 4rpx 8rpx rgba(79, 158, 248, 0.2);
+$shadow-green-btn: 0 8rpx 20rpx rgba(34, 197, 94, 0.35), 0 4rpx 8rpx rgba(34, 197, 94, 0.2);
+$shadow-orange-btn: 0 8rpx 20rpx rgba(255, 167, 38, 0.35), 0 4rpx 8rpx rgba(255, 167, 38, 0.2);
+$shadow-purple-btn: 0 8rpx 20rpx rgba(167, 139, 250, 0.35), 0 4rpx 8rpx rgba(167, 139, 250, 0.2);
 
 // 风险等级颜色
 $risk-low: $success-green;      // 低风险/良好
 $risk-medium: $warning-orange;   // 中风险/需关注/偏弱
 $risk-high: $accent-red;        // 高风险/警示
 
-// 布局尺寸
-$nav-height: 168rpx;           // 底部导航高度 (84px * 2)
-$top-safe-area: 96rpx;         // 顶部安全区 (48px * 2)
-$content-padding: 48rpx;        // 内容区内边距 (24px * 2)
+// 布局尺寸 - 优化手机端
+$nav-height: 120rpx;           // 底部导航高度 - 降低高度
+$top-safe-area: 64rpx;         // 顶部安全区
+$content-padding: 32rpx;        // 内容区内边距
 
 :root {
-  --text-main: #374151;
-  --text-sub: #6B7280;
-  --bg-main: #FFFFFF;
-  --bg-sub: #F9FAFB;
-  --primary-blue: #3B82F6;
-  --success-green: #10B981;
-  --warning-orange: #F59E0B;
-  --accent-red: #EF4444;
+  --text-main: #2D3748;
+  --text-sub: #718096;
+  --bg-main: #FFFEF9;
+  --bg-sub: #FFF8E7;
+  --primary-blue: #4F9EF8;
+  --success-green: #22C55E;
+  --warning-orange: #FFA726;
+  --accent-red: #FF6B6B;
+  --star-yellow: #FFD93D;
+  --purple-magic: #A78BFA;
+  --pink-candy: #FF9ECD;
   --content-padding: 48rpx;
 }

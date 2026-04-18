@@ -75,53 +75,78 @@ export default {
 </script>
 
 <style scoped>
+/* 浮动导航栏 - 小程序兼容，不用 gap */
 .tab-bar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 168rpx;
+  bottom: 16rpx;
+  left: 16rpx;
+  right: 16rpx;
   display: flex;
+  flex-direction: row;
   justify-content: space-around;
-  align-items: flex-start;
-  padding: 16rpx 32rpx;
-  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
-  background: #FFFFFF;
-  border-top: 1rpx solid #F3F4F6;
+  align-items: center;
+  padding: 12rpx 8rpx;
+  padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 28rpx;
   z-index: 999;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08), 0 0 0 1rpx rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
+/* 家长端：5个均分 */
 .tab-bar-parent {
-  padding-left: 16rpx;
-  padding-right: 16rpx;
+  padding: 12rpx 4rpx;
+  padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
 }
 
+/* 儿童端：2个，用 justify-content:space-around 自动居中，不用 gap */
 .tab-bar-child {
-  justify-content: center;
-  gap: 160rpx;
+  justify-content: space-around;
+  padding: 16rpx 40rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
 }
 
 .tab-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx;
   color: #9CA3AF;
-  padding: 8rpx 16rpx;
+  padding: 10rpx 16rpx;
+  border-radius: 16rpx;
+  position: relative;
+  flex-shrink: 0;
 }
 
+/* 激活状态：只用颜色变化，不用 background（避免首页 common.scss 覆盖问题） */
 .tab-item.active {
-  color: #3B82F6;
+  color: #4F9EF8;
+}
+
+.tab-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 32rpx;
+  height: 4rpx;
+  background: #4F9EF8;
+  border-radius: 2rpx;
+  margin-left: -16rpx;
 }
 
 .tab-icon {
-  font-size: 44rpx;
+  font-size: 40rpx;
   line-height: 1;
+  display: block;
+  margin-bottom: 4rpx;
 }
 
 .tab-label {
   font-size: 20rpx;
-  font-weight: 500;
+  font-weight: 600;
+  display: block;
 }
 
 .tab-label-bold {

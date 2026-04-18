@@ -192,205 +192,100 @@ export default {
 }
 </script>
 
+
 <style scoped>
-.page-container {
-  min-height: 100vh;
-  background: #FFFFFF;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 168rpx;
-}
+/* 创意训练乐园 - 任务卡片流 */
+.page-container { min-height: 100vh; background: #F8FAFF; display: flex; flex-direction: column; padding-bottom: 140rpx; }
 
 .top-bar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: #FFFFFF;
-  padding: 96rpx 48rpx 32rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(248, 250, 255, 0.95); backdrop-filter: blur(20rpx);
+  padding: 56rpx 32rpx 20rpx; display: flex; justify-content: space-between; align-items: center;
 }
-
-.page-title { font-size: 48rpx; font-weight: 700; color: #374151; }
-
+.page-title { font-size: 40rpx; font-weight: 800; color: #2D3748; }
 .stars-badge {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  background: #FEF3C7;
-  padding: 12rpx 24rpx;
-  border-radius: 50rpx;
-  border: 1rpx solid #FDE68A;
+  display: flex; align-items: center; gap: 6rpx;
+  background: linear-gradient(135deg, #FFF9C4, #FFE082);
+  padding: 10rpx 20rpx; border-radius: 20rpx; box-shadow: 0 2rpx 8rpx rgba(255, 213, 79, 0.3);
 }
-.stars-badge .ph { font-size: 32rpx; color: #F59E0B; }
-.stars-count { font-size: 26rpx; font-weight: 700; color: #D97706; }
+.stars-badge .ph { font-size: 28rpx; color: #F57F17; }
+.stars-count { font-size: 24rpx; font-weight: 700; color: #E65100; }
 
-.content-area { flex: 1; padding: 32rpx 48rpx; }
+.content-area { flex: 1; padding: 24rpx 32rpx; }
 
-/* 进度卡片 */
 .progress-card {
-  background: #EFF6FF;
-  border-radius: 48rpx;
-  padding: 40rpx;
-  margin-bottom: 48rpx;
-  border: 1rpx solid #DBEAFE;
+  background: linear-gradient(135deg, #4F9EF8 0%, #7C3AED 100%);
+  border-radius: 28rpx; padding: 32rpx; margin-bottom: 32rpx; position: relative; overflow: hidden;
 }
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 32rpx;
+.progress-card::before {
+  content: ''; position: absolute; top: -40%; right: -20%;
+  width: 200rpx; height: 200rpx; border-radius: 50%; background: rgba(255, 255, 255, 0.1);
 }
-.progress-title { font-size: 40rpx; font-weight: 700; color: #374151; }
-.progress-subtitle { font-size: 22rpx; color: #9CA3AF; margin-top: 4rpx; }
-.progress-count { font-size: 64rpx; font-weight: 800; color: #3B82F6; }
-.count-total { font-size: 32rpx; color: #93C5FD; }
-.progress-track {
-  height: 28rpx;
-  background: #FFFFFF;
-  border-radius: 14rpx;
-  overflow: hidden;
-  border: 1rpx solid #DBEAFE;
-}
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3B82F6, #10B981);
-  border-radius: 14rpx;
-  transition: width 0.6s ease;
-}
+.progress-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24rpx; position: relative; z-index: 1; }
+.progress-title { font-size: 32rpx; font-weight: 700; color: rgba(255, 255, 255, 0.9); }
+.progress-subtitle { font-size: 22rpx; color: rgba(255, 255, 255, 0.6); margin-top: 4rpx; }
+.progress-count { font-size: 56rpx; font-weight: 900; color: #FFFFFF; line-height: 1; }
+.count-total { font-size: 28rpx; color: rgba(255, 255, 255, 0.6); }
+.progress-track { height: 10rpx; background: rgba(255, 255, 255, 0.2); border-radius: 5rpx; overflow: hidden; position: relative; z-index: 1; }
+.progress-fill { height: 100%; background: rgba(255, 255, 255, 0.9); border-radius: 5rpx; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
 
-.section-title { font-size: 32rpx; font-weight: 700; color: #374151; margin-bottom: 24rpx; }
+.section-title { font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 16rpx; display: flex; align-items: center; gap: 10rpx; }
+.section-title::before { content: ''; display: inline-block; width: 5rpx; height: 24rpx; background: linear-gradient(180deg, #4F9EF8, #A78BFA); border-radius: 3rpx; }
 
-/* 加载 */
-.loading-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  color: #9CA3AF;
-  font-size: 26rpx;
-  padding: 32rpx 0;
-}
-.loading-row .ph { font-size: 36rpx; }
+.loading-row { display: flex; align-items: center; gap: 12rpx; color: #A0AEC0; font-size: 26rpx; font-weight: 600; padding: 24rpx 0; }
+.loading-row .ph { font-size: 32rpx; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .spin { animation: spin 1s linear infinite; display: inline-block; }
 
-/* 任务列表 */
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-  margin-bottom: 48rpx;
-}
-
+.task-list { display: flex; flex-direction: column; gap: 16rpx; margin-bottom: 32rpx; }
 .task-card {
-  background: #FFFFFF;
-  border: 4rpx solid #F3F4F6;
-  border-radius: 48rpx;
-  padding: 32rpx;
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.2s;
+  background: #FFFFFF; border-radius: 24rpx; padding: 24rpx; display: flex; align-items: center; gap: 20rpx;
+  position: relative; overflow: hidden; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
-.task-card.completed { opacity: 0.65; }
-
+.task-card:active { transform: scale(0.98); }
+.task-card.completed { opacity: 0.55; }
 .task-tag {
-  position: absolute;
-  top: 0; right: 0;
-  background: #EF4444;
-  color: #FFFFFF;
-  font-size: 18rpx;
-  font-weight: 700;
-  padding: 8rpx 24rpx;
-  border-radius: 0 44rpx 0 24rpx;
+  position: absolute; top: 0; right: 0;
+  background: linear-gradient(135deg, #FF6B6B, #FF8E8E); color: #FFFFFF;
+  font-size: 18rpx; font-weight: 700; padding: 6rpx 20rpx; border-radius: 0 24rpx 0 16rpx;
 }
-
-.task-icon {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: 32rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.task-icon .ph { font-size: 56rpx; }
-.task-icon.green { background: #ECFDF5; }
-.task-icon.green .ph { color: #10B981; }
-.task-icon.blue { background: #EFF6FF; }
-.task-icon.blue .ph { color: #3B82F6; }
-.task-icon.orange { background: #FEF3C7; }
-.task-icon.orange .ph { color: #F59E0B; }
-
+.task-icon { width: 96rpx; height: 96rpx; border-radius: 20rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.task-icon .ph { font-size: 48rpx; }
+.task-icon.green { background: linear-gradient(135deg, #DCFCE7, #BBF7D0); }
+.task-icon.green .ph { color: #22C55E; }
+.task-icon.blue { background: linear-gradient(135deg, #DBEAFE, #BFDBFE); }
+.task-icon.blue .ph { color: #4F9EF8; }
+.task-icon.orange { background: linear-gradient(135deg, #FFF9C4, #FFE082); }
+.task-icon.orange .ph { color: #F57F17; }
 .task-info { flex: 1; }
-.task-name { font-size: 34rpx; font-weight: 700; color: #374151; }
-.task-desc { font-size: 22rpx; color: #9CA3AF; margin-top: 4rpx; }
-
+.task-name { font-size: 30rpx; font-weight: 700; color: #2D3748; }
+.task-desc { font-size: 22rpx; color: #A0AEC0; margin-top: 4rpx; font-weight: 500; }
 .task-btn {
-  padding: 16rpx 32rpx;
-  background: #3B82F6;
-  color: #FFFFFF;
-  border-radius: 32rpx;
-  font-size: 24rpx;
-  font-weight: 700;
-  flex-shrink: 0;
+  padding: 14rpx 28rpx; background: linear-gradient(135deg, #4F9EF8, #3B82F6); color: #FFFFFF;
+  border-radius: 14rpx; font-size: 24rpx; font-weight: 700; flex-shrink: 0;
+  box-shadow: 0 2rpx 8rpx rgba(59, 130, 246, 0.25); transition: all 0.2s;
 }
-.task-btn.done { background: #F3F4F6; color: #9CA3AF; }
+.task-btn:active { transform: scale(0.95); }
+.task-btn.done { background: #F5F5F5; color: #A0AEC0; box-shadow: none; }
 
-/* 空状态 */
-.empty-hint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16rpx;
-  padding: 64rpx 0;
-  color: #9CA3AF;
-  font-size: 26rpx;
-}
-.empty-hint .ph { font-size: 64rpx; color: #D1D5DB; }
+.empty-hint { display: flex; flex-direction: column; align-items: center; gap: 12rpx; padding: 48rpx 0; color: #A0AEC0; font-size: 26rpx; font-weight: 600; }
+.empty-hint .ph { font-size: 64rpx; color: #FFD93D; }
 
-/* 成就 */
-.achievements-grid { display: flex; gap: 24rpx; }
-
+.achievements-grid { display: flex; gap: 16rpx; }
 .achievement-card {
-  flex: 1;
-  background: #FFFFFF;
-  border-radius: 32rpx;
-  padding: 32rpx 16rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border: 2rpx solid #F3F4F6;
+  flex: 1; background: #FFFFFF; border-radius: 20rpx; padding: 24rpx 12rpx;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04); transition: all 0.2s;
 }
-.achievement-card .ph { font-size: 56rpx; color: #D1D5DB; margin-bottom: 12rpx; }
-.achievement-card.active { border-color: #FDE68A; background: #FFFBEB; }
-.achievement-card.active .ph { color: #F59E0B; }
-.achievement-name { font-size: 22rpx; font-weight: 700; color: #9CA3AF; text-align: center; }
-.achievement-card.active .achievement-name { color: #374151; }
-.achievement-req { font-size: 18rpx; color: #D1D5DB; margin-top: 4rpx; text-align: center; }
-.achievement-card.active .achievement-req { color: #F59E0B; }
-
-/* 底部导航 */
-.bottom-nav {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 168rpx;
-  background: #FFFFFF;
-  border-top: 1rpx solid #F3F4F6;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 16rpx 96rpx;
-  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
-  gap: 160rpx;
-  z-index: 100;
+.achievement-card .ph { font-size: 48rpx; color: #D1D5DB; margin-bottom: 8rpx; }
+.achievement-card.active {
+  background: linear-gradient(135deg, #FFFDE7, #FFF9C4);
+  box-shadow: 0 4rpx 16rpx rgba(255, 213, 79, 0.2); transform: translateY(-4rpx);
 }
-.nav-item { display: flex; flex-direction: column; align-items: center; gap: 8rpx; color: #9CA3AF; }
-.nav-item.active { color: #3B82F6; }
-.nav-item .ph, .nav-item .ph-fill { font-size: 48rpx; }
-.nav-label { font-size: 22rpx; font-weight: 500; }
-.nav-item.active .nav-label { font-weight: 700; }
+.achievement-card.active .ph { color: #F57F17; }
+.achievement-name { font-size: 20rpx; font-weight: 700; color: #A0AEC0; text-align: center; }
+.achievement-card.active .achievement-name { color: #2D3748; }
+.achievement-req { font-size: 18rpx; color: #D1D5DB; margin-top: 4rpx; text-align: center; font-weight: 500; }
+.achievement-card.active .achievement-req { color: #F57F17; }
 </style>

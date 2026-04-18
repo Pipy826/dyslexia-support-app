@@ -251,405 +251,474 @@ export default {
 }
 </script>
 
+
+
+
+
 <style scoped>
+/* 成长分析 - 禁止横向滚动，纯竖向布局 */
+
+/* 最外层锁死宽度，禁止横向溢出 */
 .page-container {
   min-height: 100vh;
-  background: #F9FAFB;
-  display: flex;
-  flex-direction: column;
+  background: #F5F7FA;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
-/* 头部 */
+/* ── 头部 ── */
 .page-header {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: #FFFFFF;
-  padding: 96rpx 48rpx 32rpx;
+  background: rgba(255,255,255,0.95);
+  padding: 56rpx 24rpx 16rpx;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 20rpx;
-  border-bottom: 1rpx solid #F3F4F6;
+  box-shadow: 0 1rpx 0 rgba(0,0,0,0.06);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .back-btn {
-  width: 64rpx;
-  height: 64rpx;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  background: #F0F0F0;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  margin-right: 16rpx;
 }
-
-.back-btn .ph { font-size: 40rpx; color: #6B7280; }
+.back-btn .ph { font-size: 28rpx; color: #718096; }
 
 .header-title {
   flex: 1;
-  font-size: 36rpx;
+  font-size: 30rpx;
   font-weight: 700;
-  color: #1F2937;
+  color: #2D3748;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .ai-badge {
-  display: flex;
-  align-items: center;
-  gap: 6rpx;
-  background: #F3E8FF;
-  color: #7C3AED;
-  padding: 8rpx 20rpx;
-  border-radius: 50rpx;
-  font-size: 22rpx;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  color: #4F9EF8;
+  padding: 8rpx 18rpx;
+  border-radius: 14rpx;
+  font-size: 20rpx;
   font-weight: 700;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
 }
+.ai-badge .ph { font-size: 22rpx; margin-right: 6rpx; }
 
-.ai-badge .ph { font-size: 24rpx; }
-
-/* 内容区 */
+/* ── 内容区：锁死宽度 ── */
 .page-content {
-  flex: 1;
-  padding: 40rpx 48rpx;
+  padding: 24rpx 28rpx;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
-/* 孩子信息栏 */
+/* ── 孩子信息栏 ── */
 .child-bar {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 20rpx;
-  margin-bottom: 40rpx;
+  margin-bottom: 24rpx;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .child-avatar-sm {
-  width: 64rpx;
-  height: 64rpx;
+  width: 52rpx;
+  height: 52rpx;
+  min-width: 52rpx;
   border-radius: 50%;
-  background: #EFF6FF;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
+  font-size: 22rpx;
   font-weight: 700;
-  color: #3B82F6;
+  color: #4F9EF8;
   flex-shrink: 0;
+  margin-right: 12rpx;
 }
 
 .child-bar-name {
   flex: 1;
-  font-size: 30rpx;
+  font-size: 26rpx;
   font-weight: 700;
-  color: #1F2937;
+  color: #2D3748;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .report-count-badge {
-  font-size: 20rpx;
-  color: #6B7280;
-  background: #F3F4F6;
-  padding: 6rpx 20rpx;
-  border-radius: 50rpx;
+  font-size: 18rpx;
+  color: #A0AEC0;
+  background: #F0F0F0;
+  padding: 5rpx 14rpx;
+  border-radius: 10rpx;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 8rpx;
+  white-space: nowrap;
 }
 
-/* 区域标题 */
+/* ── 区域标题 ── */
 .section-title {
-  font-size: 32rpx;
+  font-size: 28rpx;
   font-weight: 700;
-  color: #1F2937;
-  margin-bottom: 20rpx;
+  color: #2D3748;
+  margin-bottom: 16rpx;
+  padding-left: 14rpx;
+  border-left: 4rpx solid #4F9EF8;
+  line-height: 1.4;
+  box-sizing: border-box;
+  width: 100%;
 }
 
-/* 图表卡片 */
+/* ── 图表卡片 ── */
 .chart-card {
   background: #FFFFFF;
-  border-radius: 40rpx;
-  padding: 40rpx;
-  margin-bottom: 40rpx;
-  border: 1rpx solid #F3F4F6;
+  border-radius: 24rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0,0,0,0.04);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;   /* 关键：截断超出内容 */
 }
 
 .chart-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16rpx;
-  padding: 60rpx 0;
-  color: #9CA3AF;
-  font-size: 26rpx;
+  text-align: center;
+  padding: 48rpx 0;
+  color: #A0AEC0;
+  font-size: 24rpx;
 }
+.chart-empty .ph { font-size: 64rpx; color: #D1D5DB; display: block; margin-bottom: 12rpx; }
 
-.chart-empty .ph { font-size: 80rpx; color: #D1D5DB; }
-
+/* 图表区域：y轴固定 + 柱体区自适应，不超出 */
 .chart-area {
   display: flex;
-  gap: 16rpx;
-  height: 280rpx;
+  flex-direction: row;
+  height: 240rpx;
   margin-bottom: 24rpx;
+  width: 100%;
+  overflow: hidden;   /* 关键 */
 }
 
 .chart-y-labels {
+  width: 44rpx;
+  min-width: 44rpx;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding-bottom: 40rpx;
+  padding-bottom: 36rpx;
+  margin-right: 4rpx;
 }
-
-.y-label {
-  font-size: 18rpx;
-  color: #9CA3AF;
-  text-align: right;
-  width: 48rpx;
-}
+.y-label { font-size: 16rpx; color: #A0AEC0; text-align: right; }
 
 .chart-body {
   flex: 1;
+  min-width: 0;       /* 关键：允许收缩 */
+  max-width: 100%;    /* 关键：不超出父容器 */
   position: relative;
+  overflow: hidden;   /* 关键 */
 }
 
 .chart-grid {
   position: absolute;
-  inset: 0;
-  bottom: 40rpx;
+  top: 0; left: 0; right: 0;
+  bottom: 36rpx;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
-
-.grid-line {
-  height: 1rpx;
-  background: #F3F4F6;
-  width: 100%;
-}
+.grid-line { height: 1rpx; background: #F0F0F0; }
 
 .chart-bars {
   position: absolute;
-  inset: 0;
-  bottom: 40rpx;
+  top: 0; left: 0; right: 0;
+  bottom: 36rpx;
   display: flex;
+  flex-direction: row;
   align-items: flex-end;
-  gap: 12rpx;
-  padding: 0 8rpx;
+  overflow: hidden;   /* 关键：超出的柱子直接截断 */
 }
 
 .chart-bar-wrap {
   flex: 1;
+  min-width: 0;       /* 关键：允许收缩到0 */
   display: flex;
   flex-direction: column;
   align-items: center;
   height: 100%;
   justify-content: flex-end;
   position: relative;
+  padding: 0 2rpx;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .chart-bar-label {
-  font-size: 18rpx;
-  color: #6B7280;
+  font-size: 16rpx;
+  color: #718096;
   font-weight: 700;
-  margin-bottom: 6rpx;
+  margin-bottom: 3rpx;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .chart-bar {
   width: 100%;
-  border-radius: 8rpx 8rpx 0 0;
-  min-height: 8rpx;
-  transition: height 0.6s ease;
+  border-radius: 4rpx 4rpx 0 0;
+  min-height: 6rpx;
 }
+.chart-bar.green { background: linear-gradient(180deg, #4ADE80, #22C55E); }
+.chart-bar.orange { background: linear-gradient(180deg, #FFB74D, #F57F17); }
+.chart-bar.red { background: linear-gradient(180deg, #FF8E8E, #FF6B6B); }
+.chart-bar.blue { background: linear-gradient(180deg, #93C5FD, #4F9EF8); }
 
-.chart-bar.green { background: linear-gradient(180deg, #34D399, #10B981); }
-.chart-bar.orange { background: linear-gradient(180deg, #FCD34D, #F59E0B); }
-.chart-bar.red { background: linear-gradient(180deg, #F87171, #EF4444); }
-.chart-bar.blue { background: linear-gradient(180deg, #60A5FA, #3B82F6); }
-
+/* 日期标签：隐藏超出部分，不撑宽 */
 .chart-bar-date {
   position: absolute;
-  bottom: -36rpx;
-  font-size: 18rpx;
-  color: #9CA3AF;
+  bottom: -32rpx;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 16rpx;
+  color: #A0AEC0;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
+/* 图例 */
 .chart-legend {
   display: flex;
-  gap: 32rpx;
+  flex-direction: row;
   justify-content: center;
-  margin-top: 8rpx;
+  margin-top: 4rpx;
+  width: 100%;
+  overflow: hidden;
 }
-
 .legend-item {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8rpx;
   font-size: 20rpx;
-  color: #6B7280;
+  color: #718096;
+  margin: 0 12rpx;
+  flex-shrink: 0;
 }
-
 .legend-dot {
-  width: 16rpx;
-  height: 16rpx;
+  width: 12rpx;
+  height: 12rpx;
+  min-width: 12rpx;
   border-radius: 50%;
+  margin-right: 6rpx;
 }
+.legend-dot.green { background: #22C55E; }
+.legend-dot.orange { background: #F57F17; }
+.legend-dot.red { background: #FF6B6B; }
 
-.legend-dot.green { background: #10B981; }
-.legend-dot.orange { background: #F59E0B; }
-.legend-dot.red { background: #EF4444; }
-
-/* AI 分析卡片 */
+/* ── AI 分析卡片 ── */
 .analysis-card {
-  background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
-  border-radius: 40rpx;
-  padding: 40rpx;
-  margin-bottom: 40rpx;
-  border: 1rpx solid #DDD6FE;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  border: 1rpx solid #BFDBFE;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .analysis-header {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 16rpx;
-  margin-bottom: 28rpx;
+  margin-bottom: 16rpx;
+  width: 100%;
+  overflow: hidden;
 }
 
 .analysis-avatar {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background: #7C3AED;
+  width: 52rpx;
+  height: 52rpx;
+  min-width: 52rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+}
+.analysis-avatar .ph { font-size: 26rpx; color: #FFFFFF; }
+
+.analysis-title {
+  flex: 1;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #2D3748;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.refresh-btn {
+  width: 48rpx;
+  height: 48rpx;
+  min-width: 48rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-
-.analysis-avatar .ph { font-size: 32rpx; color: #FFFFFF; }
-
-.analysis-title {
-  flex: 1;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #5B21B6;
-}
-
-.refresh-btn .ph { font-size: 32rpx; color: #7C3AED; }
+.refresh-btn .ph { font-size: 26rpx; color: #4F9EF8; }
 
 .analysis-loading {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 24rpx;
-  padding: 16rpx 0;
+  padding: 12rpx 0;
+  overflow: hidden;
 }
-
 .loading-spinner {
-  width: 48rpx;
-  height: 48rpx;
-  border: 4rpx solid #EDE9FE;
-  border-top-color: #7C3AED;
+  width: 36rpx;
+  height: 36rpx;
+  min-width: 36rpx;
+  border: 4rpx solid #BFDBFE;
+  border-top-color: #4F9EF8;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   flex-shrink: 0;
+  margin-right: 12rpx;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-text { font-size: 26rpx; color: #7C3AED; }
+.loading-text { font-size: 24rpx; color: #4F9EF8; font-weight: 600; min-width: 0; overflow: hidden; }
 
 .analysis-content {
-  font-size: 28rpx;
-  color: #374151;
-  line-height: 1.8;
-}
-
-.analysis-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 28rpx;
-  padding: 16rpx 0;
-}
-
-.analysis-empty-text {
   font-size: 26rpx;
-  color: #6B7280;
-  text-align: center;
-  line-height: 1.6;
+  color: #2D3748;
+  line-height: 1.8;
+  word-break: break-all;
+  word-wrap: break-word;
 }
+
+.analysis-empty { text-align: center; padding: 16rpx 0; }
+.analysis-empty-text { font-size: 24rpx; color: #718096; line-height: 1.6; margin-bottom: 20rpx; }
 
 .go-screen-btn {
-  background: #7C3AED;
-  color: #FFFFFF;
-  border-radius: 32rpx;
-  padding: 20rpx 48rpx;
-  font-size: 26rpx;
-  font-weight: 700;
-  display: flex;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8rpx;
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
+  color: #FFFFFF;
+  border-radius: 14rpx;
+  padding: 16rpx 36rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  box-shadow: 0 4rpx 12rpx rgba(59,130,246,0.2);
 }
+.go-screen-btn .ph { font-size: 24rpx; margin-right: 8rpx; }
 
-.go-screen-btn .ph { font-size: 28rpx; }
-
-/* 维度历史 */
+/* ── 维度历史 ── */
 .dimension-history-card {
   background: #FFFFFF;
-  border-radius: 40rpx;
-  padding: 40rpx;
-  margin-bottom: 40rpx;
-  border: 1rpx solid #F3F4F6;
+  border-radius: 24rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0,0,0,0.04);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;   /* 关键：截断超出的分数点 */
 }
 
 .dim-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 20rpx;
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid #F9FAFB;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+  width: 100%;
+  overflow: hidden;   /* 关键 */
 }
-
 .dim-row:last-child { border-bottom: none; }
 
 .dim-name {
-  width: 140rpx;
-  font-size: 24rpx;
-  color: #374151;
+  width: 112rpx;
+  min-width: 112rpx;
+  font-size: 22rpx;
+  color: #2D3748;
   font-weight: 600;
   flex-shrink: 0;
+  line-height: 1.3;
 }
 
+/* 分数点区域：flex-wrap + overflow:hidden，超出的点不显示 */
 .dim-scores {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
-  gap: 12rpx;
+  flex-direction: row;
   flex-wrap: wrap;
+  overflow: hidden;   /* 关键：超出的分数点直接截断 */
+  align-content: flex-start;
 }
 
 .dim-score-dot {
-  width: 52rpx;
-  height: 52rpx;
+  width: 44rpx;
+  height: 44rpx;
+  min-width: 44rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.dim-score-dot.green { background: #ECFDF5; }
-.dim-score-dot.orange { background: #FEF3C7; }
-.dim-score-dot.red { background: #FEF2F2; }
-
-.dim-score-val {
-  font-size: 18rpx;
-  font-weight: 700;
-}
-
-.dim-score-dot.green .dim-score-val { color: #10B981; }
-.dim-score-dot.orange .dim-score-val { color: #F59E0B; }
-.dim-score-dot.red .dim-score-val { color: #EF4444; }
-
-.dim-trend {
-  font-size: 22rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 4rpx;
-  width: 80rpx;
+  margin: 2rpx;
   flex-shrink: 0;
 }
+.dim-score-dot.green { background: rgba(34,197,94,0.12); }
+.dim-score-dot.orange { background: rgba(245,127,23,0.12); }
+.dim-score-dot.red { background: rgba(255,107,107,0.12); }
 
-.dim-trend .ph { font-size: 24rpx; }
-.dim-trend.up { color: #10B981; }
-.dim-trend.down { color: #EF4444; }
-.dim-trend.flat { color: #9CA3AF; }
+.dim-score-val { font-size: 17rpx; font-weight: 700; }
+.dim-score-dot.green .dim-score-val { color: #22C55E; }
+.dim-score-dot.orange .dim-score-val { color: #F57F17; }
+.dim-score-dot.red .dim-score-val { color: #FF6B6B; }
+
+.dim-trend {
+  width: 68rpx;
+  min-width: 68rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  margin-left: 4rpx;
+  overflow: hidden;
+}
+.dim-trend .ph { font-size: 20rpx; margin-right: 3rpx; }
+.dim-trend.up { color: #22C55E; }
+.dim-trend.down { color: #FF6B6B; }
+.dim-trend.flat { color: #A0AEC0; }
 </style>
