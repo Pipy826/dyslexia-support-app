@@ -1,83 +1,87 @@
 {
-  "name": "悦读小灯塔",
-  "appid": "__UNI__DYSLEXIA123",
-  "description": "儿童读写障碍智能筛查与干预系统",
-  "versionName": "1.0.0",
-  "versionCode": "100",
-  "transformPx": true,
-  "app-plus": {
-    "usingComponents": true,
-    "nvueStyleCompiler": "uni-app",
-    "compilerVersion": 3,
-    "splashscreen": {
-      "alwaysShowBeforeRender": true,
-      "waiting": true,
-      "autoclose": true,
-      "delay": 0
-    },
-    "modules": {},
-    "distribute": {
-      "android": {
-        "packagename": "com.dyslexia.lighthouse",
-        "keystore": "",
-        "password": "",
-        "aliasname": "",
-        "permissions": [
-          "<uses-permission android:name=\"android.permission.INTERNET\"/>",
-          "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
-          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
-          "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
-          "<uses-permission android:name=\"android.permission.CAMERA\"/>"
-        ],
-        "abiFilters": ["armeabi-v7a", "arm64-v8a"],
-        "minSdkVersion": 21,
-        "targetSdkVersion": 33
-      },
-      "ios": {
-        "bundleid": "com.dyslexia.lighthouse",
-        "privacyDescription": {
-          "NSCameraUsageDescription": "用于拍摄儿童头像",
-          "NSPhotoLibraryUsageDescription": "用于选择儿童头像",
-          "NSPhotoLibraryAddUsageDescription": "用于保存报告截图"
+    "name" : "悦读小灯塔",
+    "appid" : "__UNI__1A98E3D",
+    "description" : "儿童读写障碍智能筛查与干预系统",
+    "versionName" : "1.0.0",
+    "versionCode" : "100",
+    "transformPx" : true,
+    "app-plus" : {
+        "usingComponents" : true,
+        "nvueStyleCompiler" : "uni-app",
+        "compilerVersion" : 3,
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true,
+            "waiting" : true,
+            "autoclose" : true,
+            "delay" : 0
+        },
+        "modules" : {},
+        "distribute" : {
+            "android" : {
+                "packagename" : "com.dyslexia.lighthouse",
+                "keystore" : "",
+                "password" : "",
+                "aliasname" : "",
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.CAMERA\"/>"
+                ],
+                "abiFilters" : [ "armeabi-v7a", "arm64-v8a" ],
+                "minSdkVersion" : 21,
+                "targetSdkVersion" : 33
+            },
+            "ios" : {
+                "bundleid" : "com.dyslexia.lighthouse",
+                "privacyDescription" : {
+                    "NSCameraUsageDescription" : "用于拍摄儿童头像",
+                    "NSPhotoLibraryUsageDescription" : "用于选择儿童头像",
+                    "NSPhotoLibraryAddUsageDescription" : "用于保存报告截图"
+                },
+                "dSYMs" : false
+            },
+            "sdkConfigs" : {},
+            "splashscreen" : {
+                "useOriginalMsgbox" : true
+            }
         }
-      },
-      "sdkConfigs": {}
-    }
-  },
-  "quickapp": {},
-  "mp-weixin": {
-    "appid": "YOUR_WEIXIN_APPID",
-    "setting": {
-      "urlCheck": false,
-      "es6": true,
-      "enhance": true,
-      "postcss": true,
-      "minified": true
     },
-    "usingComponents": true,
-    "permission": {
-      "scope.userInfo": {
-        "desc": "用于获取用户信息，完善儿童档案"
-      }
+    "quickapp" : {},
+    "mp-weixin" : {
+        "appid" : "__UNI__1A98E3D",
+        "setting" : {
+            "urlCheck" : false,
+            "es6" : true,
+            "enhance" : true,
+            "postcss" : true,
+            "minified" : true
+        },
+        "usingComponents" : true,
+        "permission" : {
+            "scope.userInfo" : {
+                "desc" : "用于获取用户信息，完善儿童档案"
+            }
+        },
+        "requiredPrivateInfos" : [],
+        "lazyCodeLoading" : "requiredComponents"
     },
-    "requiredPrivateInfos": [],
-    "lazyCodeLoading": "requiredComponents"
-  },
-  "h5": {
-    "devServer": {
-      "port": 8080,
-      "disableHostCheck": true,
-      "proxy": {
-        "/api": {
-          "target": "http://localhost:8000",
-          "changeOrigin": true,
-          "timeout": 120000,
-          "proxyTimeout": 120000
+    "h5" : {
+        "devServer" : {
+            "port" : 8080,
+            "disableHostCheck" : true,
+            "proxy" : {
+                "/api" : {
+                    "target" : "http://localhost:8000",
+                    "changeOrigin" : true,
+                    "timeout" : 120000,
+                    "proxyTimeout" : 120000
+                }
+            }
+        },
+        "router" : {
+            "mode" : "hash"
         }
-      }
-    },
-    "router": {
-      "mode": "hash"
     }
-  }
 }
