@@ -82,8 +82,7 @@
 </template>
 
 <script>
-import { getReport, getReportDimensions } from '../../../api/report.js'
-
+import { getReport, getReportDimensions, exportReportText } from '../../../api/report.js'
 const GAME_TYPE_NAMES = {
   visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
   working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
@@ -168,38 +167,9 @@ export default {
       if (!this.report || this.exporting) return
       this.exporting = true
       try {
-        // 生成纯文字版报告内容
-        const lines = []
-        lines.push('═══════════════════════════════')
-        lines.push('  悦读小灯塔 · 筛查评估报告')
-        lines.push('═══════════════════════════════')
-        lines.push(`游戏类型：${this.gameTypeName(this.report.game_type)}`)
-        lines.push(`评估日期：${this.formatDate(this.report.created_at)}`)
-        lines.push(`综合得分：${this.report.overall_score} 分`)
-        lines.push(`风险等级：${this.riskLabel(this.report.risk_level)}`)
-        lines.push('───────────────────────────────')
-        lines.push('【评估总结】')
-        lines.push(this.report.summary || '暂无')
-        lines.push('───────────────────────────────')
-        lines.push('【各维度得分】')
-        if (this.dimensions && Object.keys(this.dimensions).length > 0) {
-          for (const [dim, score] of Object.entries(this.dimensions)) {
-            const bar = '█'.repeat(Math.round(score / 10)) + '░'.repeat(10 - Math.round(score / 10))
-            lines.push(`${this.dimName(dim).padEnd(10)}  ${bar}  ${score}分`)
-          }
-        } else {
-          lines.push('暂无维度数据')
-        }
-        lines.push('───────────────────────────────')
-        lines.push('【干预建议】')
-        lines.push(this.report.recommendations || '暂无')
-        lines.push('───────────────────────────────')
-        lines.push('⚠️ 本报告仅供参考，不构成医学诊断')
-        lines.push('═══════════════════════════════')
-
-        const content = lines.join('\n')
-
-        // 复制到剪贴板
+        // 优先使用服务端生成的报告文字（更准确）
+        const res = await exportReportText(this.reportId)
+        const content = res.content
         uni.setClipboardData({
           data: content,
           success: () => {
@@ -215,10 +185,46 @@ export default {
           }
         })
       } catch (e) {
-        uni.showToast({ title: '导出失败', icon: 'none' })
+        // 降级：本地生成
+        this._exportLocal()
       } finally {
         this.exporting = false
       }
+    },
+
+    _exportLocal() {
+      const lines = []
+      lines.push('═══════════════════════════════')
+      lines.push('  悦读小灯塔 · 筛查评估报告')
+      lines.push('═══════════════════════════════')
+      lines.push(`游戏类型：${this.gameTypeName(this.report.game_type)}`)
+      lines.push(`评估日期：${this.formatDate(this.report.created_at)}`)
+      lines.push(`综合得分：${this.report.overall_score} 分`)
+      lines.push(`风险等级：${this.riskLabel(this.report.risk_level)}`)
+      lines.push('───────────────────────────────')
+      lines.push('【评估总结】')
+      lines.push(this.report.summary || '暂无')
+      lines.push('───────────────────────────────')
+      lines.push('【各维度得分】')
+      if (this.dimensions && Object.keys(this.dimensions).length > 0) {
+        for (const [dim, score] of Object.entries(this.dimensions)) {
+          const bar = '█'.repeat(Math.round(score / 10)) + '░'.repeat(10 - Math.round(score / 10))
+          lines.push(`${this.dimName(dim)}  ${bar}  ${score}分`)
+        }
+      } else {
+        lines.push('暂无维度数据')
+      }
+      lines.push('───────────────────────────────')
+      lines.push('【干预建议】')
+      lines.push(this.report.recommendations || '暂无')
+      lines.push('───────────────────────────────')
+      lines.push('⚠️ 本报告仅供参考，不构成医学诊断')
+      lines.push('═══════════════════════════════')
+      uni.setClipboardData({
+        data: lines.join('\n'),
+        success: () => uni.showToast({ title: '报告已复制', icon: 'success' }),
+        fail: () => uni.showToast({ title: '复制失败', icon: 'none' }),
+      })
     },
   },
 }

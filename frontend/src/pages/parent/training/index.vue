@@ -409,9 +409,25 @@ export default {
     startTask(task) {
       if (task.status === 'completed') return
       if (task.id) uni.setStorageSync('pending_task_id', task.id)
-      // reading 映射到 comprehension（后端不支持 reading 类型）
-      const typeMap = { reading: 'comprehension' }
-      const gameType = typeMap[task.task_type] || task.task_type || 'visual'
+      // 将所有可能的 task_type 映射到后端支持的 game_type
+      // 后端支持：visual / spelling / comprehension / working_memory / rapid_naming / motor_coordination
+      const VALID_GAME_TYPES = new Set(['visual', 'spelling', 'comprehension', 'working_memory', 'rapid_naming', 'motor_coordination'])
+      const typeMap = {
+        reading:              'comprehension',
+        reading_comprehension:'comprehension',
+        phonological:         'spelling',
+        character_order:      'spelling',
+        attention:            'visual',
+        visual_discrimination:'visual',
+        short_term_memory:    'working_memory',
+        working_memory_capacity: 'working_memory',
+        rapid_naming_speed:   'rapid_naming',
+        phonological_awareness: 'rapid_naming',
+        fine_motor_control:   'motor_coordination',
+        visual_motor_integration: 'motor_coordination',
+      }
+      const rawType = task.task_type || 'visual'
+      const gameType = VALID_GAME_TYPES.has(rawType) ? rawType : (typeMap[rawType] || 'visual')
       const gradeParam = this.currentChild?.grade ? `&grade=${encodeURIComponent(this.currentChild.grade)}` : ''
       const taskIdParam = task.id ? `&task_id=${task.id}` : ''
       // 跳转到儿童端训练游戏页（独立训练模式，不走筛查流程）

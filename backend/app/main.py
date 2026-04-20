@@ -8,6 +8,7 @@ import logging
 from .database import init_db
 from .api import auth, children, screenings, reports, training, ai_qa, upload, notifications
 from .config import settings
+from .scheduler import start_scheduler, stop_scheduler
 
 # 日志配置
 logging.basicConfig(
@@ -50,6 +51,12 @@ async def on_startup():
     init_db()
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     logger.info("Database initialized.")
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    stop_scheduler()
 
 # Register routers
 app.include_router(auth.router)

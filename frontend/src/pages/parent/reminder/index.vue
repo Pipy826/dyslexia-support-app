@@ -71,9 +71,56 @@
         </view>
       </view>
 
-      <!-- 训练时长建议 -->
-      <view class="section-title">训练时长建议</view>
+      <!-- 儿童使用时段控制 -->
+      <view class="section-title">儿童使用时段控制</view>
       <view class="setting-card">
+        <view class="setting-row">
+          <view class="setting-left">
+            <view class="setting-icon blue"><text class="ph ph-clock-countdown"></text></view>
+            <view class="setting-info">
+              <view class="setting-label">限制使用时段</view>
+              <view class="setting-desc">仅允许在指定时间段内进入儿童模式</view>
+            </view>
+          </view>
+          <view class="toggle" :class="{ on: timeControlEnabled }" @click="timeControlEnabled = !timeControlEnabled; saveSettings()">
+            <view class="toggle-thumb"></view>
+          </view>
+        </view>
+
+        <view v-if="timeControlEnabled">
+          <view class="setting-row">
+            <view class="setting-left">
+              <view class="setting-icon green"><text class="ph ph-play-circle"></text></view>
+              <view class="setting-info">
+                <view class="setting-label">开始时间</view>
+                <view class="setting-desc">{{ allowStart }}</view>
+              </view>
+            </view>
+            <picker mode="time" :value="allowStart" @change="e => { allowStart = e.detail.value; saveSettings() }">
+              <view class="setting-action">修改 ›</view>
+            </picker>
+          </view>
+          <view class="setting-row">
+            <view class="setting-left">
+              <view class="setting-icon orange"><text class="ph ph-stop-circle"></text></view>
+              <view class="setting-info">
+                <view class="setting-label">结束时间</view>
+                <view class="setting-desc">{{ allowEnd }}</view>
+              </view>
+            </view>
+            <picker mode="time" :value="allowEnd" @change="e => { allowEnd = e.detail.value; saveSettings() }">
+              <view class="setting-action">修改 ›</view>
+            </picker>
+          </view>
+          <view class="time-range-tip">
+            <text class="ph ph-info"></text>
+            孩子只能在 {{ allowStart }} ~ {{ allowEnd }} 之间进入儿童模式
+          </view>
+        </view>
+      </view>
+
+      <!-- 训练时长建议 -->
+      <view class="section-title">训练时长建议</view>      <view class="setting-card">
         <view class="setting-row">
           <view class="setting-left">
             <view class="setting-icon purple"><text class="ph ph-hourglass"></text></view>
@@ -115,6 +162,10 @@ export default {
       reassessEnabled: true,
       reassessDays: 14,
       dailyMinutes: 15,
+      // 时段控制
+      timeControlEnabled: false,
+      allowStart: '15:00',
+      allowEnd: '20:00',
     }
   },
   onLoad() {
@@ -128,6 +179,9 @@ export default {
       this.reassessEnabled = s.reassessEnabled ?? true
       this.reassessDays = s.reassessDays ?? 14
       this.dailyMinutes = s.dailyMinutes ?? 15
+      this.timeControlEnabled = s.timeControlEnabled ?? false
+      this.allowStart = s.allowStart ?? '15:00'
+      this.allowEnd = s.allowEnd ?? '20:00'
     },
     saveSettings() {
       uni.setStorageSync('reminder_settings', {
@@ -136,6 +190,9 @@ export default {
         reassessEnabled: this.reassessEnabled,
         reassessDays: this.reassessDays,
         dailyMinutes: this.dailyMinutes,
+        timeControlEnabled: this.timeControlEnabled,
+        allowStart: this.allowStart,
+        allowEnd: this.allowEnd,
       })
       uni.showToast({ title: '设置已保存', icon: 'success', duration: 1000 })
     },
@@ -223,4 +280,12 @@ export default {
 .tip-card { background: linear-gradient(135deg, #FFFBEB, #FEF3C7); border-radius: 20rpx; padding: 24rpx; border: 1rpx solid #FDE68A; display: flex; align-items: flex-start; gap: 12rpx; }
 .tip-icon { font-size: 28rpx; color: #F57F17; flex-shrink: 0; margin-top: 2rpx; }
 .tip-text { font-size: 24rpx; color: #92400E; line-height: 1.7; font-weight: 500; }
+
+/* 时段控制提示 */
+.time-range-tip {
+  display: flex; align-items: center; gap: 8rpx;
+  font-size: 22rpx; color: #4F9EF8; font-weight: 500;
+  padding: 12rpx 28rpx 16rpx;
+}
+.time-range-tip .ph { font-size: 22rpx; }
 </style>

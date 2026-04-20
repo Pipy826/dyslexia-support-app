@@ -27,8 +27,8 @@
           <view>暂无筛查数据</view>
         </view>
         <view class="chart-area" v-else>
-          <!-- Canvas 折线图 -->
-          <line-chart :scores="scores" :width="320" :height="180"></line-chart>
+          <!-- SVG 折线图，宽度自适应 -->
+          <line-chart :scores="scores" :width="chartWidth" :height="180"></line-chart>
         </view>
 
         <!-- 图例 -->
@@ -174,12 +174,8 @@ export default {
       analysisLoading: false,
       dimensionHistory: [],
       trendLabel: '',  // 结构化趋势标签
-      svgWidth: 320,
-      svgHeight: 180,
-      chartPadLeft: 44,
-      chartPadRight: 14,
-      chartPadTop: 20,
-      chartPadBottom: 24,      // 备注
+      chartWidth: 300,
+      // 备注
       growthNotes: [],
       milestoneRecords: [],
       showNoteInput: false,
@@ -188,6 +184,14 @@ export default {
   },
 
   onLoad(options) {
+    // 计算图表宽度：屏幕宽度 - 页面左右 padding(28*2) - 卡片 padding(20*2)，单位 px
+    try {
+      const info = uni.getSystemInfoSync()
+      const rpxRatio = info.windowWidth / 750
+      this.chartWidth = Math.floor(info.windowWidth - (28 + 20) * 2 * rpxRatio)
+    } catch (e) {
+      this.chartWidth = 300
+    }
     if (options.child_id) {
       this.childId = parseInt(options.child_id)
     } else {
@@ -310,14 +314,20 @@ export default {
         return
       }
       const dimNames = {
-        visual_discrimination: '视觉辨识',
-        phonological: '音形映射',
-        character_order: '字序组织',
-        spelling: '拼写输出',
-        reading_comprehension: '阅读理解',
-        semantic_integration: '语义整合',
-        information_extraction: '信息提取',
-        attention: '注意力',
+        visual_discrimination:    '视觉辨识',
+        phonological:             '音形映射',
+        character_order:          '字序组织',
+        spelling:                 '拼写输出',
+        reading_comprehension:    '阅读理解',
+        semantic_integration:     '语义整合',
+        information_extraction:   '信息提取',
+        attention:                '注意力',
+        working_memory_capacity:  '工作记忆',
+        short_term_memory:        '短时记忆',
+        rapid_naming_speed:       '快速命名',
+        phonological_awareness:   '音韵意识',
+        fine_motor_control:       '精细动作',
+        visual_motor_integration: '视动整合',
       }
       // 收集所有出现过的维度
       const allDims = new Set()

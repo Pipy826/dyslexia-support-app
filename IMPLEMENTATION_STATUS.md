@@ -86,7 +86,56 @@
 
 ---
 
-## 🆕 本次新增实现的功能
+## ✅ 本次新增完成的功能
+
+### 1. notification.js API 修复（Bug Fix）
+- 原来错误地使用了 `request(url, 'GET')` 方式调用，现已修复为正确的 `get/post/put/del` 封装
+
+### 2. APScheduler 定时推送任务（需求 4.11 节）
+- **文件**：`backend/app/scheduler.py`（新建）
+- 每天 19:00：检查当天未完成训练的用户，发送训练提醒通知
+- 每天 09:00：检查连续训练满 14 天且未复评的用户，发送复评提醒通知
+- 每天 00:05：为有报告但当天无任务的孩子自动创建训练任务
+- 在 `main.py` 的 startup/shutdown 事件中自动启动/停止
+- APScheduler 未安装时优雅降级（打印警告，不影响启动）
+
+### 3. Alembic 数据库迁移（技术债务）
+- 初始化了 `backend/migrations/` 目录
+- `migrations/env.py` 已配置为自动读取 `app.config.settings.DATABASE_URL`
+- 自动导入所有模型（含 notifications 模块）
+- 生成了初始迁移文件（`migrations/versions/`）
+- 生产环境可用 `alembic upgrade head` 替代 `create_all()`
+
+### 4. Pinia 状态管理（技术债务）
+- 安装了 `pinia` 依赖
+- `frontend/src/main.js` 已注册 `createPinia()`
+- `frontend/src/stores/auth.js`：统一管理 token/user/currentChild/children 状态
+- `frontend/src/stores/notification.js`：统一管理未读通知数量
+- 原有 `uni.getStorageSync` 方式仍可用，新页面可逐步迁移到 store
+
+### 5. 家长控制儿童使用时段（需求 4.1 功能三）
+- **提醒设置页**（`reminder/index.vue`）：新增"儿童使用时段控制"设置区
+  - 开关控制是否启用时段限制
+  - 可设置允许开始时间和结束时间（支持跨午夜）
+  - 设置保存到 `uni.setStorageSync('reminder_settings')`
+- **儿童端首页**（`child/home/index.vue`）：进入时自动检查时段
+  - 不在允许时段内时弹窗提示，并自动跳回家长端
+
+### 6. 报告服务端导出接口（需求 4.8 节）
+- **后端**：`GET /api/reports/{id}/export-text`
+  - 服务端生成完整文字版报告（含孩子姓名、游戏类型、维度进度条等）
+  - 返回 JSON `{ content, child_name, created_at }`
+- **前端**：`frontend/src/api/report.js` 新增 `exportReportText(id)`
+- **报告详情页**：优先调用服务端接口，失败时降级为本地生成
+
+### 7. bcrypt 版本兼容性修复（Bug Fix）
+- 发现 bcrypt 5.x 与 passlib 1.7.4 不兼容，导致密码验证失败
+- `requirements.txt` 固定 `bcrypt==3.2.2`
+
+### 8. API 集成测试（技术债务）
+- `backend/tests/test_api_integration.py`：21 个测试用例，全部通过
+- 覆盖：认证、儿童档案、筛查流程、报告导出、训练任务、通知模块
+- `backend/tests/conftest.py`：测试数据库隔离配置（文件 SQLite，测试后自动清理）
 
 ### 1. 拖拽排序题型（需求 4.3、4.4 节）
 - **前端**：`frontend/src/pages/child/game/index.vue`

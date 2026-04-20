@@ -1,150 +1,124 @@
 ﻿<template>
   <view class="line-container">
-    <canvas
-      type="2d"
-      :id="canvasId"
-      :style="{ width: width + 'px', height: height + 'px' }"
-    ></canvas>
+    <!-- 纯 SVG 折线图，兼容 H5 / 微信小程序 / App -->
+    <svg
+      :viewBox="`0 0 ${W} ${H}`"
+      :width="W"
+      :height="H"
+      xmlns="http://www.w3.org/2000/svg"
+      class="line-svg"
+    >
+      <!-- 网格线 + Y 轴标签 -->
+      <g v-for="pct in gridLevels" :key="pct">
+        <line
+          :x1="padL" :y1="yPos(pct)"
+          :x2="W - padR" :y2="yPos(pct)"
+          stroke="#F3F4F6" stroke-width="1"
+        />
+        <text
+          :x="padL - 5" :y="yPos(pct)"
+          text-anchor="end" dominant-baseline="middle"
+          :font-size="labelSize" fill="#A0AEC0"
+        >{{ pct }}</text>
+      </g>
+
+      <!-- 风险参考线 -->
+      <line :x1="padL" :y1="yPos(75)" :x2="W - padR" :y2="yPos(75)"
+        stroke="#22C55E" stroke-width="1" stroke-dasharray="4,3" opacity="0.4" />
+      <line :x1="padL" :y1="yPos(60)" :x2="W - padR" :y2="yPos(60)"
+        stroke="#F57F17" stroke-width="1" stroke-dasharray="4,3" opacity="0.4" />
+
+      <!-- 填充区域 -->
+      <path v-if="pts.length >= 2" :d="fillPath" fill="rgba(79,158,248,0.08)" />
+
+      <!-- 折线 -->
+      <polyline v-if="pts.length >= 2"
+        :points="linePoints"
+        fill="none" stroke="#4F9EF8" stroke-width="2.5"
+        stroke-linejoin="round" stroke-linecap="round"
+      />
+
+      <!-- 数据点 + 分数 + 日期 -->
+      <g v-for="(p, i) in pts" :key="i">
+        <!-- 光晕 -->
+        <circle :cx="p.x" :cy="p.y" r="8" :fill="p.color" opacity="0.15" />
+        <!-- 点 -->
+        <circle :cx="p.x" :cy="p.y" r="4.5" :fill="p.color" stroke="#FFFFFF" stroke-width="2" />
+        <!-- 分数标签 -->
+        <text
+          :x="p.x" :y="p.y - 10"
+          text-anchor="middle" dominant-baseline="auto"
+          :font-size="scoreSize" :fill="p.color" font-weight="bold"
+        >{{ p.score }}</text>
+        <!-- 日期标签 -->
+        <text
+          :x="p.x" :y="H - padB + 12"
+          text-anchor="middle" dominant-baseline="hanging"
+          :font-size="labelSize" fill="#A0AEC0"
+        >{{ p.date }}</text>
+      </g>
+    </svg>
   </view>
 </template>
 
 <script>
 /**
- * 折线图组件 - 兼容微信小程序 Canvas 2D API
+ * 折线图组件 - 纯 SVG，兼容 H5 / 微信小程序 / App
  * Props:
  *   scores: [{ score, risk_level, date }]
- *   width: number
- *   height: number
+ *   width:  number (px)
+ *   height: number (px)
  */
 export default {
   name: 'LineChart',
   props: {
     scores: { type: Array, default: () => [] },
-    width: { type: Number, default: 320 },
+    width:  { type: Number, default: 320 },
     height: { type: Number, default: 180 },
   },
   data() {
     return {
-      canvasId: 'line_' + Math.random().toString(36).slice(2, 8),
+      padL: 38, padR: 12, padT: 22, padB: 22,
+      gridLevels: [0, 25, 50, 75, 100],
     }
   },
-  watch: {
-    scores: {
-      deep: true,
-      handler() { this.$nextTick(() => this.draw()) },
-    },
-  },
-  mounted() {
-    this.$nextTick(() => this.draw())
-  },
-  methods: {
-    draw() {
-      if (!this.scores || this.scores.length === 0) return
-      const dpr = uni.getSystemInfoSync().pixelRatio || 1
-      const W = this.width, H = this.height
-      const padL = 36, padR = 12, padT = 18, padB = 22
+  computed: {
+    W() { return this.width },
+    H() { return this.height },
+    labelSize() { return Math.max(9, this.W * 0.033) },
+    scoreSize() { return Math.max(10, this.W * 0.038) },
+    chartW() { return this.W - this.padL - this.padR },
+    chartH() { return this.H - this.padT - this.padB },
 
-      const query = uni.createSelectorQuery().in(this)
-      query.select('#' + this.canvasId).fields({ node: true, size: true }).exec((res) => {
-        if (!res || !res[0] || !res[0].node) {
-          this._drawH5(W, H, padL, padR, padT, padB, dpr)
-          return
-        }
-        const canvas = res[0].node
-        canvas.width = W * dpr
-        canvas.height = H * dpr
-        const ctx = canvas.getContext('2d')
-        ctx.scale(dpr, dpr)
-        this._drawOnCtx(ctx, W, H, padL, padR, padT, padB)
-      })
-    },
-
-    _drawH5(W, H, padL, padR, padT, padB, dpr) {
-      const ctx = uni.createCanvasContext(this.canvasId, this)
-      this._drawOnCtx(ctx, W, H, padL, padR, padT, padB)
-      ctx.draw()
-    },
-
-    _drawOnCtx(ctx, W, H, padL, padR, padT, padB) {
-      ctx.clearRect(0, 0, W, H)
-      const scores = this.scores
+    pts() {
+      const { scores, padL, padT, chartW, chartH } = this
       const n = scores.length
-      const chartW = W - padL - padR
-      const chartH = H - padT - padB
-
-      // 网格线
-      const gridLevels = [0, 25, 50, 75, 100]
-      gridLevels.forEach(pct => {
-        const y = padT + chartH - (pct / 100) * chartH
-        ctx.beginPath()
-        ctx.moveTo(padL, y)
-        ctx.lineTo(W - padR, y)
-        ctx.strokeStyle = '#F3F4F6'
-        ctx.lineWidth = 1
-        ctx.stroke()
-        // Y轴标签
-        ctx.fillStyle = '#A0AEC0'
-        ctx.font = `${W * 0.035}px sans-serif`
-        ctx.textAlign = 'right'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(String(pct), padL - 4, y)
-      })
-
-      // 计算数据点坐标
-      const pts = scores.map((item, i) => {
+      if (n === 0) return []
+      return scores.map((item, i) => {
         const x = padL + (n === 1 ? chartW / 2 : (i / (n - 1)) * chartW)
-        const y = padT + chartH - (Math.min(item.score, 100) / 100) * chartH
-        const color = item.risk_level === 'low' ? '#22C55E' : item.risk_level === 'medium' ? '#F57F17' : '#FF6B6B'
+        const y = padT + chartH - (Math.min(Math.max(item.score, 0), 100) / 100) * chartH
+        const color = item.risk_level === 'low' ? '#22C55E'
+          : item.risk_level === 'medium' ? '#F57F17' : '#FF6B6B'
         return { x, y, score: item.score, color, date: this._fmtDate(item.date) }
       })
-
-      // 填充区域
-      if (pts.length >= 2) {
-        ctx.beginPath()
-        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-        ctx.lineTo(pts[pts.length - 1].x, padT + chartH)
-        ctx.lineTo(pts[0].x, padT + chartH)
-        ctx.closePath()
-        ctx.fillStyle = 'rgba(79,158,248,0.08)'
-        ctx.fill()
-      }
-
-      // 折线
-      if (pts.length >= 2) {
-        ctx.beginPath()
-        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-        ctx.strokeStyle = '#4F9EF8'
-        ctx.lineWidth = 2.5
-        ctx.lineJoin = 'round'
-        ctx.lineCap = 'round'
-        ctx.stroke()
-      }
-
-      // 数据点 + 分数标签 + 日期标签
-      const fontSize = Math.max(9, W * 0.032)
-      pts.forEach(p => {
-        // 数据点
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI)
-        ctx.fillStyle = p.color
-        ctx.fill()
-        ctx.strokeStyle = '#FFFFFF'
-        ctx.lineWidth = 2
-        ctx.stroke()
-        // 分数
-        ctx.fillStyle = p.color
-        ctx.font = `bold ${fontSize}px sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'bottom'
-        ctx.fillText(String(p.score), p.x, p.y - 6)
-        // 日期
-        ctx.fillStyle = '#A0AEC0'
-        ctx.font = `${fontSize * 0.9}px sans-serif`
-        ctx.textBaseline = 'top'
-        ctx.fillText(p.date, p.x, padT + chartH + 4)
-      })
     },
 
+    linePoints() {
+      return this.pts.map(p => `${p.x},${p.y}`).join(' ')
+    },
+
+    fillPath() {
+      if (this.pts.length < 2) return ''
+      const { pts, padL, padT, chartH } = this
+      const bottom = padT + chartH
+      const top = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
+      return `${top} L${pts[pts.length - 1].x},${bottom} L${pts[0].x},${bottom} Z`
+    },
+  },
+  methods: {
+    yPos(pct) {
+      return this.padT + this.chartH - (pct / 100) * this.chartH
+    },
     _fmtDate(dateStr) {
       if (!dateStr) return ''
       const d = new Date(dateStr)
@@ -156,4 +130,5 @@ export default {
 
 <style scoped>
 .line-container { width: 100%; overflow: hidden; }
+.line-svg { display: block; width: 100%; height: auto; }
 </style>

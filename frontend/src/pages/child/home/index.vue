@@ -223,6 +223,10 @@ export default {
       uni.showToast({ title: '请先在家长端添加档案', icon: 'none' })
       return
     }
+    // 检查家长设置的允许使用时段
+    if (!this._checkAllowedTime()) {
+      return
+    }
     this.loadStars()
   },
   // 拦截手势/物理返回键，必须输入密码才能退出儿童模式
@@ -257,9 +261,38 @@ export default {
       })
     },
 
+    // ── 时段控制 ──────────────────────────────────────────────────────────────
+    _checkAllowedTime() {
+      const settings = uni.getStorageSync('reminder_settings') || {}
+      if (!settings.timeControlEnabled) return true
+      const { allowStart, allowEnd } = settings
+      if (!allowStart || !allowEnd) return true
+      const now = new Date()
+      const [sh, sm] = allowStart.split(':').map(Number)
+      const [eh, em] = allowEnd.split(':').map(Number)
+      const nowMin = now.getHours() * 60 + now.getMinutes()
+      const startMin = sh * 60 + sm
+      const endMin = eh * 60 + em
+      const allowed = startMin <= endMin
+        ? nowMin >= startMin && nowMin <= endMin
+        : nowMin >= startMin || nowMin <= endMin  // 跨午夜
+      if (!allowed) {
+        uni.showModal({
+          title: '暂时不能玩哦',
+          content: `家长设置了允许使用时间：${allowStart} - ${allowEnd}，现在还不到时间呢！`,
+          showCancel: false,
+          confirmText: '好的',
+          success: () => {
+            uni.reLaunch({ url: '/pages/parent/home/index' })
+          },
+        })
+        return false
+      }
+      return true
+    },
+
     // ── 退出逻辑 ──────────────────────────────────────────────────────────────
-    cancelExit() {
-      this.showExitModal = false
+    cancelExit() {      this.showExitModal = false
       this.exitPassword = ''
       this.exitError = ''
       this.showPwd = false

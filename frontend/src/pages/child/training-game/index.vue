@@ -151,6 +151,12 @@ export default {
     async loadQuestions() {
       this.loading = true
       try {
+        // 兜底：确保 gameType 是后端支持的合法类型
+        const VALID_TYPES = ['visual', 'spelling', 'comprehension', 'working_memory', 'rapid_naming', 'motor_coordination']
+        if (!VALID_TYPES.includes(this.gameType)) {
+          console.warn(`不支持的游戏类型 "${this.gameType}"，已回退到 visual`)
+          this.gameType = 'visual'
+        }
         const res = await getQuestions(this.gameType, { grade: this.grade, count: 8 })
         this.questions = res.questions || []
         this.correctAnswerMap = {}
@@ -314,11 +320,18 @@ export default {
       uni.showToast({ title: text, icon: 'none', duration: 2000 })
       // #endif
     },
-    exitGame() { this.showExitModal = true },
+    exitGame() {
+      // 答题反馈动画期间也能触发退出
+      this.clearTimer()
+      this.showFeedback = false
+      this.showExitModal = true
+    },
     hideModal() { this.showExitModal = false },
     confirmExit() {
       this.clearTimer()
-      uni.navigateBack()
+      this.showExitModal = false
+      // 用 redirectTo 替换当前页，避免页面栈为空时 navigateBack 失效
+      uni.redirectTo({ url: '/pages/parent/training/index' })
     },
   },
 }
@@ -429,7 +442,7 @@ export default {
 
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4); z-index: 9999;
+  background: rgba(0,0,0,0.4); z-index: 10000;
   display: flex; justify-content: center; align-items: center;
 }
 .modal-content {

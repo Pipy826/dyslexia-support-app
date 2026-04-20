@@ -1,8 +1,10 @@
 import App from './App.vue'
 import { createSSRApp } from 'vue'
+import { createPinia } from 'pinia'
 
 export function createApp() {
   const app = createSSRApp(App)
+  app.use(createPinia())
 
   // 静默处理 uni-app H5 onBackPress 拦截时产生的 navigateBack 错误
   // 这是 uni-app 的已知行为，不影响功能

@@ -186,3 +186,89 @@ def get_merged_dimensions(
         "pending_game_types": pending_game_types,
         "is_complete": len(pending_game_types) == 0,
     }
+
+
+@router.get("/{report_id}/export-text")
+def export_report_text(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    导出报告为纯文字格式（服务端生成，前端直接展示或下载）。
+    返回 JSON { content: "..." }，前端可复制到剪贴板或写入文件。
+    """
+    import json as _json
+    from ..models.screening import Screening
+
+    report = db.query(Report).join(Child).filter(
+        Report.id == report_id,
+        Child.parent_id == current_user.id
+    ).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    child = db.query(Child).filter(Child.id == report.child_id).first()
+    child_name = child.name if child else "未知"
+
+    # 获取 game_type
+    game_type = "综合"
+    game_type_names = {
+        "visual": "视觉辨识", "spelling": "拼字识别", "comprehension": "文字理解",
+        "working_memory": "工作记忆", "rapid_naming": "快速命名", "motor_coordination": "精细动作",
+    }
+    if report.screening_id:
+        sc = db.query(Screening).filter(Screening.id == report.screening_id).first()
+        if sc:
+            game_type = game_type_names.get(sc.game_type, sc.game_type)
+
+    risk_labels = {"low": "低风险", "medium": "中风险", "high": "高风险"}
+    dim_names = {
+        "visual_discrimination": "视觉辨识能力", "phonological": "音形映射能力",
+        "character_order": "字序组织能力", "spelling": "拼写输出能力",
+        "reading_comprehension": "阅读理解能力", "semantic_integration": "语义整合能力",
+        "information_extraction": "信息提取能力", "attention": "任务注意力",
+        "working_memory_capacity": "工作记忆容量", "short_term_memory": "短时记忆能力",
+        "rapid_naming_speed": "快速命名速度", "phonological_awareness": "音韵意识",
+        "fine_motor_control": "精细动作控制", "visual_motor_integration": "视动整合能力",
+    }
+
+    try:
+        dimensions = _json.loads(report.dimensions) if report.dimensions else {}
+    except Exception:
+        dimensions = {}
+
+    created_str = report.created_at.strftime("%Y-%m-%d") if report.created_at else ""
+
+    lines = [
+        "═══════════════════════════════",
+        "  悦读小灯塔 · 筛查评估报告",
+        "═══════════════════════════════",
+        f"孩子姓名：{child_name}",
+        f"游戏类型：{game_type}",
+        f"评估日期：{created_str}",
+        f"综合得分：{report.overall_score} 分",
+        f"风险等级：{risk_labels.get(report.risk_level, report.risk_level)}",
+        "───────────────────────────────",
+        "【评估总结】",
+        report.summary or "暂无",
+        "───────────────────────────────",
+        "【各维度得分】",
+    ]
+    if dimensions:
+        for dim, score in dimensions.items():
+            bar = "█" * round(score / 10) + "░" * (10 - round(score / 10))
+            name = dim_names.get(dim, dim).ljust(10)
+            lines.append(f"{name}  {bar}  {score}分")
+    else:
+        lines.append("暂无维度数据")
+    lines += [
+        "───────────────────────────────",
+        "【干预建议】",
+        report.recommendations or "暂无",
+        "───────────────────────────────",
+        "⚠️ 本报告仅供参考，不构成医学诊断",
+        "═══════════════════════════════",
+    ]
+
+    return {"content": "\n".join(lines), "child_name": child_name, "created_at": created_str}

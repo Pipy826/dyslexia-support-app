@@ -14,14 +14,20 @@ export const getBaseUrl = () => {
   return 'https://your-api-domain.com';  // ← 改成你的真实后端地址，例如：'http://123.45.67.89:8000'
   // #endif
 
-  // 3. H5 生产环境：同域部署时留空（Nginx 反向代理 /api/）
-  // H5 开发环境：Vite 代理到 localhost:8000
+  // 3. H5 环境（包括 HBuilderX 内置浏览器 8080 端口）
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    if (host !== 'localhost' && host !== '127.0.0.1') {
-      // 同域部署：前端和后端在同一域名下，Nginx 代理 /api/
+    const port = window.location.port;
+    // HBuilderX 内置浏览器 (localhost:8080) 或其他非 5173 端口，直连后端 8000
+    if (host === 'localhost' || host === '127.0.0.1') {
+      if (port !== '5173') {
+        return 'http://localhost:8000';
+      }
+      // Vite 开发服务器 (5173)，走代理，留空
       return '';
     }
+    // 生产环境：同域部署时留空（Nginx 反向代理 /api/）
+    return '';
   }
   return '';
 };
@@ -62,8 +68,13 @@ const request = (options) => {
           resolve(res.data);
         } else {
           if (!silent) {
-            const errorMsg = res.data?.detail || res.data?.message || '请求失败';
-            uni.showToast({ title: errorMsg, icon: 'none' });
+            // detail 可能是字符串或数组（Pydantic 验证错误）
+            let errorMsg = res.data?.detail || res.data?.message || '请求失败';
+            if (Array.isArray(errorMsg)) {
+              // Pydantic 验证错误格式: [{loc: [...], msg: "...", type: "..."}]
+              errorMsg = errorMsg.map(e => e.msg).join('；') || '请求失败';
+            }
+            uni.showToast({ title: String(errorMsg), icon: 'none' });
           }
           reject({ ...res.data, _statusCode: res.statusCode });
         }

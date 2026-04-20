@@ -351,12 +351,22 @@ export default {
         }
 
         try {
-          const res = await register({
-            username: this.regData.username || this.regData.phone,
-            password: this.regData.password,
-            phone: this.regData.phone,
-            code: this.regData.code
-          })
+          let payload
+          if (this.loginMode === 'code') {
+            // 手机号注册：传 phone + code + password，不传 username
+            payload = {
+              phone: this.regData.phone,
+              password: this.regData.password,
+              code: this.regData.code
+            }
+          } else {
+            // 账号注册：只传 username + password，不传 phone（避免后端要求验证码）
+            payload = {
+              username: this.regData.username,
+              password: this.regData.password
+            }
+          }
+          const res = await register(payload)
           handleLoginSuccess(res)
           uni.showToast({ title: '注册成功', icon: 'success' })
           setTimeout(() => {
@@ -364,7 +374,21 @@ export default {
             uni.reLaunch({ url: '/pages/parent/auth/create-profile' })
           }, 1000)
         } catch (e) {
-          this.showToastMsg('注册失败，请重试')
+          // 显示后端返回的具体错误信息
+          let detail = e?.detail || e?.message || ''
+          // detail 可能是数组（Pydantic 验证错误）
+          if (Array.isArray(detail)) {
+            detail = detail.map(err => err.msg).join('；')
+          }
+          if (String(detail).includes('用户名已被注册')) {
+            this.showToastMsg('该用户名已被注册，请换一个')
+          } else if (String(detail).includes('手机号已注册') || String(detail).includes('该手机号已注册')) {
+            this.showToastMsg('该手机号已注册，请直接登录')
+          } else if (String(detail).includes('验证码')) {
+            this.showToastMsg(String(detail))
+          } else {
+            this.showToastMsg(String(detail) || '注册失败，请重试')
+          }
         }
       } else {
         // 登录逻辑
@@ -407,7 +431,8 @@ export default {
           if (this.loginMode === 'code') {
             this.showToastMsg('验证码错误或已过期，请重新获取')
           } else {
-            this.showToastMsg('账号或密码错误，请检查后重试')
+            const detail = e?.detail || ''
+            this.showToastMsg(detail || '账号或密码错误，请检查后重试')
           }
         }
       }
