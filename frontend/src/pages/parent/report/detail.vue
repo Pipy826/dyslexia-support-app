@@ -28,10 +28,10 @@
         <view class="dim-item" v-for="(score, dim) in dimensions" :key="dim">
           <view class="dim-header">
             <view class="dim-name">{{ dimName(dim) }}</view>
-            <view class="dim-score" :class="scoreClass(score)">{{ score }}分</view>
+            <view class="dim-score" :class="score >= 75 ? 'green' : score >= 60 ? 'orange' : 'red'">{{ score }}分</view>
           </view>
           <view class="dim-bar">
-            <view class="dim-fill" :class="scoreClass(score)" :style="{ width: score + '%' }"></view>
+            <view class="dim-fill" :class="score >= 75 ? 'green' : score >= 60 ? 'orange' : 'red'" :style="{ width: score + '%' }"></view>
           </view>
           <view class="dim-hint">{{ dimHint(dim, score) }}</view>
         </view>

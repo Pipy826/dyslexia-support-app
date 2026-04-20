@@ -50,7 +50,7 @@
           :key="task.id"
           :class="{ completed: task.status === 'completed' }"
         >
-          <view class="task-icon" :class="taskColor(task.task_type)">
+          <view class="task-icon" :class="task.task_type === 'visual' || task.task_type === 'working_memory' ? 'orange' : task.task_type === 'spelling' || task.task_type === 'rapid_naming' ? 'blue' : 'green'">
             <text :class="'ph ' + taskIcon(task.task_type)"></text>
           </view>
           <view class="task-info">
@@ -196,7 +196,7 @@
               :key="i"
             >
               <view class="plan-task-header">
-                <view class="plan-task-icon" :class="taskColor(task.task_type)">
+                <view class="plan-task-icon" :class="task.task_type === 'visual' || task.task_type === 'working_memory' ? 'orange' : task.task_type === 'spelling' || task.task_type === 'rapid_naming' ? 'blue' : 'green'">
                   <text :class="'ph ' + taskIcon(task.task_type)"></text>
                 </view>
                 <view class="plan-task-info">

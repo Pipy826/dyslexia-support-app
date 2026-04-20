@@ -55,11 +55,11 @@
           <view class="ability-item" v-for="(score, dim) in mergedDimensions" :key="dim">
             <view class="ability-header">
               <view class="ability-name">{{ dimName(dim) }}</view>
-              <view class="ability-tag" :class="scoreClass(score)">{{ scoreLabel(score) }}</view>
+              <view class="ability-tag" :class="score >= 75 ? 'green' : score >= 60 ? 'orange' : 'red'">{{ scoreLabel(score) }}</view>
             </view>
             <view class="ability-progress">
               <view class="progress-track">
-                <view class="progress-fill" :class="scoreClass(score)" :style="{ width: score + '%' }"></view>
+                <view class="progress-fill" :class="score >= 75 ? 'green' : score >= 60 ? 'orange' : 'red'" :style="{ width: score + '%' }"></view>
               </view>
             </view>
             <view class="ability-hint">{{ dimHint(dim, score) }}</view>

@@ -11,7 +11,7 @@ export const getBaseUrl = () => {
 
   // 2. App / 小程序环境：必须填写真实地址
   // #ifdef APP-PLUS || MP-WEIXIN
-  return 'https://your-api-domain.com';  // ← 云打包前替换为真实后端地址
+  return 'https://your-api-domain.com';  // ← 改成你的真实后端地址，例如：'http://123.45.67.89:8000'
   // #endif
 
   // 3. H5 生产环境：同域部署时留空（Nginx 反向代理 /api/）

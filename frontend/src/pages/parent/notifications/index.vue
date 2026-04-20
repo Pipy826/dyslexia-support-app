@@ -22,7 +22,7 @@
           :class="{ unread: !n.is_read }"
           @click="handleNotif(n)"
         >
-          <view class="notif-icon" :class="notifColor(n.notif_type)">
+          <view class="notif-icon" :class="n.notif_type === 'training_complete' ? 'green' : n.notif_type === 'reassess' ? 'orange' : n.notif_type === 'system' ? 'gray' : 'blue'">
             <text :class="'ph ' + (n.icon || 'ph-bell')"></text>
           </view>
           <view class="notif-body">

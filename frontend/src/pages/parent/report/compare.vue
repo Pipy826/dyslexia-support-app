@@ -13,7 +13,7 @@
         <view class="compare-col">
           <view class="col-label">上次筛查</view>
           <view class="col-date">{{ formatDate(previous.created_at) }}</view>
-          <view class="col-score" :class="scoreClass(previous.overall_score)">
+          <view class="col-score" :class="previous.overall_score >= 75 ? 'green' : previous.overall_score >= 60 ? 'orange' : 'red'">
             {{ previous.overall_score }}分
           </view>
           <view class="col-badge" :class="previous.risk_level">{{ riskLabel(previous.risk_level) }}</view>
@@ -28,7 +28,7 @@
         <view class="compare-col">
           <view class="col-label">本次筛查</view>
           <view class="col-date">{{ formatDate(current.created_at) }}</view>
-          <view class="col-score" :class="scoreClass(current.overall_score)">
+          <view class="col-score" :class="current.overall_score >= 75 ? 'green' : current.overall_score >= 60 ? 'orange' : 'red'">
             {{ current.overall_score }}分
           </view>
           <view class="col-badge" :class="current.risk_level">{{ riskLabel(current.risk_level) }}</view>
