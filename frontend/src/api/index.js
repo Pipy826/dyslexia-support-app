@@ -11,7 +11,7 @@ export const getBaseUrl = () => {
 
   // 2. App / 小程序环境：必须填写真实地址
   // #ifdef APP-PLUS || MP-WEIXIN
-  return 'https://118.145.185.15';  // ← 改成你的真实后端地址，例如：'http://123.45.67.89:8000'
+  return 'https://118.145.185.15:8000';  // ← 改成你的真实后端地址，例如：'http://123.45.67.89:8000'
   // #endif
 
   // 3. H5 环境（包括 HBuilderX 内置浏览器 8080 端口）
