@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import os
 import logging
 
 from .database import init_db
-from .api import auth, children, screenings, reports, training, ai_qa, upload
+from .api import auth, children, screenings, reports, training, ai_qa, upload, notifications
 from .config import settings
 
 # 日志配置
@@ -58,6 +59,13 @@ app.include_router(reports.router)
 app.include_router(training.router)
 app.include_router(ai_qa.router)
 app.include_router(upload.router)
+app.include_router(notifications.router)
+
+# 静态文件服务：挂载上传目录，使头像等文件可通过 /uploads/ 直接访问
+# 注意：必须在 upload.router 注册之后挂载，避免路由冲突
+# 目录在 startup 事件中创建，这里确保挂载前目录存在
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="static_uploads")
 
 
 @app.get("/")

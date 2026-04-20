@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel as PydanticBase
 
 from ..database import get_db
 from ..models.training import TrainingTask, GrowthRecord
@@ -13,6 +14,7 @@ from ..schemas.training import (
 )
 from .deps import get_current_user
 from ..models.user import User
+from .notifications import create_notification
 
 router = APIRouter(prefix="/api/training", tags=["训练"])
 
@@ -86,12 +88,13 @@ def update_task_progress(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    if data.status:
-        task.status = data.status
+    # 先记录原始状态，再更新字段，避免状态覆盖导致奖励判断失效
+    was_completed = task.status == "completed"
+
     if data.progress is not None:
         task.progress = data.progress
-        # 防止重复完成：只有当前状态不是 completed 时才发放奖励
-        if data.progress >= 100 and task.status != "completed":
+        # 防止重复完成：只有原状态不是 completed 时才发放奖励
+        if data.progress >= 100 and not was_completed:
             task.status = "completed"
             task.completed_at = datetime.utcnow()
             reward = Reward(
@@ -101,19 +104,29 @@ def update_task_progress(
                 description="完成一次训练任务"
             )
             db.add(reward)
+    elif data.status:
+        # 仅在没有 progress 更新时才单独更新 status
+        task.status = data.status
 
     db.commit()
     db.refresh(task)
     return TrainingTaskResponse.model_validate(task)
 
 
+class CompleteTaskRequest(PydanticBase):
+    correct_count: Optional[int] = None
+    total_count: Optional[int] = None
+    accuracy: Optional[int] = None
+
+
 @router.post("/tasks/{task_id}/complete", response_model=TrainingTaskResponse)
 def complete_task(
     task_id: int,
+    data: Optional[CompleteTaskRequest] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Mark task as completed and award star"""
+    """Mark task as completed and award star, optionally save training results"""
     task = db.query(TrainingTask).join(Child).filter(
         TrainingTask.id == task_id,
         Child.parent_id == current_user.id
@@ -129,7 +142,15 @@ def complete_task(
     task.status = "completed"
     task.progress = 100
     task.completed_at = datetime.utcnow()
-    db.commit()
+
+    # 保存训练结果
+    if data:
+        if data.correct_count is not None:
+            task.correct_count = data.correct_count
+        if data.total_count is not None:
+            task.total_count = data.total_count
+        if data.accuracy is not None:
+            task.accuracy = data.accuracy
 
     # Award a star
     reward = Reward(
@@ -139,8 +160,26 @@ def complete_task(
         description="完成一次训练任务"
     )
     db.add(reward)
+    db.add(task)
     db.commit()
     db.refresh(task)
+
+    # 发送完成通知
+    try:
+        child = db.query(Child).filter(Child.id == task.child_id).first()
+        child_name = child.name if child else "孩子"
+        accuracy_text = f"，正确率 {data.accuracy}%" if data and data.accuracy is not None else ""
+        create_notification(
+            db=db,
+            user_id=current_user.id,
+            notif_type="training_complete",
+            title=f"{child_name} 完成了训练任务 🎉",
+            body=f"「{task.task_name}」已完成{accuracy_text}，获得一颗星星！",
+            icon="ph-star",
+            action="training"
+        )
+    except Exception:
+        pass  # 通知失败不影响主流程
 
     return TrainingTaskResponse.model_validate(task)
 

@@ -9,12 +9,16 @@ class TrainingTask(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     child_id = Column(Integer, ForeignKey("children.id", ondelete="CASCADE"), nullable=False, index=True)
-    task_type = Column(String(50), nullable=False)  # 'visual', 'spelling', 'comprehension'
+    task_type = Column(String(50), nullable=False)
     task_name = Column(String(100), nullable=True)
-    status = Column(String(20), default="pending")  # 'pending', 'in_progress', 'completed'
-    progress = Column(Integer, default=0)  # 0-100
+    status = Column(String(20), default="pending")
+    progress = Column(Integer, default=0)
     scheduled_date = Column(Date, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    # 训练结果
+    correct_count = Column(Integer, nullable=True)
+    total_count = Column(Integer, nullable=True)
+    accuracy = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

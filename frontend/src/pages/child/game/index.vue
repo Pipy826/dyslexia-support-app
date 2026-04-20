@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <!-- 游戏顶部：进度条与退出 -->
     <view class="game-header">
@@ -36,6 +36,11 @@
         </view>
         <view class="question-instruction">{{ currentQuestion.instruction }}</view>
 
+        <!-- 文字理解题：支持重复阅读（记录次数） -->
+        <view class="reread-bar" v-if="currentQuestion.type === 'reading_comprehension' && rereadCount > 0">
+          <text class="ph ph-eye"></text> 已重读 {{ rereadCount }} 次
+        </view>
+
         <!-- 视觉辨识：2x2 大字格 -->
         <view class="options-grid" v-if="currentQuestion.type === 'visual_discrimination'">
           <view
@@ -59,6 +64,19 @@
             <view class="option-label">{{ ['A','B','C','D'][index] }}</view>
             <view class="option-text">{{ option }}</view>
           </view>
+        </view>
+
+        <!-- 排序题型：点击上移/下移调整顺序 -->
+        <view class="sort-container" v-else-if="currentQuestion.type === 'sort_order'">
+          <view class="sort-item" v-for="(item, idx) in sortItems" :key="item.originalIndex">
+            <view class="sort-num">{{ idx + 1 }}</view>
+            <view class="sort-text">{{ item.text }}</view>
+            <view class="sort-btns">
+              <view class="sort-btn" :class="{ disabled: idx === 0 }" @click="moveUp(idx)">↑</view>
+              <view class="sort-btn" :class="{ disabled: idx === sortItems.length - 1 }" @click="moveDown(idx)">↓</view>
+            </view>
+          </view>
+          <button class="confirm-sort-btn" @click="confirmSortAnswer">确认顺序 ✓</button>
         </view>
 
         <!-- 其他题型：竖向列表 -->
@@ -137,6 +155,7 @@ export default {
       questionStartTime: null,
       firstClickTime: null,
       changeCount: 0,
+      rereadCount: 0,   // 文字理解题：重复阅读次数
       timeLeft: 10,
       timerInterval: null,
       loading: true,
@@ -149,6 +168,7 @@ export default {
       difficultyToastText: '',
       difficultyOverridden: false,  // true 表示自适应已手动覆盖 grade 映射
       currentTimeLimit: null,       // 动态时限（null 时回退到题目自带的 time_limit）
+      sortItems: [],                // 排序题：当前排列的选项数组，每项含 {text, originalIndex}
     }
   },
   computed: {
@@ -163,8 +183,6 @@ export default {
   onLoad(options) {
     this.child = getCurrentChild()
     if (options.game_type) this.gameType = options.game_type
-    // grade 优先从路由参数取（prep 页面传入），其次从 child 对象取
-    // 这样即使 storage 里的 child 对象没有 grade 字段也能正常工作
     if (options.grade) {
       this.grade = options.grade
     } else if (this.child?.grade) {
@@ -174,6 +192,11 @@ export default {
   },
   onUnload() {
     this.clearTimer()
+  },
+  // 拦截手势返回，弹出退出确认
+  onBackPress() {
+    this.showExitModal = true
+    return true
   },
   methods: {
     async initScreening() {
@@ -185,6 +208,12 @@ export default {
           this.gameType = saved.game_type
           this.difficulty = saved.difficulty || 'L1'
           await this.loadQuestions()
+          // 断点续传：恢复已答进度
+          if (saved.currentIndex > 0 && saved.answers && saved.answers.length > 0) {
+            this.currentIndex = Math.min(saved.currentIndex, this.questions.length - 1)
+            this.answers = saved.answers
+            uni.showToast({ title: '已恢复上次进度', icon: 'none', duration: 1500 })
+          }
           return
         }
 
@@ -257,13 +286,26 @@ export default {
       this.questionStartTime = Date.now()
       this.firstClickTime = null
       this.changeCount = 0
+      this.rereadCount = 0
+      // 排序题：随机打乱选项初始化 sortItems
+      if (this.currentQuestion?.type === 'sort_order') {
+        const items = (this.currentQuestion.options || []).map((text, i) => ({ text, originalIndex: i }))
+        // Fisher-Yates 洗牌
+        for (let i = items.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [items[i], items[j]] = [items[j], items[i]]
+        }
+        this.sortItems = items
+      } else {
+        this.sortItems = []
+      }
     },
 
     startTimer() {
       this.clearTimer()
       const q = this.currentQuestion
       // 优先用动态时限，回退到题目自带的 time_limit；用 || 而非 ?? 以过滤 0 值
-      this.timeLeft = this.currentTimeLimit || q?.time_limit || 10
+      this.timeLeft = q?.type === 'sort_order' ? 30 : (this.currentTimeLimit || q?.time_limit || 10)
       this.timerInterval = setInterval(() => {
         this.timeLeft--
         if (this.timeLeft <= 0) {
@@ -283,6 +325,22 @@ export default {
     autoSubmitCurrent() {
       // 超时时 time_spent = 实际动态时限，Math.round 保证传 int（pydantic 要求）
       const timeSpent = Math.round(this.currentTimeLimit || this.currentQuestion?.time_limit || 10)
+      // 排序题超时：提交当前顺序
+      if (this.currentQuestion?.type === 'sort_order') {
+        const currentOrder = this.sortItems.map(item => item.originalIndex)
+        const correctOrder = this.currentQuestion.correct_order || []
+        const isCorrect = JSON.stringify(currentOrder) === JSON.stringify(correctOrder)
+        this.answers.push({
+          question_id: this.currentQuestion.id,
+          answer: currentOrder,
+          time_spent: 30,
+          reaction_time: null,
+          change_count: this.changeCount,
+          is_timeout: true
+        })
+        this.showFeedbackAnim(isCorrect)
+        return
+      }
       this.answers.push({
         question_id: this.currentQuestion.id,
         answer: -1,
@@ -293,6 +351,44 @@ export default {
       })
       this.showFeedbackAnim(false)
       this.nextQuestion()
+    },
+
+    moveUp(index) {
+      if (index === 0) return
+      const items = [...this.sortItems];
+      [items[index - 1], items[index]] = [items[index], items[index - 1]]
+      this.sortItems = items
+    },
+
+    moveDown(index) {
+      if (index === this.sortItems.length - 1) return
+      const items = [...this.sortItems];
+      [items[index], items[index + 1]] = [items[index + 1], items[index]]
+      this.sortItems = items
+    },
+
+    confirmSortAnswer() {
+      if (this.showFeedback) return
+      this.clearTimer()
+      const currentOrder = this.sortItems.map(item => item.originalIndex)
+      const correctOrder = this.currentQuestion.correct_order || []
+      const isCorrect = JSON.stringify(currentOrder) === JSON.stringify(correctOrder)
+      const timeSpent = Math.round(30 - this.timeLeft)
+      const reactionTime = this.firstClickTime ? this.firstClickTime - this.questionStartTime : null
+      if (!isCorrect && correctOrder.length > 0) {
+        this.currentCorrectAnswer = correctOrder.map(i => this.currentQuestion.options[i]).join(' → ')
+      } else {
+        this.currentCorrectAnswer = ''
+      }
+      this.answers.push({
+        question_id: this.currentQuestion.id,
+        answer: currentOrder,
+        time_spent: timeSpent,
+        reaction_time: reactionTime,
+        change_count: this.changeCount,
+        is_timeout: false
+      })
+      this.showFeedbackAnim(isCorrect)
     },
 
     selectAnswer(index) {
@@ -345,7 +441,8 @@ export default {
         time_spent: timeSpent,
         reaction_time: reactionTime,
         change_count: this.changeCount,
-        is_timeout: false
+        is_timeout: false,
+        reread_count: this.rereadCount,
       })
 
       this.showFeedbackAnim(isCorrect)
@@ -368,6 +465,13 @@ export default {
         this.selectedAnswer = null
         this.resetQuestionState()
         this.startTimer()
+        // 保存断点进度
+        const saved = uni.getStorageSync('current_screening') || {}
+        uni.setStorageSync('current_screening', {
+          ...saved,
+          currentIndex: this.currentIndex,
+          answers: this.answers,
+        })
         // 每 adaptiveCheckInterval 题检查一次难度
         if (this.currentIndex % this.adaptiveCheckInterval === 0 && this.currentIndex > 0) {
           this.checkAdaptiveDifficulty()
@@ -455,10 +559,24 @@ export default {
           answers: this.answers
         })
 
+        // 筛查完成后也给一颗星星（通过创建并立即完成一个临时任务）
         const pendingTaskId = uni.getStorageSync('pending_task_id')
         if (pendingTaskId) {
           try { await completeTask(pendingTaskId) } catch (e) { console.warn('标记任务完成失败', e) }
           uni.removeStorageSync('pending_task_id')
+        } else if (this.child?.id) {
+          // 筛查本身也奖励一颗星
+          try {
+            const { createTask, completeTask: ct } = await import('../../../api/training.js')
+            const today = new Date().toISOString().split('T')[0]
+            const task = await createTask({
+              child_id: this.child.id,
+              task_type: this.gameType,
+              task_name: '完成筛查挑战',
+              scheduled_date: today,
+            })
+            await ct(task.id)
+          } catch (e) { /* 静默失败，不影响主流程 */ }
         }
 
         // 保存游戏结果供奖励页面使用（AI鼓励话语）
@@ -486,6 +604,18 @@ export default {
     playAudio() {
       const text = this.currentQuestion?.instruction || this.currentQuestion?.title
       if (!text) return
+      // 文字理解题：记录重复阅读次数（首次不算，从第2次开始计）
+      if (this.currentQuestion?.type === 'reading_comprehension') {
+        this.rereadCount++
+      }
+      // #ifdef MP-WEIXIN
+      if (uni.textToSpeech) {
+        uni.textToSpeech({ lang: 'zh_CN', tts: true, content: text, fail: () => {} })
+      } else {
+        uni.showToast({ title: text, icon: 'none', duration: 2000 })
+      }
+      // #endif
+      // #ifndef MP-WEIXIN
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel()
         const utter = new window.SpeechSynthesisUtterance(text)
@@ -494,11 +624,8 @@ export default {
         window.speechSynthesis.speak(utter)
         return
       }
-      if (uni.textToSpeech) {
-        uni.textToSpeech({ lang: 'zh_CN', tts: true, content: text, fail: () => uni.showToast({ title: text, icon: 'none', duration: 2000 }) })
-      } else {
-        uni.showToast({ title: text, icon: 'none', duration: 2000 })
-      }
+      uni.showToast({ title: text, icon: 'none', duration: 2000 })
+      // #endif
     },
 
     exitGame() { this.showExitModal = true },
@@ -515,492 +642,20 @@ export default {
 /* 创意游戏页面 - 沉浸式设计 */
 .page-container {
   min-height: 100vh;
-  background: #F8FAFF;
+  background: #F5F7FA;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
-/* 游戏顶部 - 紧凑信息栏 */
+/* 游戏顶部 - 统一风格 */
 .game-header {
-  background: #FFFFFF;
-  padding: 56rpx 28rpx 20rpx;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 56rpx 32rpx 20rpx;
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-}
-
-.exit-btn {
-  width: 60rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  background: #F5F5F5;
-  border-radius: 16rpx;
-  flex-shrink: 0;
-  transition: all 0.2s;
-}
-
-.exit-btn:active {
-  transform: scale(0.9);
-  background: #FFE4E4;
-}
-
-.exit-btn .ph {
-  font-size: 32rpx;
-  color: #6B7280;
-}
-
-.progress-section {
-  flex: 1;
-}
-
-.progress-track {
-  height: 10rpx;
-  background: #F0F0F0;
-  border-radius: 5rpx;
-  overflow: hidden;
-  margin-bottom: 6rpx;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #4F9EF8, #A78BFA);
-  border-radius: 5rpx;
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.progress-text {
-  font-size: 22rpx;
-  font-weight: 700;
-  color: #A0AEC0;
-  text-align: center;
-}
-
-.timer-badge {
-  display: flex;
-  align-items: center;
-  gap: 4rpx;
-  background: #F5F5F5;
-  padding: 10rpx 16rpx;
-  border-radius: 14rpx;
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #6B7280;
-  flex-shrink: 0;
-  transition: all 0.3s;
-  min-width: 80rpx;
-  justify-content: center;
-}
-
-.timer-badge .ph {
-  font-size: 24rpx;
-}
-
-.timer-badge.warning {
-  background: #FFF0F0;
-  color: #FF6B6B;
-  animation: pulse 0.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
-
-/* 加载中 */
-.loading-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 20rpx;
-}
-
-.loading-icon .ph {
-  font-size: 64rpx;
-  color: #4F9EF8;
-}
-
-.loading-text {
-  font-size: 26rpx;
-  color: #A0AEC0;
-  font-weight: 600;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-  display: inline-block;
-}
-
-/* 游戏内容区 */
-.game-content {
-  flex: 1;
-  padding: 32rpx 28rpx 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.question-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.question-header {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-bottom: 12rpx;
-  width: 100%;
-}
-
-.audio-btn {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 16rpx;
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  flex-shrink: 0;
-  transition: all 0.2s;
-}
-
-.audio-btn:active {
-  transform: scale(0.9);
-}
-
-.audio-btn .ph {
-  font-size: 32rpx;
-  color: #4F9EF8;
-}
-
-.question-title {
-  font-size: 36rpx;
-  font-weight: 800;
-  color: #2D3748;
-  flex: 1;
-}
-
-.question-instruction {
-  font-size: 26rpx;
-  color: #718096;
-  text-align: center;
-  margin-bottom: 40rpx;
-  line-height: 1.6;
-  padding: 0 8rpx;
-  font-weight: 500;
-}
-
-/* 视觉辨识选项 */
-.options-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20rpx;
-  width: 100%;
-}
-
-.option-char {
-  aspect-ratio: 1;
-  background: #FFFFFF;
-  border: 3rpx solid #E5E7EB;
-  border-radius: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 96rpx;
-  font-weight: 800;
-  color: #2D3748;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-}
-
-.option-char:active {
-  transform: scale(0.94);
-}
-
-.option-char.selected {
-  border-color: #4F9EF8;
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-  color: #4F9EF8;
-  box-shadow: 0 4rpx 16rpx rgba(79, 158, 248, 0.2);
-}
-
-.option-char.correct {
-  border-color: #22C55E;
-  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
-  color: #22C55E;
-}
-
-.option-char.wrong {
-  border-color: #FF6B6B;
-  background: linear-gradient(135deg, #FFF5F5, #FFE4E4);
-  color: #FF6B6B;
-}
-
-/* 列表选项 */
-.options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  width: 100%;
-}
-
-.option-item {
-  background: #FFFFFF;
-  border: 3rpx solid #E5E7EB;
-  border-radius: 20rpx;
-  padding: 24rpx 28rpx;
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
-}
-
-.option-item:active {
-  transform: scale(0.98);
-}
-
-.option-item.selected {
-  border-color: #4F9EF8;
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-}
-
-.option-item.correct {
-  border-color: #22C55E;
-  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
-}
-
-.option-item.wrong {
-  border-color: #FF6B6B;
-  background: linear-gradient(135deg, #FFF5F5, #FFE4E4);
-}
-
-.option-label {
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 12rpx;
-  background: #F5F5F5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #A0AEC0;
-  flex-shrink: 0;
-}
-
-.option-item.selected .option-label { background: #DBEAFE; color: #4F9EF8; }
-.option-item.correct .option-label { background: #DCFCE7; color: #22C55E; }
-.option-item.wrong .option-label { background: #FFE4E4; color: #FF6B6B; }
-
-.option-text {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #2D3748;
-  flex: 1;
-}
-
-.option-item.selected .option-text { color: #4F9EF8; }
-.option-item.correct .option-text { color: #22C55E; }
-.option-item.wrong .option-text { color: #FF6B6B; }
-
-/* 工作记忆序列选项：字体稍小以容纳更长文字 */
-.option-sequence .option-text {
-  font-size: 24rpx;
-  line-height: 1.5;
-}
-
-/* 答题反馈遮罩 */
-.feedback-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(8rpx);
-  z-index: 500;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20rpx;
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.feedback-icon .ph {
-  font-size: 160rpx;
-  animation: popIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.feedback-icon.correct .ph { color: #22C55E; }
-.feedback-icon.wrong .ph { color: #FF6B6B; }
-.feedback-icon.neutral .ph { color: #4F9EF8; }
-
-@keyframes popIn {
-  0% { transform: scale(0.4); opacity: 0; }
-  70% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.feedback-text {
-  font-size: 44rpx;
-  font-weight: 800;
-  color: #2D3748;
-}
-
-.feedback-correct {
-  font-size: 26rpx;
-  color: #718096;
-  font-weight: 500;
-}
-
-.feedback-answer {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #22C55E;
-}
-
-/* 弹窗 */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4rpx);
-  z-index: 9999;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content {
-  background: #FFFFFF;
-  width: 85%;
-  max-width: 600rpx;
-  border-radius: 32rpx;
-  padding: 48rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(40rpx); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.modal-icon {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: 28rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 28rpx;
-}
-
-.modal-icon.warning {
-  background: linear-gradient(135deg, #FFF9C4, #FFE082);
-}
-
-.modal-icon.warning .ph {
-  font-size: 56rpx;
-  color: #F57F17;
-}
-
-.modal-title {
-  font-size: 36rpx;
-  font-weight: 800;
-  color: #2D3748;
-  margin-bottom: 12rpx;
-}
-
-.modal-desc {
-  font-size: 26rpx;
-  color: #718096;
-  text-align: center;
-  line-height: 1.6;
-  margin-bottom: 36rpx;
-  font-weight: 500;
-}
-
-.modal-btn {
-  width: 100%;
-  border-radius: 16rpx;
-  padding: 28rpx;
-  font-size: 28rpx;
-  font-weight: 700;
-  margin-bottom: 16rpx;
-  transition: all 0.2s;
-}
-
-.modal-btn:active { transform: scale(0.97); }
-
-.modal-btn.outline {
-  background: #F5F5F5;
-  color: #718096;
-}
-
-.modal-btn.primary {
-  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
-  color: #FFFFFF;
-  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.25);
-}
-
-/* 难度调整提示 */
-.difficulty-toast {
-  position: fixed;
-  top: 180rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(45, 55, 72, 0.9);
-  backdrop-filter: blur(8rpx);
-  color: #FFFFFF;
-  padding: 16rpx 32rpx;
-  border-radius: 20rpx;
-  font-size: 26rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  z-index: 1000;
-  animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-}
-
-.difficulty-toast .ph {
-  font-size: 28rpx;
-  color: #FFD93D;
-}
-
-@keyframes toastIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(-16rpx); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
-/* 游戏顶部 - 彩色圆润 */
-.game-header {
-  background: rgba(255, 254, 249, 0.95);
-  backdrop-filter: blur(20rpx);
-  padding: 96rpx 48rpx 32rpx;
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  border-radius: 0 0 56rpx 56rpx;
-  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.06);
-  border-bottom: 4rpx solid #FFE4B5;
+  box-shadow: 0 1rpx 0 rgba(0,0,0,0.04);
 }
 .exit-btn {
   width: 72rpx; height: 72rpx;
@@ -1097,36 +752,36 @@ export default {
   font-weight: 600;
 }
 
-/* 视觉辨识选项 - 大号彩色卡片 */
-.options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32rpx; width: 100%; max-width: 560rpx; }
+/* 视觉辨识选项 - 2x2 紧凑网格 */
+.options-grid { display: flex; flex-wrap: wrap; gap: 16rpx; width: 100%; }
 .option-char {
-  aspect-ratio: 1;
+  width: calc(50% - 8rpx);
+  height: 160rpx;
   background: #FFFFFF;
-  border: 5rpx solid #E5E7EB;
-  border-radius: 56rpx;
+  border: 3rpx solid #E5E7EB;
+  border-radius: 24rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 100rpx; font-weight: 900; color: #2D3748;
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 0 6rpx 0 #E5E7EB, 0 8rpx 24rpx rgba(0,0,0,0.06);
+  font-size: 64rpx; font-weight: 800; color: #2D3748;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+  box-sizing: border-box;
 }
-.option-char:active { transform: scale(0.9) translateY(6rpx); box-shadow: 0 2rpx 0 #E5E7EB; }
+.option-char:active { transform: scale(0.95); }
 .option-char.selected {
   border-color: #4F9EF8;
   background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
   color: #4F9EF8;
-  box-shadow: 0 6rpx 0 #93C5FD, 0 8rpx 24rpx rgba(79, 158, 248, 0.25);
+  box-shadow: 0 4rpx 16rpx rgba(79, 158, 248, 0.2);
 }
 .option-char.correct {
   border-color: #22C55E;
   background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
   color: #22C55E;
-  box-shadow: 0 6rpx 0 #86EFAC, 0 8rpx 24rpx rgba(34, 197, 94, 0.25);
 }
 .option-char.wrong {
   border-color: #FF6B6B;
   background: linear-gradient(135deg, #FFF5F5, #FFE4E4);
   color: #FF6B6B;
-  box-shadow: 0 6rpx 0 #FCA5A5, 0 8rpx 24rpx rgba(255, 107, 107, 0.25);
 }
 
 /* 列表选项 - 圆润卡片 */
@@ -1176,7 +831,6 @@ export default {
 .feedback-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(255, 254, 249, 0.95);
-  backdrop-filter: blur(12rpx);
   z-index: 500;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24rpx;
   animation: fadeIn 0.15s ease;
@@ -1199,7 +853,6 @@ export default {
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(45, 55, 72, 0.5);
-  backdrop-filter: blur(8rpx);
   z-index: 9999;
   display: flex; justify-content: center; align-items: center;
 }
@@ -1267,4 +920,27 @@ export default {
   from { opacity: 0; transform: translateX(-50%) translateY(-30rpx) scale(0.8); }
   to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 }
+
+/* 重复阅读提示 */
+.reread-bar {
+  display: flex; align-items: center; gap: 8rpx;
+  background: rgba(79, 158, 248, 0.08);
+  border: 1rpx solid #BFDBFE;
+  border-radius: 12rpx;
+  padding: 8rpx 20rpx;
+  font-size: 22rpx; color: #4F9EF8; font-weight: 600;
+  margin-bottom: 16rpx;
+}
+.reread-bar .ph { font-size: 22rpx; }
+
+/* 排序题型 */
+.sort-container { width: 100%; display: flex; flex-direction: column; gap: 16rpx; }
+.sort-item { background: #FFFFFF; border: 3rpx solid #E5E7EB; border-radius: 20rpx; padding: 24rpx 20rpx; display: flex; align-items: center; gap: 16rpx; transition: all 0.2s; }
+.sort-num { width: 48rpx; height: 48rpx; border-radius: 50%; background: linear-gradient(135deg, #EFF6FF, #DBEAFE); display: flex; align-items: center; justify-content: center; font-size: 24rpx; font-weight: 800; color: #4F9EF8; flex-shrink: 0; }
+.sort-text { flex: 1; font-size: 30rpx; font-weight: 700; color: #2D3748; line-height: 1.5; }
+.sort-btns { display: flex; flex-direction: column; gap: 8rpx; flex-shrink: 0; }
+.sort-btn { width: 52rpx; height: 52rpx; border-radius: 12rpx; background: #F5F7FA; border: 2rpx solid #E5E7EB; display: flex; align-items: center; justify-content: center; font-size: 24rpx; color: #4F9EF8; font-weight: 800; transition: all 0.2s; }
+.sort-btn:active { background: #DBEAFE; transform: scale(0.92); }
+.sort-btn.disabled { color: #D1D5DB; background: #F9FAFB; }
+.confirm-sort-btn { width: 100%; background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF; border-radius: 20rpx; padding: 28rpx; font-size: 30rpx; font-weight: 800; margin-top: 8rpx; box-shadow: 0 4rpx 12rpx rgba(34,197,94,0.3); }
 </style>

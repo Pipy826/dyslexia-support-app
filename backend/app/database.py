@@ -27,6 +27,27 @@ def get_db():
 
 
 def init_db():
-    """Initialize database tables"""
+    """Initialize database tables, and apply lightweight column migrations for SQLite."""
     from .models import user, child, screening, training, ai_chat, reward
+    # 导入通知模块的模型，确保表被创建
+    from .api import notifications as notif_module  # noqa: F401
     Base.metadata.create_all(bind=engine)
+
+    # ── 轻量级字段迁移（SQLite 不支持 ALTER COLUMN，只能 ADD COLUMN）──────────
+    # 每次启动时检查并补全缺失字段，幂等安全
+    _ensure_columns = [
+        ("training_tasks", "correct_count", "INTEGER"),
+        ("training_tasks", "total_count",   "INTEGER"),
+        ("training_tasks", "accuracy",      "INTEGER"),
+    ]
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    with engine.connect() as conn:
+        for table, col, col_type in _ensure_columns:
+            if table not in existing_tables:
+                continue
+            existing_cols = [c["name"] for c in inspector.get_columns(table)]
+            if col not in existing_cols:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+        conn.commit()

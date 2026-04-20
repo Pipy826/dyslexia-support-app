@@ -135,6 +135,9 @@ async def call_llm(
     max_tokens: int = 512,
 ) -> str:
     """普通（非流式）LLM 调用，返回完整回复文本"""
+    if not settings.AI_API_KEY:
+        raise RuntimeError("AI_API_KEY 未配置，请在 .env 中设置")
+
     messages = _build_messages(system_prompt, history or [], user_message)
 
     payload = {
@@ -164,6 +167,10 @@ async def call_llm_stream(
     max_tokens: int = 512,
 ) -> AsyncGenerator[str, None]:
     """流式 LLM 调用，逐 token yield 文本片段"""
+    if not settings.AI_API_KEY:
+        yield "AI 功能暂未配置，请联系管理员设置 AI_API_KEY。"
+        return
+
     messages = _build_messages(system_prompt, history or [], user_message)
 
     payload = {
@@ -780,3 +787,109 @@ async def evaluate_adaptive_difficulty(
 def get_rule_based_response(message: str, context: Optional[Dict] = None) -> str:
     """已废弃：保留此函数签名以兼容旧代码，实际不再使用规则回复"""
     return "正在连接AI助手，请稍候..."
+
+
+# ── 功能 9：专业支持引导 ─────────────────────────────────────────────────────
+
+PROFESSIONAL_GUIDANCE_SYSTEM_PROMPT = """你是一位儿童读写障碍领域的专业顾问，帮助家长判断何时需要寻求专业机构支持。
+
+要求：
+- 根据孩子的风险等级、训练天数和改善情况，给出明确的专业支持建议
+- 说明何时应该从家庭训练过渡到专业干预
+- 提供家长准备清单（就诊前需要准备什么）
+- 语气温和、专业，不引起过度恐慌
+- 总字数200字以内"""
+
+
+async def generate_professional_guidance(
+    child_name: str,
+    child_age: int,
+    risk_level: str,
+    overall_score: int,
+    training_days: int,
+    score_trend: str,
+    dimensions: Dict[str, int],
+) -> Dict:
+    """
+    生成专业支持引导内容。
+    score_trend: "improving" | "stable" | "declining" | "no_data"
+    """
+    dim_names = {
+        "visual_discrimination": "视觉辨识",
+        "phonological": "音形映射",
+        "character_order": "字序组织",
+        "spelling": "拼写输出",
+        "reading_comprehension": "阅读理解",
+        "semantic_integration": "语义整合",
+        "information_extraction": "信息提取",
+        "attention": "注意力",
+        "working_memory_capacity": "工作记忆",
+        "short_term_memory": "短时记忆",
+        "rapid_naming_speed": "命名速度",
+        "phonological_awareness": "音韵意识",
+        "fine_motor_control": "精细动作",
+        "visual_motor_integration": "视动整合",
+    }
+    trend_map = {
+        "improving": "持续改善",
+        "stable": "基本稳定",
+        "declining": "有所下降",
+        "no_data": "数据不足",
+    }
+    weak_dims = [dim_names.get(k, k) for k, v in dimensions.items() if v < 60]
+
+    user_message = (
+        f"孩子{child_name}，{child_age}岁，风险等级：{risk_level}，综合得分：{overall_score}分。"
+        f"已训练{training_days}天，近期趋势：{trend_map.get(score_trend, score_trend)}。"
+        f"持续弱项：{', '.join(weak_dims) if weak_dims else '无明显弱项'}。"
+        f"请判断是否需要专业支持，并给出具体建议和家长准备清单。"
+    )
+
+    # 判断是否需要专业支持
+    needs_professional = (
+        risk_level == "high"
+        or (risk_level == "medium" and training_days >= 30 and score_trend in ("stable", "declining"))
+        or score_trend == "declining"
+    )
+
+    try:
+        guidance_text = await call_llm(
+            system_prompt=PROFESSIONAL_GUIDANCE_SYSTEM_PROMPT,
+            user_message=user_message,
+            temperature=0.6,
+            max_tokens=400,
+        )
+    except Exception:
+        if needs_professional:
+            guidance_text = (
+                f"根据{child_name}目前的情况，建议尽快联系专业机构进行全面评估。"
+                f"读写障碍的早期专业干预效果最佳，不要犹豫。"
+            )
+        else:
+            guidance_text = (
+                f"{child_name}目前可以继续家庭训练，建议再坚持2-4周后复评。"
+                f"如果情况没有改善，再考虑寻求专业支持。"
+            )
+
+    # 家长准备清单
+    checklist = [
+        "记录孩子近期在学校的表现（老师反馈、作业情况）",
+        "整理本产品的筛查报告（可截图或导出）",
+        "记录孩子在家训练的情况和反应",
+        "列出孩子具体的困难表现（如：总写错哪些字、阅读时有什么问题）",
+    ]
+    if risk_level == "high":
+        checklist.append("提前了解当地儿童医院或康复机构的预约流程")
+
+    return {
+        "needs_professional": needs_professional,
+        "urgency": "high" if risk_level == "high" else ("medium" if needs_professional else "low"),
+        "guidance": guidance_text,
+        "checklist": checklist,
+        "suggested_institutions": [
+            "儿童医院发育行为科",
+            "特殊教育学校评估中心",
+            "儿童康复机构",
+            "专业教育心理评估机构",
+        ] if needs_professional else [],
+    }

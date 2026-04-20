@@ -82,11 +82,11 @@ def calculate_score(answers: List[Dict], game_type: str) -> tuple:
     }
     dimensions = dimension_map.get(game_type, ["general"])
 
+    # 各维度差异化评分
     dimension_scores = []
     for dim in dimensions:
         if dim == "attention":
-            # 用反应时变异系数估算注意力：CV = std / mean，CV 越小越专注
-            # 只统计未超时且有有效用时的答题记录
+            # 用反应时变异系数估算注意力
             times = [
                 a.get("time_spent", 0)
                 for a in answers
@@ -98,15 +98,96 @@ def calculate_score(answers: List[Dict], game_type: str) -> tuple:
                     variance = sum((t - mean_t) ** 2 for t in times) / len(times)
                     std_t = variance ** 0.5
                     cv = std_t / mean_t
-                    # CV=0 → 100分；CV≥1.0 → 0分；线性映射
                     attention_score = max(0, int((1.0 - min(cv, 1.0)) * 100))
                 else:
-                    attention_score = 50  # 无法计算时给中间分
+                    attention_score = 50
             else:
-                # 有效答题数不足3题，无法可靠估算注意力，给中间分而非直接用总分
                 attention_score = min(total_score, 70)
             dimension_scores.append({"dimension": dim, "score": attention_score})
+
+        elif dim == "phonological":
+            # 音形映射：重点看首次反应时（reaction_time），越快说明音形联结越自动化
+            rt_list = [a.get("reaction_time") for a in answers if a.get("reaction_time") and not a.get("is_timeout")]
+            correct_list = [a for a in answers if a.get("is_correct")]
+            acc = len(correct_list) / len(answers) if answers else 0
+            if rt_list:
+                avg_rt = sum(rt_list) / len(rt_list)
+                # 反应时 ≤ 1500ms → 满分；≥ 5000ms → 0分
+                rt_score = max(0, min(100, int((1 - (avg_rt - 1500) / 3500) * 100)))
+                score = int(acc * 60 + rt_score * 0.4)
+            else:
+                score = int(acc * 100)
+            dimension_scores.append({"dimension": dim, "score": max(0, min(100, score))})
+
+        elif dim == "character_order":
+            # 字序组织：重点看修改次数（change_count），修改越多说明字序越不稳定
+            total_changes = sum(a.get("change_count", 0) for a in answers)
+            avg_changes = total_changes / len(answers) if answers else 0
+            correct_list = [a for a in answers if a.get("is_correct")]
+            acc = len(correct_list) / len(answers) if answers else 0
+            # 平均修改次数 0 → 满分；≥ 3 → 扣分
+            change_penalty = min(avg_changes / 3.0, 1.0) * 30
+            score = int(acc * 100 - change_penalty)
+            dimension_scores.append({"dimension": dim, "score": max(0, min(100, score))})
+
+        elif dim == "spelling":
+            # 拼写输出：综合正确率 + 超时率
+            timeout_count = sum(1 for a in answers if a.get("is_timeout"))
+            timeout_rate = timeout_count / len(answers) if answers else 0
+            correct_list = [a for a in answers if a.get("is_correct")]
+            acc = len(correct_list) / len(answers) if answers else 0
+            score = int(acc * 80 + (1 - timeout_rate) * 20)
+            dimension_scores.append({"dimension": dim, "score": max(0, min(100, score))})
+
+        elif dim == "working_memory_capacity":
+            # 工作记忆容量：正确率为主，超时严重扣分
+            timeout_count = sum(1 for a in answers if a.get("is_timeout"))
+            correct_list = [a for a in answers if a.get("is_correct")]
+            acc = len(correct_list) / len(answers) if answers else 0
+            timeout_penalty = (timeout_count / len(answers)) * 20 if answers else 0
+            score = int(acc * 100 - timeout_penalty)
+            dimension_scores.append({"dimension": dim, "score": max(0, min(100, score))})
+
+        elif dim == "short_term_memory":
+            # 短时记忆：正确率 + 反应时稳定性
+            correct_list = [a for a in answers if a.get("is_correct")]
+            acc = len(correct_list) / len(answers) if answers else 0
+            times = [a.get("time_spent", 0) for a in answers if a.get("time_spent") and not a.get("is_timeout")]
+            if len(times) >= 2:
+                mean_t = sum(times) / len(times)
+                variance = sum((t - mean_t) ** 2 for t in times) / len(times)
+                std_t = variance ** 0.5
+                stability = max(0, 1 - std_t / (mean_t + 1))
+                score = int(acc * 70 + stability * 30)
+            else:
+                score = int(acc * 100)
+            dimension_scores.append({"dimension": dim, "score": max(0, min(100, score))})
+
+        elif dim in ("rapid_naming_speed", "phonological_awareness"):
+            # 快速命名：反应时是核心指标
+            rt_list = [a.get("reaction_time") for a in answers if a.get("reaction_time") and not a.get("is_timeout")]
+            correct_list = [a for a in answers if a.get("is_correct")]
+            acc = len(correct_list) / len(answers) if answers else 0
+            if rt_list:
+                avg_rt = sum(rt_list) / len(rt_list)
+                rt_score = max(0, min(100, int((1 - (avg_rt - 800) / 4200) * 100)))
+                score = int(acc * 50 + rt_score * 0.5)
+            else:
+                score = int(acc * 100)
+            dimension_scores.append({"dimension": dim, "score": max(0, min(100, score))})
+
+        elif dim in ("fine_motor_control", "visual_motor_integration"):
+            # 精细动作：正确率 + 修改次数
+            total_changes = sum(a.get("change_count", 0) for a in answers)
+            avg_changes = total_changes / len(answers) if answers else 0
+            correct_list = [a for a in answers if a.get("is_correct")]
+            acc = len(correct_list) / len(answers) if answers else 0
+            change_penalty = min(avg_changes / 2.0, 1.0) * 20
+            score = int(acc * 100 - change_penalty)
+            dimension_scores.append({"dimension": dim, "score": max(0, min(100, score))})
+
         else:
+            # 其余维度（visual_discrimination, reading_comprehension 等）用效率分
             dimension_scores.append({"dimension": dim, "score": total_score})
 
     return total_score, dimension_scores

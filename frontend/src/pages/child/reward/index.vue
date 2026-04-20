@@ -2,14 +2,14 @@
   <view class="page-container">
     <!-- 星星动画区 -->
     <view class="stars-area">
-      <view class="star left pop-in" style="animation-delay: 0.1s">
-        <text class="ph ph-star"></text>
+      <view class="star star-left pop-in" style="animation-delay: 0.1s">
+        <text class="ph ph-star-fill"></text>
       </view>
-      <view class="star center pop-in" style="animation-delay: 0.3s">
-        <text class="ph ph-star"></text>
+      <view class="star star-center pop-in" style="animation-delay: 0.3s">
+        <text class="ph ph-star-fill"></text>
       </view>
-      <view class="star right pop-in" style="animation-delay: 0.5s">
-        <text class="ph ph-star"></text>
+      <view class="star star-right pop-in" style="animation-delay: 0.5s">
+        <text class="ph ph-star-fill"></text>
       </view>
     </view>
 
@@ -134,45 +134,69 @@ export default {
 /* 创意奖励页面 - 全屏庆祝 */
 .page-container {
   min-height: 100vh;
-  background: #FFFEF9;
+  background: #F5F7FA;
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .page-container::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, #FFF9C4 0%, transparent 100%);
+  height: 40%;
+  background: linear-gradient(180deg, #EFF6FF 0%, transparent 100%);
   pointer-events: none;
 }
 
 .stars-area {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  padding-top: 80rpx;
-  padding-bottom: 32rpx;
+  width: 100%;
+  height: 280rpx;
   position: relative;
-  z-index: 1;
+  flex-shrink: 0;
+  margin-top: 60rpx;
+  margin-bottom: 16rpx;
 }
 
-.star { display: flex; align-items: center; justify-content: center; }
-.star.left, .star.right {
-  font-size: 72rpx; color: #FFD93D; padding-bottom: 32rpx;
-  filter: drop-shadow(0 4rpx 8rpx rgba(255, 217, 61, 0.4));
+/* 绝对定位三颗星，位置完全可控 */
+.star {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.star.center {
-  font-size: 120rpx; color: #FFD93D;
-  filter: drop-shadow(0 6rpx 16rpx rgba(255, 217, 61, 0.5));
+
+.star-left {
+  left: 50%;
+  bottom: 20rpx;
+  transform: translateX(-160rpx);
+  font-size: 88rpx;
+  color: #4F9EF8;
+  filter: drop-shadow(0 4rpx 8rpx rgba(79, 158, 248, 0.35));
+}
+
+.star-center {
+  left: 50%;
+  bottom: 40rpx;
+  transform: translateX(-50%);
+  font-size: 144rpx;
+  color: #4F9EF8;
+  filter: drop-shadow(0 6rpx 20rpx rgba(79, 158, 248, 0.45));
   animation: starPulse 2s ease-in-out infinite;
 }
-@keyframes starPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+.star-right {
+  left: 50%;
+  bottom: 20rpx;
+  transform: translateX(72rpx);
+  font-size: 88rpx;
+  color: #4F9EF8;
+  filter: drop-shadow(0 4rpx 8rpx rgba(79, 158, 248, 0.35));
+}
+
+@keyframes starPulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.08); } }
 
 .content-area {
   display: flex; flex-direction: column; align-items: center;
@@ -187,21 +211,21 @@ export default {
 .ai-encouragement { display: flex; align-items: flex-end; gap: 12rpx; margin-bottom: 32rpx; max-width: 600rpx; width: 100%; }
 .ai-enc-avatar {
   width: 64rpx; height: 64rpx; border-radius: 50%;
-  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  box-shadow: 0 4rpx 12rpx rgba(124, 58, 237, 0.25);
+  box-shadow: 0 4rpx 12rpx rgba(59, 130, 246, 0.25);
 }
 .ai-enc-avatar .ph { font-size: 32rpx; color: #FFFFFF; }
 .ai-enc-bubble {
-  background: linear-gradient(135deg, #F5F3FF, #EDE9FE); border: 2rpx solid #DDD6FE;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border: 2rpx solid #BFDBFE;
   border-radius: 24rpx; border-bottom-left-radius: 6rpx; padding: 20rpx 24rpx; flex: 1;
-  box-shadow: 0 2rpx 12rpx rgba(124, 58, 237, 0.08);
+  box-shadow: 0 2rpx 12rpx rgba(59, 130, 246, 0.08);
 }
 .ai-enc-text { font-size: 26rpx; color: #2D3748; line-height: 1.6; font-weight: 500; }
 
 .ai-encouragement-loading { display: flex; justify-content: center; margin-bottom: 32rpx; height: 64rpx; align-items: center; }
 .enc-dots { display: flex; gap: 12rpx; }
-.enc-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: #A78BFA; animation: enc-bounce 1.2s infinite; }
+.enc-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: #4F9EF8; animation: enc-bounce 1.2s infinite; }
 .enc-dot:nth-child(2) { animation-delay: 0.2s; }
 .enc-dot:nth-child(3) { animation-delay: 0.4s; }
 @keyframes enc-bounce {
@@ -211,11 +235,11 @@ export default {
 
 .total-stars {
   display: flex; align-items: center; gap: 10rpx;
-  background: linear-gradient(135deg, #FFF9C4, #FFE082);
-  padding: 16rpx 36rpx; border-radius: 20rpx; font-size: 26rpx; font-weight: 700; color: #E65100;
-  margin-bottom: 48rpx; box-shadow: 0 4rpx 12rpx rgba(255, 213, 79, 0.25);
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  padding: 16rpx 36rpx; border-radius: 20rpx; font-size: 26rpx; font-weight: 700; color: #2D3748;
+  margin-bottom: 48rpx; box-shadow: 0 4rpx 12rpx rgba(79, 158, 248, 0.15);
 }
-.total-stars .ph { font-size: 28rpx; color: #F57F17; }
+.total-stars .ph { font-size: 28rpx; color: #4F9EF8; }
 
 .return-btn {
   width: 100%; max-width: 600rpx;
@@ -224,8 +248,6 @@ export default {
   box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.3); letter-spacing: 2rpx; transition: all 0.2s;
 }
 .return-btn:active { transform: scale(0.97); }
-
-.parent-note { font-size: 22rpx; color: #CBD5E0; margin-top: 32rpx; font-weight: 500; }
 
 @keyframes popIn {
   0% { transform: scale(0.5); opacity: 0; }

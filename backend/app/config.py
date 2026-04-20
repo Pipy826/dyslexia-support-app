@@ -33,11 +33,32 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE: int = 5 * 1024 * 1024  # 5MB
 
+    # 微信小程序
+    WX_APPID: str = ""
+    WX_SECRET: str = ""
+
+    # 短信服务（可选，不配置则 DEBUG 模式下打印到日志）
+    # 支持 aliyun（阿里云）/ tencent（腾讯云）
+    SMS_PROVIDER: str = ""
+    SMS_ACCESS_KEY: str = ""
+    SMS_SECRET_KEY: str = ""
+    SMS_SIGN_NAME: str = "悦读小灯塔"
+    SMS_TEMPLATE_CODE: str = ""
+    SMS_APP_ID: str = ""  # 腾讯云专用
+
     @field_validator("SECRET_KEY")
     @classmethod
     def warn_default_secret(cls, v: str) -> str:
         if v == "dev-only-secret-key-CHANGE-IN-PRODUCTION":
             import warnings
+            import os
+            # 生产环境（DEBUG=False）时，拒绝使用默认密钥
+            if not os.getenv("DEBUG", "True").lower() in ("true", "1", "yes"):
+                raise ValueError(
+                    "❌ 生产环境禁止使用默认 SECRET_KEY！\n"
+                    "   请在 .env 中设置随机密钥：\n"
+                    "   SECRET_KEY=$(python -c \"import secrets; print(secrets.token_hex(32))\")"
+                )
             warnings.warn(
                 "⚠️  SECRET_KEY 使用默认值，生产环境请在 .env 中设置随机密钥！\n"
                 "   生成命令：python -c \"import secrets; print(secrets.token_hex(32))\"",

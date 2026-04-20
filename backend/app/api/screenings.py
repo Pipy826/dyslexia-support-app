@@ -15,6 +15,7 @@ from ..schemas.screening import (
 )
 from ..games import (
     VISUAL_QUESTIONS, SPELLING_QUESTIONS, COMPREHENSION_QUESTIONS,
+    SORT_ORDER_QUESTIONS,
     WORKING_MEMORY_QUESTIONS, RAPID_NAMING_QUESTIONS, MOTOR_COORDINATION_QUESTIONS,
 )
 from .deps import get_current_user
@@ -120,6 +121,7 @@ GAME_QUESTIONS = {
     "visual": VISUAL_QUESTIONS,
     "spelling": SPELLING_QUESTIONS,
     "comprehension": COMPREHENSION_QUESTIONS,
+    "sort_order": SORT_ORDER_QUESTIONS,   # 拖拽排序题（文字理解子类型）
     "working_memory": WORKING_MEMORY_QUESTIONS,
     "rapid_naming": RAPID_NAMING_QUESTIONS,
     "motor_coordination": MOTOR_COORDINATION_QUESTIONS,

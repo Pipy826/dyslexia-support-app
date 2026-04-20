@@ -1,7 +1,6 @@
 import { get, post, put, del } from './index.js';
 import { getToken } from '../utils/auth.js';
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+import { getBaseUrl } from './index.js';
 
 export const getChildren = () => get('/api/children/');
 
@@ -19,8 +18,9 @@ export const deleteChild = (id) => del(`/api/children/${id}`);
 export const uploadAvatar = (filePath) => {
   return new Promise((resolve, reject) => {
     const token = getToken();
+    const baseUrl = getBaseUrl();
     uni.uploadFile({
-      url: BASE_URL + '/api/upload/avatar',
+      url: baseUrl + '/api/upload/avatar',
       filePath,
       name: 'file',
       header: token ? { Authorization: `Bearer ${token}` } : {},
@@ -48,5 +48,5 @@ export const uploadAvatar = (filePath) => {
 export const getAvatarUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
-  return BASE_URL + path;
+  return getBaseUrl() + path;
 };

@@ -33,6 +33,7 @@ from ..services.ai_service import (
     generate_daily_tip,
     generate_emotional_support,
     evaluate_adaptive_difficulty,
+    generate_professional_guidance,
 )
 from .deps import get_current_user
 from ..models.user import User
@@ -40,6 +41,8 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/ai", tags=["AI问答"])
 logger = logging.getLogger(__name__)
+
+from ..models.ai_chat import SavedMessage
 
 
 # ── 工具函数 ─────────────────────────────────────────────────────────────────
@@ -572,3 +575,166 @@ async def adaptive_difficulty(
         grade=data.grade,
     )
     return result
+
+
+# ── 11. 专业支持引导 ─────────────────────────────────────────────────────────
+
+@router.get("/professional-guidance/{child_id}")
+async def professional_guidance(
+    child_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    根据孩子风险等级、训练天数和改善趋势，
+    判断是否需要专业机构支持，并给出家长准备清单。
+    """
+    child = db.query(Child).filter(
+        Child.id == child_id,
+        Child.parent_id == current_user.id
+    ).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="孩子档案不存在")
+
+    # 获取最新报告
+    reports = db.query(Report).filter(
+        Report.child_id == child_id
+    ).order_by(Report.created_at.desc()).limit(3).all()
+
+    if not reports:
+        return {
+            "child_id": child_id,
+            "child_name": child.name,
+            "needs_professional": False,
+            "urgency": "low",
+            "guidance": f"{child.name}尚未完成筛查，建议先完成一次完整筛查，再评估是否需要专业支持。",
+            "checklist": [],
+            "suggested_institutions": [],
+            "has_report": False,
+        }
+
+    latest = reports[0]
+    age = _calc_age(child.birth_date)
+    dimensions = _safe_json_loads(latest.dimensions)
+
+    # 计算训练天数
+    from ..models.training import TrainingTask
+    first_task = db.query(TrainingTask).filter(
+        TrainingTask.child_id == child_id
+    ).order_by(TrainingTask.created_at.asc()).first()
+    training_days = 0
+    if first_task and first_task.created_at:
+        training_days = (datetime.utcnow() - first_task.created_at).days
+
+    # 计算得分趋势
+    score_trend = "no_data"
+    if len(reports) >= 2:
+        delta = (reports[0].overall_score or 0) - (reports[-1].overall_score or 0)
+        if delta > 5:
+            score_trend = "improving"
+        elif delta < -5:
+            score_trend = "declining"
+        else:
+            score_trend = "stable"
+
+    result = await generate_professional_guidance(
+        child_name=child.name,
+        child_age=age,
+        risk_level=latest.risk_level or "medium",
+        overall_score=latest.overall_score or 0,
+        training_days=training_days,
+        score_trend=score_trend,
+        dimensions=dimensions,
+    )
+
+    return {
+        "child_id": child_id,
+        "child_name": child.name,
+        "has_report": True,
+        "risk_level": latest.risk_level,
+        "training_days": training_days,
+        "score_trend": score_trend,
+        **result,
+    }
+
+
+# ── 12. AI 回复收藏 ──────────────────────────────────────────────────────────
+
+class SaveMessageRequest(BaseModel):
+    conversation_id: int
+    child_id: Optional[int] = None
+
+
+@router.post("/saved-messages", response_model=dict)
+def save_message(
+    data: SaveMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """收藏一条 AI 回复"""
+    conv = db.query(AIConversation).filter(
+        AIConversation.id == data.conversation_id,
+        AIConversation.user_id == current_user.id,
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="消息不存在")
+
+    # 防止重复收藏
+    existing = db.query(SavedMessage).filter(
+        SavedMessage.conversation_id == data.conversation_id,
+        SavedMessage.user_id == current_user.id,
+    ).first()
+    if existing:
+        return {"id": existing.id, "message": "已收藏"}
+
+    saved = SavedMessage(
+        user_id=current_user.id,
+        child_id=data.child_id or conv.child_id,
+        conversation_id=data.conversation_id,
+        content=conv.message,
+    )
+    db.add(saved)
+    db.commit()
+    db.refresh(saved)
+    return {"id": saved.id, "message": "收藏成功"}
+
+
+@router.get("/saved-messages", response_model=List[dict])
+def get_saved_messages(
+    child_id: int = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取收藏的 AI 回复列表"""
+    query = db.query(SavedMessage).filter(SavedMessage.user_id == current_user.id)
+    if child_id:
+        query = query.filter(SavedMessage.child_id == child_id)
+    items = query.order_by(SavedMessage.created_at.desc()).all()
+    return [
+        {
+            "id": m.id,
+            "content": m.content,
+            "child_id": m.child_id,
+            "conversation_id": m.conversation_id,
+            "created_at": m.created_at,
+        }
+        for m in items
+    ]
+
+
+@router.delete("/saved-messages/{saved_id}")
+def delete_saved_message(
+    saved_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """取消收藏"""
+    saved = db.query(SavedMessage).filter(
+        SavedMessage.id == saved_id,
+        SavedMessage.user_id == current_user.id,
+    ).first()
+    if not saved:
+        raise HTTPException(status_code=404, detail="收藏不存在")
+    db.delete(saved)
+    db.commit()
+    return {"message": "已取消收藏"}

@@ -60,7 +60,11 @@ export default {
   },
   computed: {
     currentPath() {
-      return this.current || getCurrentPages()[getCurrentPages().length - 1]?.route || ''
+      if (this.current) return this.current
+      const pages = getCurrentPages()
+      if (!pages || pages.length === 0) return ''
+      const route = pages[pages.length - 1]?.route || ''
+      return route.startsWith('/') ? route : '/' + route
     }
   },
   methods: {

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <!-- 顶部信息栏 -->
     <view class="top-bar">
@@ -9,7 +9,7 @@
           <view class="current-child">当前档案：{{ currentChild ? currentChild.name + ' (' + getAge(currentChild.birth_date) + '岁)' : '请选择孩子' }} ▼</view>
         </view>
       </view>
-      <view class="notification">
+      <view class="notification" @click="goToNotifications">
         <text class="ph ph-bell"></text>
         <view class="notification-dot" v-if="hasUnread"></view>
       </view>
@@ -174,6 +174,7 @@ export default {
   onShow() {
     this.user = getUser()
     this.loadData()
+    this.checkUnread()
   },
   methods: {
     async loadData() {
@@ -182,10 +183,12 @@ export default {
         if (this.children.length > 0) {
           const saved = getCurrentChild()
           if (saved) {
+            // 用服务端最新数据更新本地缓存（避免孩子信息过期）
             this.currentChild = this.children.find(c => c.id === saved.id) || this.children[0]
           } else {
             this.currentChild = this.children[0]
           }
+          // 立即持久化，确保其他页面能读到正确的当前孩子
           setCurrentChild(this.currentChild)
           await this.loadRecentReport()
         } else {
@@ -282,7 +285,14 @@ export default {
       if (this.currentChild) {
         uni.navigateTo({ url: `/pages/parent/growth/index?child_id=${this.currentChild.id}` })
       }
-    }
+    },
+    goToNotifications() {
+      uni.navigateTo({ url: '/pages/parent/notifications/index' })
+    },
+    checkUnread() {
+      const stored = uni.getStorageSync('app_notifications') || []
+      this.hasUnread = Array.isArray(stored) && stored.some(n => !n.read)
+    },
   }
 }
 </script>
@@ -295,6 +305,7 @@ export default {
   min-height: 100vh;
   background: #F5F7FA;
   padding-bottom: 160rpx;
+  overflow-x: hidden;
 }
 
 /* 顶部信息栏 - 紧凑设计 */
@@ -303,7 +314,6 @@ export default {
   top: 0;
   z-index: 30;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20rpx);
   padding: 56rpx 32rpx 20rpx;
   display: flex;
   justify-content: space-between;
@@ -380,6 +390,9 @@ export default {
 /* 页面内容 */
 .page-content {
   padding: 24rpx 32rpx;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* 每日 AI 贴士 - 横幅卡片 */
@@ -532,13 +545,14 @@ export default {
 
 /* 四宫格 - 紧凑图标网格 */
 .grid-section {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
   margin-bottom: 24rpx;
 }
 
 .grid-item {
+  width: calc(25% - 12rpx);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -588,18 +602,6 @@ export default {
   font-size: 28rpx;
   font-weight: 700;
   color: #2D3748;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.section-title::before {
-  content: '';
-  display: inline-block;
-  width: 4rpx;
-  height: 22rpx;
-  background: linear-gradient(180deg, #4F9EF8, #A78BFA);
-  border-radius: 2rpx;
 }
 
 .more-link {
@@ -691,7 +693,6 @@ export default {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4rpx);
   z-index: 9999;
   display: flex;
   align-items: flex-end;

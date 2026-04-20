@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <!-- 极简头部 -->
     <view class="page-header">
@@ -56,6 +56,13 @@
           <view class="task-info">
             <view class="task-name">{{ task.task_name || task.task_type }}</view>
             <view class="task-desc">{{ taskDesc(task.task_type) }}</view>
+            <!-- 训练结果反馈 -->
+            <view class="task-result" v-if="task.status === 'completed' && task.accuracy != null">
+              <view class="result-tag" :class="task.accuracy >= 80 ? 'green' : task.accuracy >= 60 ? 'orange' : 'red'">
+                正确率 {{ task.accuracy }}%
+              </view>
+              <view class="result-detail">答对 {{ task.correct_count }}/{{ task.total_count }} 题</view>
+            </view>
           </view>
           <button
             class="task-btn"
@@ -117,6 +124,41 @@
           <view class="week-dot" :class="item.color"></view>
           <view class="week-text">{{ item.text }}</view>
         </view>
+      </view>
+
+      <!-- 本阶段目标 -->
+      <view class="section-title">本阶段目标</view>
+      <view class="goal-card">
+        <view class="goal-header">
+          <view class="goal-icon"><text class="ph ph-target"></text></view>
+          <view class="goal-info">
+            <view class="goal-title">{{ stageGoal.title }}</view>
+            <view class="goal-period">{{ stageGoal.period }}</view>
+          </view>
+          <view class="goal-progress-ring">
+            <view class="ring-val">{{ stageGoal.progress }}%</view>
+          </view>
+        </view>
+        <view class="goal-items">
+          <view class="goal-item" v-for="(g, i) in stageGoal.items" :key="i">
+            <text :class="['ph', g.done ? 'ph-check-circle' : 'ph-circle', g.done ? 'done' : '']"></text>
+            <view class="goal-item-text" :class="{ done: g.done }">{{ g.text }}</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 专业支持引导（高风险或长期无改善时显示） -->
+      <view class="professional-card" v-if="showProfessionalGuide" @click="goToProfessionalGuide">
+        <view class="professional-left">
+          <view class="professional-icon">
+            <text class="ph ph-hospital"></text>
+          </view>
+          <view class="professional-text">
+            <view class="professional-title">需要专业支持？</view>
+            <view class="professional-sub">了解何时应寻求专业机构评估</view>
+          </view>
+        </view>
+        <text class="ph ph-arrow-right professional-arrow"></text>
       </view>
     </view>
 
@@ -213,6 +255,19 @@ export default {
       showAiModal: false,
       aiPlanLoading: false,
       aiPlan: null,
+      // 专业支持引导
+      showProfessionalGuide: false,
+      // 阶段目标
+      stageGoal: {
+        title: '基础能力建立阶段',
+        period: '第1-2周',
+        progress: 0,
+        items: [
+          { text: '每天完成今日训练任务', done: false },
+          { text: '坚持训练满7天', done: false },
+          { text: '完成一次复评', done: false },
+        ],
+      },
     }
   },
   onShow() {
@@ -246,7 +301,9 @@ export default {
         try {
           // 后端 dimensions 可能是字符串（JSON）或已解析的对象
           const raw = latest.dimensions
-          dims = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {})
+          dims = (typeof raw === 'string' && raw.trim())
+            ? JSON.parse(raw)
+            : (raw && typeof raw === 'object' ? raw : {})
         } catch (e) { dims = {} }
         const dimAdvice = {
           visual_discrimination: { text: '重点：每天5分钟形近字辨别练习', color: 'orange' },
@@ -272,6 +329,12 @@ export default {
         if (this.continuousDays >= 14) {
           this.showReassessReminder = true
         }
+        // 高风险或长期训练无改善时显示专业支持引导
+        if (latest.risk_level === 'high' || (this.continuousDays >= 30 && !this.showReassessReminder)) {
+          this.showProfessionalGuide = true
+        }
+        // 更新阶段目标进度
+        this._updateStageGoal(this.continuousDays, allTasks)
       } catch (e) {
         console.warn('加载报告失败', e)
       }
@@ -350,8 +413,10 @@ export default {
       const typeMap = { reading: 'comprehension' }
       const gameType = typeMap[task.task_type] || task.task_type || 'visual'
       const gradeParam = this.currentChild?.grade ? `&grade=${encodeURIComponent(this.currentChild.grade)}` : ''
+      const taskIdParam = task.id ? `&task_id=${task.id}` : ''
+      // 跳转到儿童端训练游戏页（独立训练模式，不走筛查流程）
       uni.navigateTo({
-        url: `/pages/child/prep/index?game_type=${gameType}${gradeParam}`
+        url: `/pages/child/training-game/index?game_type=${gameType}${gradeParam}${taskIdParam}`
       })
     },
     taskIcon(type) {
@@ -365,6 +430,30 @@ export default {
     },
     goToScreening() {
       uni.navigateTo({ url: '/pages/parent/screening/index' })
+    },
+    _updateStageGoal(days, allTasks) {
+      const completedCount = allTasks ? allTasks.filter(t => t.status === 'completed').length : 0
+      const done1 = completedCount > 0
+      const done2 = days >= 7
+      const done3 = this.showReassessReminder
+      const doneCount = [done1, done2, done3].filter(Boolean).length
+      const progress = Math.round((doneCount / 3) * 100)
+      let title = '基础能力建立阶段'
+      let period = '第1-2周'
+      if (days >= 14) { title = '能力强化阶段'; period = '第3-4周' }
+      if (days >= 28) { title = '巩固提升阶段'; period = '第5周+' }
+      this.stageGoal = {
+        title, period, progress,
+        items: [
+          { text: '每天完成今日训练任务', done: done1 },
+          { text: `坚持训练满7天（当前${days}天）`, done: done2 },
+          { text: '完成一次阶段复评', done: done3 },
+        ],
+      }
+    },
+    goToProfessionalGuide() {
+      if (!this.currentChild) return
+      uni.navigateTo({ url: `/pages/parent/professional-guide/index?child_id=${this.currentChild.id}` })
     },
 
     // ── AI 训练计划 ──────────────────────────────────────────────────────────
@@ -417,6 +506,7 @@ export default {
   min-height: 100vh;
   background: #F5F7FA;
   padding-bottom: 160rpx;
+  overflow-x: hidden;
 }
 
 /* 头部 - 与首页一致的紧凑设计 */
@@ -425,7 +515,6 @@ export default {
   top: 0;
   z-index: 30;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20rpx);
   padding: 56rpx 32rpx 20rpx;
   box-shadow: 0 1rpx 0 rgba(0, 0, 0, 0.04);
 }
@@ -446,6 +535,9 @@ export default {
 /* 页面内容 */
 .page-content {
   padding: 24rpx 32rpx;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* AI 训练计划入口 Banner - 蓝色渐变替代紫色 */
@@ -509,7 +601,6 @@ export default {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4rpx);
   z-index: 9999;
   display: flex;
   align-items: flex-end;
@@ -828,18 +919,6 @@ export default {
   font-weight: 700;
   color: #2D3748;
   margin-bottom: 16rpx;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.section-title::before {
-  content: '';
-  display: inline-block;
-  width: 4rpx;
-  height: 22rpx;
-  background: linear-gradient(180deg, #4F9EF8, #22C55E);
-  border-radius: 2rpx;
 }
 
 /* 任务列表 */
@@ -895,6 +974,14 @@ export default {
   margin-top: 3rpx;
   font-weight: 500;
 }
+
+/* 训练结果反馈 */
+.task-result { display: flex; align-items: center; gap: 10rpx; margin-top: 8rpx; }
+.result-tag { font-size: 18rpx; font-weight: 700; padding: 4rpx 12rpx; border-radius: 8rpx; }
+.result-tag.green { background: rgba(34,197,94,0.1); color: #22C55E; }
+.result-tag.orange { background: rgba(245,127,23,0.1); color: #F57F17; }
+.result-tag.red { background: rgba(255,107,107,0.1); color: #FF6B6B; }
+.result-detail { font-size: 18rpx; color: #A0AEC0; font-weight: 500; }
 
 .task-btn {
   padding: 14rpx 28rpx;
@@ -1003,4 +1090,39 @@ export default {
   line-height: 1.5;
   font-weight: 500;
 }
+
+/* 阶段目标卡片 */
+.goal-card { background: #FFFFFF; border-radius: 20rpx; padding: 24rpx; margin-bottom: 24rpx; box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04); }
+.goal-header { display: flex; align-items: center; gap: 16rpx; margin-bottom: 20rpx; }
+.goal-icon { width: 60rpx; height: 60rpx; border-radius: 14rpx; background: linear-gradient(135deg, #EFF6FF, #DBEAFE); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.goal-icon .ph { font-size: 30rpx; color: #4F9EF8; }
+.goal-info { flex: 1; }
+.goal-title { font-size: 26rpx; font-weight: 700; color: #2D3748; }
+.goal-period { font-size: 20rpx; color: #A0AEC0; margin-top: 2rpx; font-weight: 500; }
+.goal-progress-ring { width: 72rpx; height: 72rpx; border-radius: 50%; border: 6rpx solid #4F9EF8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ring-val { font-size: 20rpx; font-weight: 800; color: #4F9EF8; }
+.goal-items { display: flex; flex-direction: column; gap: 14rpx; }
+.goal-item { display: flex; align-items: center; gap: 12rpx; }
+.goal-item .ph { font-size: 28rpx; color: #D1D5DB; flex-shrink: 0; }
+.goal-item .ph.done { color: #22C55E; }
+.goal-item-text { font-size: 24rpx; color: #718096; font-weight: 500; }
+.goal-item-text.done { color: #22C55E; text-decoration: line-through; }
+
+/* 专业支持引导卡片 */.professional-card {
+  background: linear-gradient(135deg, #FFF5F5, #FFE4E4);
+  border-radius: 20rpx; padding: 24rpx 28rpx; margin-bottom: 24rpx;
+  display: flex; align-items: center; justify-content: space-between;
+  border: 1rpx solid #FECACA; transition: all 0.2s;
+}
+.professional-card:active { transform: scale(0.98); }
+.professional-left { display: flex; align-items: center; gap: 20rpx; }
+.professional-icon {
+  width: 68rpx; height: 68rpx; border-radius: 16rpx;
+  background: rgba(255,255,255,0.7);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.professional-icon .ph { font-size: 36rpx; color: #FF6B6B; }
+.professional-title { font-size: 28rpx; font-weight: 700; color: #2D3748; }
+.professional-sub { font-size: 20rpx; color: #A0AEC0; margin-top: 3rpx; font-weight: 500; }
+.professional-arrow { font-size: 32rpx; color: #FF6B6B; }
 </style>

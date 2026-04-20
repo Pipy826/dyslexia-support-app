@@ -1,10 +1,10 @@
 {
-  "name": "儿童读写障碍筛查",
+  "name": "悦读小灯塔",
   "appid": "__UNI__DYSLEXIA123",
   "description": "儿童读写障碍智能筛查与干预系统",
   "versionName": "1.0.0",
   "versionCode": "100",
-  "transformPx": false,
+  "transformPx": true,
   "app-plus": {
     "usingComponents": true,
     "nvueStyleCompiler": "uni-app",
@@ -18,21 +18,50 @@
     "modules": {},
     "distribute": {
       "android": {
+        "packagename": "com.dyslexia.lighthouse",
+        "keystore": "",
+        "password": "",
+        "aliasname": "",
         "permissions": [
-          "<uses-permission android:name=\"android.permission.INTERNET\"/>"
-        ]
+          "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+          "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+          "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+          "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+          "<uses-permission android:name=\"android.permission.CAMERA\"/>"
+        ],
+        "abiFilters": ["armeabi-v7a", "arm64-v8a"],
+        "minSdkVersion": 21,
+        "targetSdkVersion": 33
       },
-      "ios": {},
+      "ios": {
+        "bundleid": "com.dyslexia.lighthouse",
+        "privacyDescription": {
+          "NSCameraUsageDescription": "用于拍摄儿童头像",
+          "NSPhotoLibraryUsageDescription": "用于选择儿童头像",
+          "NSPhotoLibraryAddUsageDescription": "用于保存报告截图"
+        }
+      },
       "sdkConfigs": {}
     }
   },
   "quickapp": {},
   "mp-weixin": {
-    "appid": "",
+    "appid": "YOUR_WEIXIN_APPID",
     "setting": {
-      "urlCheck": false
+      "urlCheck": false,
+      "es6": true,
+      "enhance": true,
+      "postcss": true,
+      "minified": true
     },
-    "usingComponents": true
+    "usingComponents": true,
+    "permission": {
+      "scope.userInfo": {
+        "desc": "用于获取用户信息，完善儿童档案"
+      }
+    },
+    "requiredPrivateInfos": [],
+    "lazyCodeLoading": "requiredComponents"
   },
   "h5": {
     "devServer": {
@@ -41,7 +70,9 @@
       "proxy": {
         "/api": {
           "target": "http://localhost:8000",
-          "changeOrigin": true
+          "changeOrigin": true,
+          "timeout": 120000,
+          "proxyTimeout": 120000
         }
       }
     },

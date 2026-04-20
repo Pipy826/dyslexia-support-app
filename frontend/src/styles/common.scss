@@ -7,6 +7,9 @@ page {
   line-height: 1.6;
   color: $text-main;
   background: $bg-main;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* === 容器系统 === */
@@ -50,20 +53,6 @@ page {
   font-weight: 700;
   color: $text-main;
   margin-bottom: 24rpx;
-  position: relative;
-  padding-left: 20rpx;
-}
-
-.section-title::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6rpx;
-  height: 28rpx;
-  background: linear-gradient(180deg, $primary-blue, $purple-magic);
-  border-radius: 3rpx;
 }
 
 /* === 按钮系统 - 扁平化触感设计 === */

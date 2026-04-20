@@ -1,7 +1,6 @@
 @font-face {
   font-family: "Phosphor";
-  src: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/Phosphor.woff2") format("woff2"),
-    url("https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/Phosphor.woff") format("woff");
+  src: url("./Phosphor-regular.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
   font-display: block;

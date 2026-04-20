@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <view class="page-container">
     <!-- 极简头部 -->
     <view class="page-header">
       <view class="header-title">我的</view>
-      <view class="header-action">
+      <view class="header-action" @click="goToSettings">
         <text class="ph ph-gear"></text>
       </view>
     </view>
@@ -23,7 +23,7 @@
       <view class="section-title">儿童档案管理</view>
       <view class="children-scroll">
         <!-- 档案列表 -->
-        <view class="child-card selected" v-for="child in children" :key="child.id" @click="editChild(child.id)">
+        <view class="child-card selected" v-for="child in children" :key="child.id" @click="viewChildProfile(child.id)">
           <view class="child-dot"></view>
           <view class="child-avatar">
             <text class="ph ph-user"></text>
@@ -47,28 +47,35 @@
       <!-- 服务与设置 -->
       <view class="section-title">服务与设置</view>
       <view class="menu-card">
-        <view class="menu-item">
+        <view class="menu-item" @click="goToReminder">
           <view class="menu-icon green">
             <text class="ph ph-clock"></text>
           </view>
           <view class="menu-label">任务与提醒设置</view>
           <text class="menu-arrow">›</text>
         </view>
-        <view class="menu-item">
+        <view class="menu-item" @click="goToAccountEdit">
+          <view class="menu-icon blue">
+            <text class="ph ph-user-gear"></text>
+          </view>
+          <view class="menu-label">账号设置</view>
+          <text class="menu-arrow">›</text>
+        </view>
+        <view class="menu-item" @click="goToHelp">
           <view class="menu-icon orange">
             <text class="ph ph-question"></text>
           </view>
           <view class="menu-label">帮助中心与常见问题</view>
           <text class="menu-arrow">›</text>
         </view>
-        <view class="menu-item">
+        <view class="menu-item" @click="goToContact">
           <view class="menu-icon purple">
             <text class="ph ph-headset"></text>
           </view>
           <view class="menu-label">联系专业客服</view>
           <text class="menu-arrow">›</text>
         </view>
-        <view class="menu-item last">
+        <view class="menu-item last" @click="goToAbout">
           <view class="menu-icon gray">
             <text class="ph ph-info"></text>
           </view>
@@ -87,7 +94,7 @@
 </template>
 
 <script>
-import { getUser, clearAuth, getCurrentChild } from '../../../utils/auth.js'
+import { getUser, clearAuth, getCurrentChild, setCurrentChild, removeCurrentChild } from '../../../utils/auth.js'
 import { getChildren, deleteChild } from '../../../api/child.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 
@@ -144,8 +151,29 @@ export default {
         }
       })
     },
+    goToReminder() {
+      uni.navigateTo({ url: '/pages/parent/reminder/index' })
+    },
+    goToAccountEdit() {
+      uni.navigateTo({ url: '/pages/parent/account/edit' })
+    },
+    goToHelp() {
+      uni.navigateTo({ url: '/pages/parent/help/index' })
+    },
+    goToContact() {
+      uni.navigateTo({ url: '/pages/parent/help/contact' })
+    },
+    goToSettings() {
+      uni.navigateTo({ url: '/pages/parent/settings/index' })
+    },
+    goToAbout() {
+      uni.navigateTo({ url: '/pages/parent/about/index' })
+    },
     goToCreateProfile() {
       uni.navigateTo({ url: '/pages/parent/auth/create-profile' })
+    },
+    viewChildProfile(id) {
+      uni.navigateTo({ url: `/pages/parent/child-profile/index?child_id=${id}` })
     },
     editChild(id) {
       uni.navigateTo({ url: `/pages/parent/profile/edit?id=${id}` })
@@ -160,8 +188,18 @@ export default {
           if (res.confirm) {
             try {
               await deleteChild(child.id)
+              // 如果删除的是当前选中的孩子，清除本地缓存，避免后续操作引用已删除档案
+              if (this.selectedChild?.id === child.id) {
+                removeCurrentChild()
+                this.selectedChild = null
+              }
               uni.showToast({ title: '档案已删除', icon: 'success' })
               await this.loadChildren()
+              // 如果还有其他孩子，自动选中第一个
+              if (this.children.length > 0 && !this.selectedChild) {
+                this.selectedChild = this.children[0]
+                setCurrentChild(this.children[0])
+              }
             } catch (e) {
               uni.showToast({ title: '删除失败，请重试', icon: 'none' })
             }
@@ -180,6 +218,7 @@ export default {
   min-height: 100vh;
   background: #F5F7FA;
   padding-bottom: 160rpx;
+  overflow-x: hidden;
 }
 
 /* 头部 - 与首页一致的紧凑设计 */
@@ -188,7 +227,6 @@ export default {
   top: 0;
   z-index: 30;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20rpx);
   padding: 56rpx 32rpx 20rpx;
   display: flex;
   justify-content: space-between;
@@ -210,6 +248,9 @@ export default {
 /* 页面内容 */
 .page-content {
   padding: 24rpx 32rpx;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* 账号卡片 */
@@ -270,35 +311,18 @@ export default {
   font-weight: 700;
   color: #2D3748;
   margin-bottom: 16rpx;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
 }
 
-.section-title::before {
-  content: '';
-  display: inline-block;
-  width: 4rpx;
-  height: 22rpx;
-  background: linear-gradient(180deg, #4F9EF8, #A78BFA);
-  border-radius: 2rpx;
-}
-
-/* 儿童档案滚动区 */
+/* 儿童档案区 */
 .children-scroll {
   display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
-  overflow-x: auto;
   margin-bottom: 24rpx;
-  padding-bottom: 4rpx;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
 }
 
-.children-scroll::-webkit-scrollbar { display: none; }
-
 .child-card {
-  min-width: 160rpx;
+  width: calc(50% - 8rpx);
   background: #FFFFFF;
   border-radius: 20rpx;
   padding: 24rpx 20rpx;
@@ -309,7 +333,7 @@ export default {
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
   position: relative;
   transition: all 0.2s;
-  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .child-card:active { transform: scale(0.96); }
@@ -382,7 +406,8 @@ export default {
   color: #FF6B6B;
 }
 
-.add-child-card {  min-width: 160rpx;
+.add-child-card {
+  width: calc(50% - 8rpx);
   background: #FFFFFF;
   border-radius: 20rpx;
   padding: 24rpx 20rpx;
@@ -392,8 +417,8 @@ export default {
   justify-content: center;
   gap: 12rpx;
   border: 2rpx dashed #DBEAFE;
-  flex-shrink: 0;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .add-child-card:active { background: #EFF6FF; }
@@ -452,6 +477,8 @@ export default {
 }
 
 .menu-icon .ph { font-size: 26rpx; }
+.menu-icon.blue { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); }
+.menu-icon.blue .ph { color: #4F9EF8; }
 .menu-icon.green { background: linear-gradient(135deg, #F0FDF4, #DCFCE7); }
 .menu-icon.green .ph { color: #22C55E; }
 .menu-icon.orange { background: linear-gradient(135deg, #FFF9C4, #FFE082); }

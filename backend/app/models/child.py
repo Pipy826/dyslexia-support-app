@@ -15,6 +15,7 @@ class Child(Base):
     grade = Column(String(20), nullable=True)
     avatar_url = Column(String(500), nullable=True)
     has_difficulty = Column(Boolean, default=False, nullable=True)
+    has_professional_eval = Column(Boolean, default=False, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

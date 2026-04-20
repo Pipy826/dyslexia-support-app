@@ -31,6 +31,14 @@
       }
     },
     {
+      "path": "pages/parent/auth/onboarding",
+      "style": {
+        "navigationBarTitleText": "新手引导",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
       "path": "pages/parent/screening/index",
       "style": {
         "navigationBarTitleText": "能力筛查",
@@ -50,6 +58,14 @@
       "path": "pages/parent/report/detail",
       "style": {
         "navigationBarTitleText": "报告详情",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/report/compare",
+      "style": {
+        "navigationBarTitleText": "复评对比",
         "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#FFFFFF"
       }
@@ -95,6 +111,38 @@
       }
     },
     {
+      "path": "pages/parent/professional-guide/index",
+      "style": {
+        "navigationBarTitleText": "专业支持引导",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/reminder/index",
+      "style": {
+        "navigationBarTitleText": "任务与提醒设置",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/legal/privacy",
+      "style": {
+        "navigationBarTitleText": "隐私政策",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/legal/terms",
+      "style": {
+        "navigationBarTitleText": "用户服务协议",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
       "path": "pages/child/home/index",
       "style": {
         "navigationStyle": "custom"
@@ -122,6 +170,74 @@
       "path": "pages/child/training/index",
       "style": {
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/child/training-game/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/child/training-reward/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/parent/child-profile/index",
+      "style": {
+        "navigationBarTitleText": "儿童档案",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/account/edit",
+      "style": {
+        "navigationBarTitleText": "账号设置",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/help/index",
+      "style": {
+        "navigationBarTitleText": "帮助中心",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/help/contact",
+      "style": {
+        "navigationBarTitleText": "联系客服",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/notifications/index",
+      "style": {
+        "navigationBarTitleText": "消息通知",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/settings/index",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/about/index",
+      "style": {
+        "navigationBarTitleText": "关于系统",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
       }
     }
   ],

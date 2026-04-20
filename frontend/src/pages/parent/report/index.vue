@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <!-- 极简头部 -->
     <view class="page-header">
@@ -32,49 +32,24 @@
 
         <view class="ability-card">
           <!-- SVG 雷达图 -->
-          <view class="radar-wrap" v-if="radarPoints.length > 0">
-            <svg viewBox="0 0 300 300" class="radar-svg">
-              <polygon
-                v-for="level in [1,2,3,4]"
-                :key="level"
-                :points="getRadarPolygon(level * 25)"
-                fill="none"
-                stroke="#F3F4F6"
-                stroke-width="1"
-              />
-              <line
-                v-for="(axis, i) in radarAxes"
-                :key="'axis'+i"
-                x1="150" y1="150"
-                :x2="axis.x" :y2="axis.y"
-                stroke="#E5E7EB"
-                stroke-width="1"
-              />
-              <polygon
-                :points="radarDataPoints"
-                fill="rgba(59,130,246,0.15)"
-                stroke="#3B82F6"
-                stroke-width="2"
-              />
-              <circle
-                v-for="(pt, i) in radarPoints"
-                :key="'pt'+i"
-                :cx="pt.x" :cy="pt.y"
-                r="5"
-                :fill="pt.color"
-                stroke="#FFFFFF"
-                stroke-width="2"
-              />
-              <text
-                v-for="(axis, i) in radarAxes"
-                :key="'lbl'+i"
-                :x="axis.labelX" :y="axis.labelY"
-                text-anchor="middle"
-                dominant-baseline="middle"
-                font-size="11"
-                fill="#6B7280"
-              >{{ axis.shortName }}</text>
-            </svg>
+          <view class="radar-wrap" v-if="Object.keys(mergedDimensions).length >= 3">
+            <radar-chart :dimensions="mergedDimensions"></radar-chart>
+          </view>
+
+          <!-- 图例说明 -->
+          <view class="radar-legend" v-if="Object.keys(mergedDimensions).length >= 3">
+            <view class="legend-item">
+              <view class="legend-dot green"></view>
+              <view class="legend-text">良好（≥75分）</view>
+            </view>
+            <view class="legend-item">
+              <view class="legend-dot orange"></view>
+              <view class="legend-text">中等（60-74分）</view>
+            </view>
+            <view class="legend-item">
+              <view class="legend-dot red"></view>
+              <view class="legend-text">偏弱（＜60分）</view>
+            </view>
           </view>
 
           <view class="ability-item" v-for="(score, dim) in mergedDimensions" :key="dim">
@@ -132,7 +107,10 @@
             <view class="reassess-title">复评建议</view>
           </view>
           <view class="reassess-desc">{{ reassessText }}</view>
-          <button class="reassess-btn" @click="goToScreening">立即复评</button>
+          <view class="reassess-btns">
+            <button class="reassess-btn" @click="goToScreening">立即复评</button>
+            <button class="compare-btn" v-if="reports.length >= 2" @click="goToCompare">查看对比</button>
+          </view>
         </view>
 
         <!-- 高风险专业引导 -->
@@ -192,6 +170,7 @@ import { getReports, getMergedDimensions } from '../../../api/report.js'
 import { getCurrentChild, setCurrentChild } from '../../../utils/auth.js'
 import { getEmotionalSupport } from '../../../api/ai.js'
 import TabBar from '../../../components/tab-bar/index.vue'
+import RadarChart from '../../../components/charts/RadarChart.vue'
 
 // 游戏类型中文名
 const GAME_TYPE_NAMES = {
@@ -204,7 +183,7 @@ const GAME_TYPE_NAMES = {
 }
 
 export default {
-  components: { TabBar },
+  components: { TabBar, RadarChart },
   data() {
     return {
       children: [],
@@ -222,59 +201,7 @@ export default {
     }
   },
   computed: {
-    // 雷达图用合并维度
-    radarDimOrder() {
-      if (!this.mergedDimensions || Object.keys(this.mergedDimensions).length === 0) return []
-      return Object.keys(this.mergedDimensions)
-    },
-    radarAxes() {
-      const dims = this.radarDimOrder
-      const n = dims.length
-      if (n === 0) return []
-      const cx = 150, cy = 150, r = 100, labelR = 125
-      const shortNames = {
-        visual_discrimination:    '视觉',
-        phonological:             '音形',
-        character_order:          '字序',
-        spelling:                 '拼写',
-        reading_comprehension:    '阅读',
-        semantic_integration:     '语义',
-        information_extraction:   '提取',
-        attention:                '注意力',
-        working_memory_capacity:  '工作记忆',
-        short_term_memory:        '短时记忆',
-        rapid_naming_speed:       '命名速度',
-        phonological_awareness:   '音韵',
-        fine_motor_control:       '精细动作',
-        visual_motor_integration: '视动整合',
-      }
-      return dims.map((dim, i) => {
-        const angle = (2 * Math.PI * i / n) - Math.PI / 2
-        return {
-          x: cx + r * Math.cos(angle),
-          y: cy + r * Math.sin(angle),
-          labelX: cx + labelR * Math.cos(angle),
-          labelY: cy + labelR * Math.sin(angle),
-          shortName: shortNames[dim] || dim
-        }
-      })
-    },
-    radarPoints() {
-      if (!this.mergedDimensions || Object.keys(this.mergedDimensions).length === 0) return []
-      const dims = this.radarDimOrder
-      const n = dims.length
-      const cx = 150, cy = 150, r = 100
-      return dims.map((dim, i) => {
-        const score = this.mergedDimensions[dim] || 0
-        const angle = (2 * Math.PI * i / n) - Math.PI / 2
-        const dist = (score / 100) * r
-        const color = score >= 75 ? '#10B981' : score >= 60 ? '#F59E0B' : '#EF4444'
-        return { x: cx + dist * Math.cos(angle), y: cy + dist * Math.sin(angle), color }
-      })
-    },
-    radarDataPoints() {
-      return this.radarPoints.map(p => `${p.x},${p.y}`).join(' ')
-    },
+    // 雷达图计算属性已移至 RadarChart 组件内部
     reassessText() {
       if (!this.latestReport) return ''
       const level = this.latestReport.risk_level
@@ -440,17 +367,12 @@ export default {
     goToScreening() {
       uni.navigateTo({ url: '/pages/parent/screening/index' })
     },
-    getRadarPolygon(pct) {
-      const dims = this.radarDimOrder
-      const n = dims.length
-      if (n === 0) return ''
-      const cx = 150, cy = 150, r = 100
-      return dims.map((_, i) => {
-        const angle = (2 * Math.PI * i / n) - Math.PI / 2
-        const dist = (pct / 100) * r
-        return `${cx + dist * Math.cos(angle)},${cy + dist * Math.sin(angle)}`
-      }).join(' ')
-    }
+    goToCompare() {
+      if (this.reports.length < 2) return
+      uni.navigateTo({
+        url: `/pages/parent/report/compare?current_id=${this.reports[0].id}&previous_id=${this.reports[1].id}`
+      })
+    },
   }
 }
 </script>
@@ -461,6 +383,7 @@ export default {
   min-height: 100vh;
   background: #F5F7FA;
   padding-bottom: 160rpx;
+  overflow-x: hidden;
 }
 
 .page-header {
@@ -468,7 +391,6 @@ export default {
   top: 0;
   z-index: 30;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20rpx);
   padding: 56rpx 32rpx 20rpx;
   display: flex;
   justify-content: space-between;
@@ -497,7 +419,7 @@ export default {
 .ai-btn:active { transform: scale(0.95); }
 .ai-btn .ph { font-size: 24rpx; margin-right: 6rpx; }
 
-.page-content { padding: 24rpx 32rpx; }
+.page-content { padding: 24rpx 32rpx; width: 100%; box-sizing: border-box; overflow-x: hidden; }
 
 .conclusion-card {
   background: #FFFFFF;
@@ -523,11 +445,6 @@ export default {
 
 .section-title {
   font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 16rpx;
-  display: flex; align-items: center; gap: 8rpx;
-}
-.section-title::before {
-  content: ''; display: inline-block; width: 4rpx; height: 22rpx;
-  background: linear-gradient(180deg, #4F9EF8, #A78BFA); border-radius: 2rpx;
 }
 
 .ability-card {
@@ -613,8 +530,35 @@ export default {
 }
 .pending-hint .ph { font-size: 24rpx; color: #F59E0B; flex-shrink: 0; margin-top: 2rpx; }
 
-.radar-wrap { display: flex; justify-content: center; margin-bottom: 32rpx; }
-.radar-svg { width: 280rpx; height: 280rpx; }
+.radar-wrap { display: flex; justify-content: center; margin-bottom: 16rpx; width: 100%; overflow: hidden; }
+
+/* 雷达图图例 */
+.radar-legend {
+  display: flex;
+  justify-content: center;
+  gap: 32rpx;
+  margin-bottom: 28rpx;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.legend-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-dot.green { background: #10B981; }
+.legend-dot.orange { background: #F59E0B; }
+.legend-dot.red { background: #EF4444; }
+.legend-text {
+  font-size: 20rpx;
+  color: #718096;
+  font-weight: 500;
+}
 
 .reassess-card {
   background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
@@ -624,13 +568,20 @@ export default {
 .reassess-header .ph { font-size: 28rpx; color: #22C55E; }
 .reassess-title { font-size: 26rpx; font-weight: 700; color: #2D3748; }
 .reassess-desc { font-size: 24rpx; color: #718096; line-height: 1.7; margin-bottom: 24rpx; font-weight: 500; }
+.reassess-btns { display: flex; gap: 16rpx; }
 .reassess-btn {
-  width: 100%; background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF;
+  flex: 1; background: linear-gradient(135deg, #22C55E, #16A34A); color: #FFFFFF;
   border-radius: 14rpx; padding: 22rpx; font-size: 24rpx; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4rpx 12rpx rgba(34, 197, 94, 0.2); transition: all 0.2s;
 }
 .reassess-btn:active { transform: scale(0.97); }
+.compare-btn {
+  flex: 1; background: #FFFFFF; border: 2rpx solid #BBF7D0; color: #22C55E;
+  border-radius: 14rpx; padding: 22rpx; font-size: 24rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.compare-btn:active { background: #F0FDF4; }
 
 .high-risk-card {
   background: linear-gradient(135deg, #FFF5F5, #FFE4E4);
@@ -662,8 +613,7 @@ export default {
 /* 情绪支持弹窗 */
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4); backdrop-filter: blur(4rpx);
-  z-index: 9999; display: flex; align-items: flex-end;
+  background: rgba(0,0,0,0.4); z-index: 9999; display: flex; align-items: flex-end;
   animation: fadeIn 0.2s;
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

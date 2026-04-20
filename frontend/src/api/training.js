@@ -11,12 +11,14 @@ export const createTask = (data) => post('/api/training/tasks', data);
 
 export const updateTaskProgress = (taskId, data) => put(`/api/training/tasks/${taskId}/progress`, data);
 
-export const completeTask = (taskId) => post(`/api/training/tasks/${taskId}/complete`);
+export const completeTask = (taskId, data = null) => post(`/api/training/tasks/${taskId}/complete`, data || {});
 
 export const getGrowthRecords = (childId) => {
   const params = childId ? { child_id: childId } : {};
   return get('/api/training/growth', params);
 };
+
+export const createGrowthRecord = (data) => post('/api/training/growth', data);
 
 export const getRewards = (childId) => {
   const params = childId ? { child_id: childId } : {};

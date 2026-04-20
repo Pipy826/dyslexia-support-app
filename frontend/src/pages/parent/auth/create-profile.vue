@@ -1,121 +1,111 @@
 <template>
   <view class="page-container">
-    <!-- 返回按钮 -->
-    <view class="back-btn" @click="goBack">
-      <text class="ph ph-arrow-left"></text>
+    <!-- 头部 -->
+    <view class="page-header">
+      <view class="back-btn" @click="goBack">
+        <text class="ph ph-arrow-left"></text>
+      </view>
+      <view class="header-title">创建儿童档案</view>
     </view>
 
-    <!-- 标题区 -->
-    <view class="header-section">
-      <view class="page-title">创建儿童档案</view>
-      <view class="page-subtitle">为了推荐最精准的评估与训练计划，请完善信息。</view>
-    </view>
-
-    <!-- 极简表单 -->
-    <view class="form-section">
-
+    <scroll-view class="page-content" scroll-y>
       <!-- 头像选择 -->
-      <view class="avatar-upload" @click="chooseAvatar">
-        <view class="avatar-preview">
+      <view class="avatar-section" @click="chooseAvatar">
+        <view class="avatar-wrap">
           <image v-if="formData.avatar_url" :src="formData.avatar_url" class="avatar-img" mode="aspectFill" />
-          <text v-else class="ph ph-user"></text>
-          <view class="camera-icon">
-            <text class="ph ph-camera"></text>
-          </view>
+          <text v-else class="ph ph-user avatar-icon"></text>
+          <view class="camera-badge"><text class="ph ph-camera"></text></view>
         </view>
-        <view class="upload-hint">{{ uploading ? '上传中...' : '点击上传头像' }}</view>
+        <view class="avatar-hint">{{ uploading ? '上传中...' : '点击上传头像（选填）' }}</view>
       </view>
 
-      <!-- 姓名/昵称 -->
-      <view class="input-group">
-        <label class="input-label">孩子姓名 / 昵称</label>
-        <view class="input-item">
-          <input
-            type="text"
-            v-model="formData.name"
-            placeholder="例如：小明"
-            class="form-input"
-          />
+      <!-- 姓名 -->
+      <view class="form-card">
+        <view class="form-row">
+          <view class="form-label">孩子姓名 / 昵称</view>
+          <input class="form-input" type="text" v-model="formData.name" placeholder="例如：小明" />
         </view>
       </view>
 
-      <!-- 性别选择 -->
-      <view class="input-group">
-        <label class="input-label">性别</label>
-        <view class="gender-grid">
-          <view
-            :class="['gender-option', { active: formData.gender === 'boy' }]"
-            @click="formData.gender = 'boy'"
-          >
-            <text class="ph ph-gender-male"></text>
-            <text class="gender-text">男孩</text>
-          </view>
-          <view
-            :class="['gender-option', { active: formData.gender === 'girl' }]"
-            @click="formData.gender = 'girl'"
-          >
-            <text class="ph ph-gender-female"></text>
-            <text class="gender-text">女孩</text>
-          </view>
+      <!-- 性别 -->
+      <view class="section-title">性别</view>
+      <view class="gender-row">
+        <view :class="['gender-btn', { active: formData.gender === 'boy' }]" @click="formData.gender = 'boy'">
+          <text class="ph ph-gender-male"></text> 男孩
+        </view>
+        <view :class="['gender-btn', { active: formData.gender === 'girl' }]" @click="formData.gender = 'girl'">
+          <text class="ph ph-gender-female"></text> 女孩
         </view>
       </view>
 
-      <!-- 年级阶段选择 -->
-      <view class="input-group">
-        <label class="input-label">当前年级阶段</label>
-        <view class="grade-grid">
-          <view
-            v-for="item in gradeOptions"
-            :key="item.value"
-            :class="['grade-option', { active: formData.grade === item.value }]"
-            @click="formData.grade = item.value"
-          >
-            {{ item.label }}
-          </view>
-        </view>
+      <!-- 年级 -->
+      <view class="section-title">当前年级</view>
+      <view class="tag-grid">
+        <view
+          v-for="item in gradeOptions"
+          :key="item.value"
+          :class="['tag-option', { active: formData.grade === item.value }]"
+          @click="formData.grade = item.value"
+        >{{ item.label }}</view>
       </view>
 
       <!-- 出生年份 -->
-      <view class="input-group">
-        <label class="input-label">出生年份 <text class="label-hint">（用于精准匹配题目难度）</text></label>
-        <view class="birth-year-row">
-          <view
-            v-for="y in birthYearOptions"
-            :key="y"
-            :class="['year-option', { active: formData.birth_year === y }]"
-            @click="formData.birth_year = y"
-          >
-            {{ y }}年
-          </view>
-        </view>
+      <view class="section-title">出生年份</view>
+      <view class="tag-grid">
+        <view
+          v-for="y in birthYearOptions"
+          :key="y"
+          :class="['tag-option', { active: formData.birth_year === y }]"
+          @click="formData.birth_year = y"
+        >{{ y }}年</view>
       </view>
 
-      <!-- 是否发现困难 -->
-      <view class="difficulty-notice" :class="{ checked: formData.hasDifficulty }">
-        <view class="notice-checkbox" @click="formData.hasDifficulty = !formData.hasDifficulty">
+      <!-- 出生月份 -->
+      <view class="section-title">出生月份</view>
+      <view class="tag-grid">
+        <view
+          v-for="m in 12"
+          :key="m"
+          :class="['tag-option', { active: formData.birth_month === m }]"
+          @click="formData.birth_month = m"
+        >{{ m }}月</view>
+      </view>
+
+      <!-- 出生日期 -->
+      <view class="section-title">出生日期</view>
+      <view class="tag-grid">
+        <view
+          v-for="d in daysInMonth"
+          :key="d"
+          :class="['tag-option', { active: formData.birth_day === d }]"
+          @click="formData.birth_day = d"
+        >{{ d }}日</view>
+      </view>
+
+      <!-- 附加信息 -->
+      <view class="section-title">附加信息（选填）</view>
+      <view class="check-card" :class="{ checked: formData.hasDifficulty }" @click="formData.hasDifficulty = !formData.hasDifficulty">
+        <view class="check-box">
           <text class="ph ph-check" v-if="formData.hasDifficulty"></text>
         </view>
-        <view class="notice-text">
-          我已经观察到孩子在识字、拼写或阅读方面存在一定的困难或抗拒情绪。（勾选后系统将调整筛查侧重点）
-        </view>
+        <view class="check-text">已观察到孩子在识字、拼写或阅读方面存在困难（勾选后系统将调整筛查侧重点）</view>
       </view>
-
-      <!-- 是否已有机构评估经历 -->
-      <view class="difficulty-notice" :class="{ checked: formData.hasProfessionalEval }">
-        <view class="notice-checkbox" @click="formData.hasProfessionalEval = !formData.hasProfessionalEval">
+      <view class="check-card" :class="{ checked: formData.hasProfessionalEval }" @click="formData.hasProfessionalEval = !formData.hasProfessionalEval">
+        <view class="check-box">
           <text class="ph ph-check" v-if="formData.hasProfessionalEval"></text>
         </view>
-        <view class="notice-text">
-          孩子曾在医院、康复机构或专业教育机构进行过相关评估或诊断。
-        </view>
+        <view class="check-text">孩子曾在医院或专业机构进行过相关评估或诊断</view>
       </view>
 
-    </view>
+      <view style="height: 40rpx;"></view>
+    </scroll-view>
 
-    <!-- 完成按钮 -->
-    <button class="main-btn" @click="handleFinish" :disabled="uploading">
-      完成创建，进入首页
-    </button>
+    <!-- 底部按钮 -->
+    <view class="bottom-bar">
+      <button class="submit-btn" @click="handleFinish" :disabled="uploading">
+        完成创建，进入首页
+      </button>
+    </view>
   </view>
 </template>
 
@@ -132,6 +122,8 @@ export default {
         gender: 'boy',
         grade: '一年级',
         birth_year: new Date().getFullYear() - 7,
+        birth_month: 6,
+        birth_day: 15,
         hasDifficulty: false,
         hasProfessionalEval: false,
         avatar_url: ''
@@ -156,6 +148,32 @@ export default {
         years.push(currentYear - age)
       }
       return years
+    },
+    daysInMonth() {
+      // 根据选中的年月计算该月有多少天
+      const year = this.formData.birth_year
+      const month = this.formData.birth_month
+      const days = new Date(year, month, 0).getDate()
+      const result = []
+      for (let d = 1; d <= days; d++) {
+        result.push(d)
+      }
+      return result
+    }
+  },
+  watch: {
+    'formData.birth_month'(newMonth) {
+      // 切换月份时，如果当前日期超出该月天数，自动修正到最后一天
+      const maxDay = new Date(this.formData.birth_year, newMonth, 0).getDate()
+      if (this.formData.birth_day > maxDay) {
+        this.formData.birth_day = maxDay
+      }
+    },
+    'formData.birth_year'(newYear) {
+      const maxDay = new Date(newYear, this.formData.birth_month, 0).getDate()
+      if (this.formData.birth_day > maxDay) {
+        this.formData.birth_day = maxDay
+      }
     }
   },
   methods: {
@@ -189,10 +207,10 @@ export default {
         const child = await createChild({
           name: this.formData.name,
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
-          birth_date: `${this.formData.birth_year}-06-01`,
+          birth_date: `${this.formData.birth_year}-${String(this.formData.birth_month).padStart(2, '0')}-${String(this.formData.birth_day).padStart(2, '0')}`,
           grade: this.formData.grade,
-          // 任一项勾选均标记为 has_difficulty，供筛查系统调整侧重点
-          has_difficulty: this.formData.hasDifficulty || this.formData.hasProfessionalEval,
+          has_difficulty: this.formData.hasDifficulty,
+          has_professional_eval: this.formData.hasProfessionalEval,
           avatar_url: this.formData.avatar_url || null
         })
         setCurrentChild(child)
@@ -211,321 +229,115 @@ export default {
 <style scoped>
 .page-container {
   min-height: 100vh;
-  background: #FFFFFF;
-  padding: 96rpx 48rpx 80rpx;
+  background: #F5F7FA;
+  overflow-x: hidden;
+  padding-bottom: 160rpx;
 }
 
-/* 返回按钮 */
+/* 头部 */
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 56rpx 24rpx 16rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 1rpx 0 rgba(0, 0, 0, 0.04);
+}
 .back-btn {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background: #F9FAFB;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 48rpx;
+  width: 56rpx; height: 56rpx; border-radius: 14rpx; background: #F5F5F5;
+  display: flex; align-items: center; justify-content: center; margin-right: 16rpx;
 }
+.back-btn .ph { font-size: 28rpx; color: #718096; }
+.header-title { font-size: 30rpx; font-weight: 700; color: #2D3748; }
 
-.back-btn .ph {
-  font-size: 36rpx;
-  color: #6B7280;
-}
+/* 内容区 */
+.page-content { padding: 24rpx 32rpx; width: 100%; box-sizing: border-box; }
 
-/* 标题区 */
-.header-section {
-  margin-bottom: 64rpx;
+/* 头像区 */
+.avatar-section {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 32rpx 0 24rpx;
 }
+.avatar-wrap {
+  width: 140rpx; height: 140rpx; border-radius: 50%;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; margin-bottom: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(79, 158, 248, 0.2);
+  overflow: hidden;
+}
+.avatar-img { width: 100%; height: 100%; border-radius: 50%; }
+.avatar-icon { font-size: 64rpx; color: #4F9EF8; }
+.camera-badge {
+  position: absolute; bottom: 4rpx; right: 4rpx;
+  width: 44rpx; height: 44rpx; border-radius: 50%;
+  background: #4F9EF8; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.15);
+}
+.camera-badge .ph { font-size: 22rpx; color: #FFFFFF; }
+.avatar-hint { font-size: 22rpx; color: #A0AEC0; font-weight: 500; }
 
-.page-title {
-  font-size: 48rpx;
-  font-weight: 700;
-  color: #374151;
-  margin-bottom: 16rpx;
+/* 姓名卡片 */
+.form-card {
+  background: #FFFFFF; border-radius: 24rpx; overflow: hidden;
+  margin-bottom: 24rpx; box-shadow: 0 2rpx 16rpx rgba(0,0,0,0.04);
 }
+.form-row { padding: 24rpx 28rpx; }
+.form-label { font-size: 22rpx; color: #A0AEC0; font-weight: 600; margin-bottom: 10rpx; }
+.form-input { width: 100%; font-size: 30rpx; font-weight: 700; color: #2D3748; background: transparent; }
 
-.page-subtitle {
-  font-size: 28rpx;
-  color: #6B7280;
-}
+/* 区域标题 */
+.section-title { font-size: 26rpx; font-weight: 700; color: #718096; margin-bottom: 14rpx; }
 
-/* 表单 */
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: 48rpx;
-  margin-bottom: 64rpx;
+/* 性别 */
+.gender-row { display: flex; gap: 16rpx; margin-bottom: 24rpx; }
+.gender-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 10rpx;
+  padding: 24rpx; background: #FFFFFF; border: 2rpx solid #E5E7EB;
+  border-radius: 20rpx; font-size: 26rpx; font-weight: 700; color: #718096;
+  transition: all 0.2s; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
 }
+.gender-btn .ph { font-size: 30rpx; }
+.gender-btn.active { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-color: #4F9EF8; color: #4F9EF8; }
 
-/* 头像上传 */
-.avatar-upload {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 16rpx;
+/* 标签网格（年级、年份、月份、日期） */
+.tag-grid { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 24rpx; }
+.tag-option {
+  padding: 14rpx 20rpx; background: #FFFFFF; border: 2rpx solid #E5E7EB;
+  border-radius: 14rpx; font-size: 24rpx; font-weight: 600; color: #718096;
+  transition: all 0.2s; box-shadow: 0 1rpx 4rpx rgba(0,0,0,0.04);
 }
+.tag-option.active { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-color: #4F9EF8; color: #4F9EF8; }
 
-.avatar-preview {
-  width: 160rpx;
-  height: 160rpx;
-  border-radius: 50%;
-  background: #EFF6FF;
-  border: 4rpx solid #FFFFFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 24rpx;
-  position: relative;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+/* 勾选卡片 */
+.check-card {
+  background: #FFFFFF; border: 2rpx solid #E5E7EB; border-radius: 20rpx;
+  padding: 24rpx 28rpx; display: flex; gap: 20rpx; align-items: flex-start;
+  margin-bottom: 16rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04); transition: all 0.2s;
 }
+.check-card.checked { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-color: #4F9EF8; }
+.check-box {
+  width: 36rpx; height: 36rpx; border-radius: 10rpx; border: 2rpx solid #D1D5DB;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2rpx;
+}
+.check-card.checked .check-box { background: #4F9EF8; border-color: #4F9EF8; }
+.check-box .ph { font-size: 20rpx; color: #FFFFFF; }
+.check-text { font-size: 24rpx; color: #718096; line-height: 1.6; font-weight: 500; }
+.check-card.checked .check-text { color: #2D3748; }
 
-.avatar-preview .ph {
-  font-size: 64rpx;
-  color: #3B82F6;
+/* 底部按钮栏 */
+.bottom-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 -1rpx 0 rgba(0,0,0,0.06);
 }
-
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
+.submit-btn {
+  width: 100%; background: linear-gradient(135deg, #4F9EF8, #3B82F6); color: #FFFFFF;
+  border-radius: 20rpx; padding: 28rpx; font-size: 30rpx; font-weight: 700;
+  box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.3);
 }
-
-.camera-icon {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 50%;
-  background: #FFFFFF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
-}
-
-.camera-icon .ph {
-  font-size: 24rpx;
-  color: #3B82F6;
-}
-
-.upload-hint {
-  font-size: 22rpx;
-  color: #9CA3AF;
-}
-
-/* 输入组 */
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.input-label {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #374151;
-  padding-left: 8rpx;
-}
-
-.input-item {
-  background: #F9FAFB;
-  border: 2rpx solid #F3F4F6;
-  border-radius: 32rpx;
-  padding: 28rpx 32rpx;
-  transition: all 0.3s;
-}
-
-.input-item:focus-within {
-  border-color: #3B82F6;
-  background: #FFFFFF;
-}
-
-.form-input {
-  width: 100%;
-  font-size: 28rpx;
-  color: #374151;
-  background: transparent;
-}
-
-.form-input::placeholder {
-  color: #9CA3AF;
-}
-
-/* 性别选择 */
-.gender-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24rpx;
-}
-
-.gender-option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12rpx;
-  padding: 28rpx;
-  background: #F9FAFB;
-  border: 2rpx solid #F3F4F6;
-  border-radius: 32rpx;
-  transition: all 0.3s;
-}
-
-.gender-option .ph {
-  font-size: 36rpx;
-  color: #9CA3AF;
-}
-
-.gender-text {
-  font-size: 28rpx;
-  font-weight: 500;
-  color: #6B7280;
-}
-
-.gender-option.active {
-  background: #EFF6FF;
-  border-color: #3B82F6;
-}
-
-.gender-option.active .ph {
-  color: #3B82F6;
-}
-
-.gender-option.active .gender-text {
-  color: #3B82F6;
-}
-
-/* 年级选择 */
-.grade-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24rpx;
-}
-
-.grade-option {
-  padding: 24rpx 16rpx;
-  background: #F9FAFB;
-  border: 2rpx solid #F3F4F6;
-  border-radius: 24rpx;
-  text-align: center;
-  font-size: 24rpx;
-  font-weight: 500;
-  color: #6B7280;
-  transition: all 0.3s;
-}
-
-.grade-option.active {
-  background: #EFF6FF;
-  border-color: #3B82F6;
-  color: #3B82F6;
-  font-weight: 700;
-}
-
-/* 出生年份选择 */
-.birth-year-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-
-.year-option {
-  padding: 18rpx 24rpx;
-  background: #F9FAFB;
-  border: 2rpx solid #F3F4F6;
-  border-radius: 20rpx;
-  font-size: 24rpx;
-  font-weight: 500;
-  color: #6B7280;
-  transition: all 0.3s;
-  white-space: nowrap;
-}
-
-.year-option.active {
-  background: #EFF6FF;
-  border-color: #3B82F6;
-  color: #3B82F6;
-  font-weight: 700;
-}
-
-.label-hint {
-  font-size: 20rpx;
-  color: #9CA3AF;
-  font-weight: 400;
-}
-
-/* 困难提示 */
-.difficulty-notice {  background: #EFF6FF;
-  border: 2rpx solid #DBEAFE;
-  border-radius: 32rpx;
-  padding: 32rpx;
-  display: flex;
-  gap: 24rpx;
-  align-items: flex-start;
-  margin-top: 16rpx;
-}
-
-.notice-checkbox {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 8rpx;
-  border: 2rpx solid #D1D5DB;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 4rpx;
-  transition: all 0.3s;
-}
-
-.difficulty-notice.checked .notice-checkbox {
-  background: #3B82F6;
-  border-color: #3B82F6;
-}
-
-.notice-checkbox .ph {
-  font-size: 18rpx;
-  color: #FFFFFF;
-}
-
-.notice-text {
-  font-size: 24rpx;
-  color: #6B7280;
-  line-height: 1.6;
-}
-
-/* 主按钮 */
-.main-btn {
-  width: 100%;
-  background: #3B82F6;
-  color: #FFFFFF;
-  border-radius: 32rpx;
-  padding: 32rpx;
-  font-size: 32rpx;
-  font-weight: 700;
-  box-shadow: 0 8rpx 24rpx rgba(59, 130, 246, 0.3);
-}
-
-/* Toast */
-.toast {
-  position: fixed;
-  top: 80rpx;
-  left: 50%;
-  transform: translateX(-50%) translateY(-20rpx);
-  background: #374151;
-  color: #FFFFFF;
-  padding: 24rpx 48rpx;
-  border-radius: 50rpx;
-  font-size: 26rpx;
-  font-weight: 500;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.2);
-  opacity: 0;
-  transition: all 0.3s;
-  pointer-events: none;
-  z-index: 9999;
-}
-
-.toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
+.submit-btn[disabled] { opacity: 0.6; }
 </style>

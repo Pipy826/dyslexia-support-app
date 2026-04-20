@@ -324,3 +324,115 @@ COMPREHENSION_QUESTIONS = {
         }
     ]
 }
+
+
+# 拖拽排序题库（sort_order 类型）
+# correct_order 为正确排列的原始索引数组（0-based）
+SORT_ORDER_QUESTIONS = {
+    "L1": [
+        {
+            "id": "sort_L1_001",
+            "type": "sort_order",
+            "difficulty": "L1",
+            "title": "句子排序",
+            "instruction": "把下面的词语排成一句通顺的话",
+            "options": ["我", "上学", "每天", "去"],
+            "correct_order": [2, 0, 3, 1],  # 每天 我 去 上学
+            "time_limit": 30
+        },
+        {
+            "id": "sort_L1_002",
+            "type": "sort_order",
+            "difficulty": "L1",
+            "title": "句子排序",
+            "instruction": "把下面的词语排成一句通顺的话",
+            "options": ["爸爸", "报纸", "在", "看"],
+            "correct_order": [0, 2, 3, 1],  # 爸爸 在 看 报纸
+            "time_limit": 30
+        },
+        {
+            "id": "sort_L1_003",
+            "type": "sort_order",
+            "difficulty": "L1",
+            "title": "句子排序",
+            "instruction": "把下面的词语排成一句通顺的话",
+            "options": ["小猫", "鱼", "吃", "喜欢"],
+            "correct_order": [0, 3, 2, 1],  # 小猫 喜欢 吃 鱼
+            "time_limit": 30
+        },
+    ],
+    "L2": [
+        {
+            "id": "sort_L2_001",
+            "type": "sort_order",
+            "difficulty": "L2",
+            "title": "句子排序",
+            "instruction": "把下面的词语排成一句通顺的话",
+            "options": ["今天", "天气", "真的", "好"],
+            "correct_order": [0, 1, 3, 2],  # 今天 天气 好 真的 → 今天天气真的好
+            "time_limit": 30
+        },
+        {
+            "id": "sort_L2_002",
+            "type": "sort_order",
+            "difficulty": "L2",
+            "title": "故事排序",
+            "instruction": "把下面的句子排成一个完整的故事",
+            "options": [
+                "小明起床了",
+                "小明刷牙洗脸",
+                "小明吃早饭",
+                "小明去上学"
+            ],
+            "correct_order": [0, 1, 2, 3],
+            "time_limit": 30
+        },
+        {
+            "id": "sort_L2_003",
+            "type": "sort_order",
+            "difficulty": "L2",
+            "title": "故事排序",
+            "instruction": "把下面的句子排成一个完整的故事",
+            "options": [
+                "小花找到了种子",
+                "小花把种子种进土里",
+                "小花每天浇水",
+                "花儿开放了"
+            ],
+            "correct_order": [0, 1, 2, 3],
+            "time_limit": 30
+        },
+    ],
+    "L3": [
+        {
+            "id": "sort_L3_001",
+            "type": "sort_order",
+            "difficulty": "L3",
+            "title": "段落排序",
+            "instruction": "把下面的句子排成一段通顺的文章",
+            "options": [
+                "春天来了，天气变暖了",
+                "小草从土里钻出来",
+                "花儿也开始开放",
+                "大地变得生机勃勃"
+            ],
+            "correct_order": [0, 1, 2, 3],
+            "time_limit": 30
+        },
+        {
+            "id": "sort_L3_002",
+            "type": "sort_order",
+            "difficulty": "L3",
+            "title": "段落排序",
+            "instruction": "把下面的句子排成一段通顺的文章",
+            "options": [
+                "他打开书包，拿出作业本",
+                "放学后，小明回到家",
+                "妈妈看了很高兴",
+                "认真地完成了所有作业"
+            ],
+            "correct_order": [1, 0, 3, 2],
+            "time_limit": 30
+        },
+    ],
+}

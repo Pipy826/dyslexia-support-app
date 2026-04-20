@@ -55,8 +55,17 @@
             <!-- 流式光标 -->
             <text class="cursor" v-if="msg.streaming">▋</text>
           </view>
-          <view class="message-time" v-if="msg.created_at && !msg.streaming">
-            {{ formatTime(msg.created_at) }}
+          <view class="message-footer" v-if="msg.created_at && !msg.streaming">
+            <view class="message-time">{{ formatTime(msg.created_at) }}</view>
+            <!-- 收藏按钮（仅 AI 回复） -->
+            <view
+              v-if="msg.role === 'assistant' && msg.id"
+              class="save-btn"
+              :class="{ saved: savedIds.includes(msg.id) }"
+              @click="toggleSave(msg)"
+            >
+              <text :class="savedIds.includes(msg.id) ? 'ph-fill ph-bookmark-simple' : 'ph ph-bookmark-simple'"></text>
+            </view>
           </view>
         </view>
       </view>
@@ -110,8 +119,9 @@
 </template>
 
 <script>
-import { chat, chatStream, getChatHistory, clearChatHistory } from '../../../api/ai.js';
+import { chat, chatStream, getChatHistory, clearChatHistory, saveMessage, getSavedMessages, deleteSavedMessage } from '../../../api/ai.js';
 import { getCurrentChild } from '../../../utils/auth.js';
+import { getReports } from '../../../api/report.js';
 
 export default {
   data() {
@@ -130,8 +140,9 @@ export default {
         { text: '读写障碍会影响智力吗？', icon: 'ph ph-brain' },
         { text: '孩子的风险等级怎么理解？', icon: 'ph ph-chart-bar' },
       ],
-    };
-  },
+      reportContext: null,
+      savedIds: [],  // 已收藏的 conversation_id 数组（Set 在 Vue 响应式中不可靠）
+    };  },
 
   onLoad(options) {
     if (options.child_id) {
@@ -140,25 +151,52 @@ export default {
       this.currentChild = getCurrentChild();
     }
     this.loadHistory();
+    this.loadReportContext();
+    this.loadSavedIds();
   },
-
   onUnload() {
     // 页面卸载时中断流式请求
     if (this._abortStream) this._abortStream();
   },
 
   methods: {
-    async loadHistory() {
-      try {
+    async loadHistory() {      try {
         const history = await getChatHistory(this.currentChild?.id);
         this.messages = history.map((h) => ({
           role: h.role,
           message: h.message,
           created_at: h.created_at,
+          id: h.id,
         }));
         this.scrollToBottom();
       } catch (e) {
         console.error('加载历史失败', e);
+      }
+    },
+
+    async loadReportContext() {
+      if (!this.currentChild?.id) return
+      try {
+        const reports = await getReports(this.currentChild.id)
+        if (!reports || reports.length === 0) return
+        const latest = reports[0]
+        this.reportContext = latest
+        const level = latest.risk_level
+        const dynamicQuestions = []
+        if (level === 'high') {
+          dynamicQuestions.push({ text: '高风险意味着什么？需要去医院吗？', icon: 'ph ph-warning-circle' })
+          dynamicQuestions.push({ text: '孩子高风险，我该怎么办？', icon: 'ph ph-heart' })
+        } else if (level === 'medium') {
+          dynamicQuestions.push({ text: '中风险需要担心吗？', icon: 'ph ph-info' })
+          dynamicQuestions.push({ text: '如何通过家庭训练改善？', icon: 'ph ph-house' })
+        } else {
+          dynamicQuestions.push({ text: '低风险还需要训练吗？', icon: 'ph ph-check-circle' })
+        }
+        dynamicQuestions.push({ text: '报告里的维度评分怎么理解？', icon: 'ph ph-chart-bar' })
+        dynamicQuestions.push({ text: '读写障碍会影响智力吗？', icon: 'ph ph-brain' })
+        this.quickQuestions = dynamicQuestions
+      } catch (e) {
+        // 静默失败，保留默认问题
       }
     },
 
@@ -177,11 +215,16 @@ export default {
       this.scrollToBottom();
 
       // 尝试流式，降级到普通
+      // #ifdef MP-WEIXIN
+      await this.sendStream(text);
+      // #endif
+      // #ifndef MP-WEIXIN
       if (typeof fetch !== 'undefined') {
         await this.sendStream(text);
       } else {
         await this.sendNormal(text);
       }
+      // #endif
     },
 
     async sendStream(text) {
@@ -215,38 +258,22 @@ export default {
           this.isThinking = false;
           this._abortStream = null;
         },
-        // onError：流式失败时降级，但用户消息已入库，直接用普通模式获取 AI 回复
+        // onError：流式失败时提示用户重试（用户消息已入库，不重复调用避免重复入库）
         (err) => {
-          console.error('流式失败，降级到普通模式', err);
+          console.error('流式请求失败', err);
           // 移除空的 AI 占位消息
           this.messages.splice(aiMsgIndex, 1);
           this.isStreaming = false;
           this.isThinking = false;
-          // 降级：只获取 AI 回复，不重新发送用户消息（避免重复入库）
-          this.fetchNormalReply(text);
+          this._abortStream = null;
+          uni.showToast({ title: '网络异常，请重试', icon: 'none' });
         }
       );
     },
 
-    // 仅获取 AI 回复（不保存用户消息，用于流式降级场景）
+    // 仅获取 AI 回复（流式降级时使用）
     async fetchNormalReply(text) {
-      this.isThinking = true;
-      try {
-        const res = await chat({
-          child_id: this.currentChild?.id,
-          message: text,
-        });
-        this.messages.push({
-          role: 'assistant',
-          message: res.reply,
-          created_at: new Date().toISOString(),
-        });
-        this.scrollToBottom();
-      } catch (e) {
-        uni.showToast({ title: '发送失败，请重试', icon: 'none' });
-      } finally {
-        this.isThinking = false;
-      }
+      await this.sendNormal(text)
     },
 
     async sendNormal(text) {
@@ -321,6 +348,36 @@ export default {
       if (!timeStr) return '';
       const date = new Date(timeStr);
       return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+    },
+
+    // ── 收藏功能 ──────────────────────────────────────────────────────────────
+    async loadSavedIds() {
+      try {
+        const items = await getSavedMessages(this.currentChild?.id);
+        this.savedIds = items.map(m => m.conversation_id);
+      } catch (e) {}
+    },
+
+    async toggleSave(msg) {
+      if (!msg.id) return;
+      if (this.savedIds.includes(msg.id)) {
+        // 取消收藏
+        try {
+          const items = await getSavedMessages(this.currentChild?.id);
+          const saved = items.find(m => m.conversation_id === msg.id);
+          if (saved) {
+            await deleteSavedMessage(saved.id);
+            this.savedIds = this.savedIds.filter(id => id !== msg.id);
+            uni.showToast({ title: '已取消收藏', icon: 'none' });
+          }
+        } catch (e) {}
+      } else {
+        try {
+          await saveMessage({ conversation_id: msg.id, child_id: this.currentChild?.id });
+          this.savedIds = [...this.savedIds, msg.id];
+          uni.showToast({ title: '已收藏', icon: 'success' });
+        } catch (e) {}
+      }
     },
   },
 };
@@ -526,6 +583,24 @@ export default {
 }
 
 .message.user .message-time { text-align: right; }
+
+.message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6rpx;
+}
+.message.user .message-footer { flex-direction: row-reverse; }
+
+.save-btn {
+  width: 40rpx; height: 40rpx;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+.save-btn .ph { font-size: 26rpx; color: #A0AEC0; }
+.save-btn.saved .ph { color: #F57F17; }
+.save-btn:active { transform: scale(0.85); }
 
 /* 思考动画 */
 .thinking { padding: 20rpx 24rpx !important; }

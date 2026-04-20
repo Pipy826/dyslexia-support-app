@@ -5,7 +5,7 @@
       <view class="logo-icon">
         <text class="ph ph-plant"></text>
       </view>
-      <view class="logo-title">读写能力智能支持</view>
+      <view class="logo-title">悦读小灯塔</view>
       <view class="logo-subtitle">早发现 · 可解释 · 可干预</view>
     </view>
 
@@ -52,7 +52,9 @@
           maxlength="6"
           class="form-input flex-1"
         />
-        <view class="code-btn" @click="sendCode">获取验证码</view>
+        <view :class="['code-btn', { disabled: codeCooldown > 0 }]" @click="sendCode">
+          {{ codeCooldown > 0 ? codeCooldown + 's后重发' : '获取验证码' }}
+        </view>
       </view>
     </view>
 
@@ -110,7 +112,9 @@
           maxlength="6"
           class="form-input flex-1"
         />
-        <view class="code-btn" @click="sendCode">获取验证码</view>
+        <view :class="['code-btn', { disabled: codeCooldown > 0 }]" @click="sendCode">
+          {{ codeCooldown > 0 ? codeCooldown + 's后重发' : '获取验证码' }}
+        </view>
       </view>
       <view class="input-item">
         <view class="input-icon">
@@ -169,10 +173,10 @@
       </view>
       <view class="agree-text">
         <template v-if="!isRegisterMode">
-          我已阅读并同意 <text class="link">《用户服务协议》</text> 和 <text class="link">《隐私政策》</text>，未注册手机号将自动创建账号。
+          我已阅读并同意 <text class="link" @click="goToTerms">《用户服务协议》</text> 和 <text class="link" @click="goToPrivacy">《隐私政策》</text>，未注册手机号将自动创建账号。
         </template>
         <template v-else>
-          我已阅读并同意 <text class="link">《用户服务协议》</text> 和 <text class="link">《隐私政策》</text>
+          我已阅读并同意 <text class="link" @click="goToTerms">《用户服务协议》</text> 和 <text class="link" @click="goToPrivacy">《隐私政策》</text>
         </template>
       </view>
     </view>
@@ -189,8 +193,20 @@
       <text class="switch-link" @click="toggleRegisterMode">{{ isRegisterMode ? '去登录' : '立即注册' }}</text>
     </view>
 
-    <!-- 第三方快捷登录（暂未开放） -->
-    <!-- <view class="third-party-section" v-if="!isRegisterMode"> ... </view> -->
+    <!-- 第三方快捷登录 -->
+    <!-- #ifdef MP-WEIXIN -->
+    <view class="wx-login-section">
+      <view class="divider">
+        <view class="divider-line"></view>
+        <view class="divider-text">或</view>
+        <view class="divider-line"></view>
+      </view>
+      <button class="wx-login-btn" @click="handleWxLogin" :disabled="wxLoading">
+        <text class="ph ph-wechat-logo wx-icon"></text>
+        {{ wxLoading ? '登录中...' : '微信一键登录' }}
+      </button>
+    </view>
+    <!-- #endif -->
 
     <!-- Toast提示 -->
     <view class="toast" :class="{ show: toastVisible }">{{ toastMessage }}</view>
@@ -198,17 +214,20 @@
 </template>
 
 <script>
-import { login, loginByCode, register, handleLoginSuccess, sendVerifyCode } from '../../../api/auth.js'
+import { login, loginByCode, register, handleLoginSuccess, sendVerifyCode, wxLogin } from '../../../api/auth.js'
 
 export default {
   data() {
     return {
-      loginMode: 'code', // 'code' | 'pwd'
+      loginMode: 'pwd', // 'code' | 'pwd'  默认密码登录，更符合普通用户习惯
       isRegisterMode: false,
       isAgreed: false,
       showPwd: false,
       toastVisible: false,
       toastMessage: '',
+      wxLoading: false,
+      codeCooldown: 0,       // 验证码冷却倒计时（秒）
+      _cooldownTimer: null,  // 计时器引用
       formData: {
         phone: '',
         code: '',
@@ -231,9 +250,38 @@ export default {
     toggleRegisterMode() {
       this.isRegisterMode = !this.isRegisterMode
       this.loginMode = 'code'
+      // 切换模式时清空验证码，防止复用
+      this.formData.code = ''
+      this.regData.code = ''
     },
     toggleAgreement() {
       this.isAgreed = !this.isAgreed
+    },
+    goToTerms() {
+      uni.navigateTo({ url: '/pages/parent/legal/terms' })
+    },
+    goToPrivacy() {
+      uni.navigateTo({ url: '/pages/parent/legal/privacy' })
+    },
+    async handleWxLogin() {
+      this.wxLoading = true
+      try {
+        const res = await wxLogin()
+        handleLoginSuccess(res)
+        uni.showToast({ title: '登录成功', icon: 'success' })
+        setTimeout(() => {
+          if (res.is_new_user) {
+            // 新用户引导创建孩子档案
+            uni.reLaunch({ url: '/pages/parent/auth/create-profile' })
+          } else {
+            uni.reLaunch({ url: '/pages/parent/home/index' })
+          }
+        }, 1000)
+      } catch (e) {
+        this.showToastMsg('微信登录失败，请重试')
+      } finally {
+        this.wxLoading = false
+      }
     },
     showToastMsg(msg) {
       this.toastMessage = msg
@@ -248,9 +296,20 @@ export default {
         this.showToastMsg('请输入正确的11位手机号')
         return
       }
+      if (this.codeCooldown > 0) return
       try {
         await sendVerifyCode(phone)
         this.showToastMsg('验证码已发送')
+        // 启动60秒冷却
+        this.codeCooldown = 60
+        if (this._cooldownTimer) clearInterval(this._cooldownTimer)
+        this._cooldownTimer = setInterval(() => {
+          this.codeCooldown--
+          if (this.codeCooldown <= 0) {
+            clearInterval(this._cooldownTimer)
+            this._cooldownTimer = null
+          }
+        }, 1000)
       } catch (e) {
         this.showToastMsg('发送失败，请重试')
       }
@@ -298,10 +357,11 @@ export default {
             phone: this.regData.phone,
             code: this.regData.code
           })
-          handleLoginSuccess(res)  // 存储 token 和用户信息
+          handleLoginSuccess(res)
           uni.showToast({ title: '注册成功', icon: 'success' })
           setTimeout(() => {
-            uni.navigateTo({ url: '/pages/parent/auth/create-profile' })
+            // 注册成功后引导创建孩子档案
+            uni.reLaunch({ url: '/pages/parent/auth/create-profile' })
           }, 1000)
         } catch (e) {
           this.showToastMsg('注册失败，请重试')
@@ -344,7 +404,11 @@ export default {
             uni.reLaunch({ url: '/pages/parent/home/index' })
           }, 1000)
         } catch (e) {
-          this.showToastMsg('登录失败，请检查账号或验证码')
+          if (this.loginMode === 'code') {
+            this.showToastMsg('验证码错误或已过期，请重新获取')
+          } else {
+            this.showToastMsg('账号或密码错误，请检查后重试')
+          }
         }
       }
     }
@@ -357,6 +421,7 @@ export default {
   min-height: 100vh;
   background: #FFFFFF;
   padding: 128rpx 64rpx 80rpx;
+  overflow-x: hidden;
 }
 
 /* Logo区域 */
@@ -491,6 +556,12 @@ export default {
   flex-shrink: 0;
 }
 
+.code-btn.disabled {
+  background: #F3F4F6;
+  color: #9CA3AF;
+  border-color: #E5E7EB;
+}
+
 .eye-icon {
   position: absolute;
   right: 32rpx;
@@ -612,6 +683,19 @@ export default {
   font-size: 48rpx;
   color: #10B981;
 }
+
+/* 微信登录 */
+.wx-login-section { margin-top: 48rpx; }
+.divider { display: flex; align-items: center; gap: 24rpx; margin-bottom: 32rpx; }
+.divider-line { flex: 1; height: 2rpx; background: #F3F4F6; }
+.divider-text { font-size: 22rpx; color: #9CA3AF; }
+.wx-login-btn {
+  width: 100%; background: #07C160; color: #FFFFFF;
+  border-radius: 32rpx; padding: 32rpx; font-size: 30rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 12rpx;
+  box-shadow: 0 4rpx 16rpx rgba(7,193,96,0.3);
+}
+.wx-icon { font-size: 36rpx; }
 
 /* Toast */
 .toast {

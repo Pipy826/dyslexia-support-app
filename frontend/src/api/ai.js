@@ -1,38 +1,66 @@
 import { post, get, del } from './index.js';
 import { getToken } from '../utils/auth.js';
-
-// ── 基础 URL（与 index.js 保持一致） ─────────────────────────────────────────
-const getBaseUrl = () => {
-  const configured = import.meta.env.VITE_API_BASE_URL || '';
-  if (configured) return configured;
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host !== 'localhost' && host !== '127.0.0.1') {
-      return `http://${host}:8000`;
-    }
-  }
-  return '';
-};
+import { getBaseUrl } from './index.js';
 
 // ── 1. 普通对话 ───────────────────────────────────────────────────────────────
 export const chat = (data) => post('/api/ai/chat', data);
-
-// ── 2. 流式对话（SSE） ────────────────────────────────────────────────────────
+// ── 2. 流式对话（SSE）────────────────────────────────────────────────────────
 /**
- * 流式对话
- * @param {Object} data - { child_id, message }
- * @param {Function} onChunk - 每收到一个文字片段时的回调 (chunk: string) => void
- * @param {Function} onDone  - 流结束时的回调 () => void
- * @param {Function} onError - 出错时的回调 (err) => void
- * @returns {Function} abort - 调用可中断请求
+ * 流式对话 - 兼容微信小程序和H5
+ * 微信小程序使用 wx.request enableChunked 模式
+ * H5 使用 fetch + ReadableStream
  */
 export const chatStream = (data, onChunk, onDone, onError) => {
   const token = getToken();
   const baseUrl = getBaseUrl();
   const url = `${baseUrl}/api/ai/chat/stream`;
 
-  const controller = new AbortController();
+  // #ifdef MP-WEIXIN
+  // 微信小程序：使用 enableChunked 分块接收
+  let buffer = '';
+  const task = wx.request({
+    url,
+    method: 'POST',
+    header: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    data: JSON.stringify(data),
+    enableChunked: true,
+    success() {
+      onDone && onDone();
+    },
+    fail(err) {
+      onError && onError(err);
+    },
+  });
 
+  task.onChunkReceived((res) => {
+    try {
+      const decoder = new TextDecoder('utf-8');
+      const chunk = decoder.decode(new Uint8Array(res.data));
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const jsonStr = line.slice(6).trim();
+        if (!jsonStr) continue;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.chunk) onChunk(parsed.chunk);
+          if (parsed.done) onDone && onDone();
+        } catch (e) {}
+      }
+    } catch (e) {}
+  });
+
+  return () => task.abort();
+  // #endif
+
+  // #ifndef MP-WEIXIN
+  // H5 / App：使用 fetch + ReadableStream
+  const controller = new AbortController();
   fetch(url, {
     method: 'POST',
     headers: {
@@ -43,46 +71,33 @@ export const chatStream = (data, onChunk, onDone, onError) => {
     signal: controller.signal,
   })
     .then(async (resp) => {
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}`);
-      }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const reader = resp.body.getReader();
       const decoder = new TextDecoder('utf-8');
-      let buffer = '';
-
+      let buf = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // 保留未完整的行
-
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const jsonStr = line.slice(6).trim();
           if (!jsonStr) continue;
           try {
             const parsed = JSON.parse(jsonStr);
-            if (parsed.chunk) {
-              onChunk(parsed.chunk);
-            }
-            if (parsed.done) {
-              onDone && onDone();
-            }
-          } catch (_) {
-            // 忽略解析错误
-          }
+            if (parsed.chunk) onChunk(parsed.chunk);
+            if (parsed.done) onDone && onDone();
+          } catch (e) {}
         }
       }
     })
     .catch((err) => {
-      if (err.name !== 'AbortError') {
-        onError && onError(err);
-      }
+      if (err.name !== 'AbortError') onError && onError(err);
     });
-
   return () => controller.abort();
+  // #endif
 };
 
 // ── 3. 对话历史 ───────────────────────────────────────────────────────────────
@@ -110,8 +125,9 @@ export const getEncouragement = (data) =>
   post('/api/ai/encouragement', data);
 
 // ── 7. 成长趋势分析 ───────────────────────────────────────────────────────────
+// AI 分析接口耗时较长，通过 request 的 timeout 参数设置 120 秒
 export const getGrowthAnalysis = (childId) =>
-  get(`/api/ai/growth-analysis/${childId}`);
+  get(`/api/ai/growth-analysis/${childId}`, {}, {}, false, 120000);
 
 // ── 8. 每日学习贴士 ───────────────────────────────────────────────────────────
 export const getDailyTip = (childId) =>
@@ -124,3 +140,15 @@ export const getEmotionalSupport = (reportId) =>
 // ── 10. 自适应难度评估 ────────────────────────────────────────────────────────
 export const evaluateAdaptiveDifficulty = (data) =>
   post('/api/ai/adaptive-difficulty', data);
+
+// ── 11. 专业支持引导 ──────────────────────────────────────────────────────────
+export const getProfessionalGuidance = (childId) =>
+  get(`/api/ai/professional-guidance/${childId}`);
+
+// ── 12. AI 回复收藏 ───────────────────────────────────────────────────────────
+export const saveMessage = (data) => post('/api/ai/saved-messages', data);
+export const getSavedMessages = (childId) => {
+  const params = childId ? { child_id: childId } : {};
+  return get('/api/ai/saved-messages', params);
+};
+export const deleteSavedMessage = (id) => del(`/api/ai/saved-messages/${id}`);

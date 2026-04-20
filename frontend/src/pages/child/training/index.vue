@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="page-container">
     <!-- 顶部 -->
     <view class="top-bar">
@@ -163,14 +163,14 @@ export default {
     },
     startTask(task) {
       if (task.status === 'completed') return
-      if (task.id) {
-        uni.setStorageSync('pending_task_id', task.id)
-      }
-      // reading 映射到 comprehension（后端不支持 reading 类型）
       const typeMap = { reading: 'comprehension' }
       const gameType = typeMap[task.task_type] || task.task_type || 'visual'
+      const child = getCurrentChild()
+      const gradeParam = child?.grade ? `&grade=${encodeURIComponent(child.grade)}` : ''
+      const taskIdParam = task.id ? `&task_id=${task.id}` : ''
+      // 训练模式：跳转到独立训练游戏页，不走筛查流程
       uni.navigateTo({
-        url: `/pages/child/prep/index?game_type=${gameType}`
+        url: `/pages/child/training-game/index?game_type=${gameType}${gradeParam}${taskIdParam}`
       })
     },
     taskIcon(type) {
@@ -195,12 +195,11 @@ export default {
 
 <style scoped>
 /* 创意训练乐园 - 任务卡片流 */
-.page-container { min-height: 100vh; background: #F8FAFF; display: flex; flex-direction: column; padding-bottom: 140rpx; }
+.page-container { min-height: 100vh; background: #F8FAFF; display: flex; flex-direction: column; padding-bottom: 140rpx; overflow-x: hidden; }
 
 .top-bar {
   position: sticky; top: 0; z-index: 30;
-  background: rgba(248, 250, 255, 0.95); backdrop-filter: blur(20rpx);
-  padding: 56rpx 32rpx 20rpx; display: flex; justify-content: space-between; align-items: center;
+  background: rgba(248, 250, 255, 0.95); padding: 56rpx 32rpx 20rpx; display: flex; justify-content: space-between; align-items: center;
 }
 .page-title { font-size: 40rpx; font-weight: 800; color: #2D3748; }
 .stars-badge {
@@ -214,7 +213,7 @@ export default {
 .content-area { flex: 1; padding: 24rpx 32rpx; }
 
 .progress-card {
-  background: linear-gradient(135deg, #4F9EF8 0%, #7C3AED 100%);
+  background: linear-gradient(135deg, #4F9EF8 0%, #3B82F6 100%);
   border-radius: 28rpx; padding: 32rpx; margin-bottom: 32rpx; position: relative; overflow: hidden;
 }
 .progress-card::before {
@@ -229,8 +228,7 @@ export default {
 .progress-track { height: 10rpx; background: rgba(255, 255, 255, 0.2); border-radius: 5rpx; overflow: hidden; position: relative; z-index: 1; }
 .progress-fill { height: 100%; background: rgba(255, 255, 255, 0.9); border-radius: 5rpx; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
 
-.section-title { font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 16rpx; display: flex; align-items: center; gap: 10rpx; }
-.section-title::before { content: ''; display: inline-block; width: 5rpx; height: 24rpx; background: linear-gradient(180deg, #4F9EF8, #A78BFA); border-radius: 3rpx; }
+.section-title { font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 16rpx; }
 
 .loading-row { display: flex; align-items: center; gap: 12rpx; color: #A0AEC0; font-size: 26rpx; font-weight: 600; padding: 24rpx 0; }
 .loading-row .ph { font-size: 32rpx; }
@@ -271,6 +269,22 @@ export default {
 
 .empty-hint { display: flex; flex-direction: column; align-items: center; gap: 12rpx; padding: 48rpx 0; color: #A0AEC0; font-size: 26rpx; font-weight: 600; }
 .empty-hint .ph { font-size: 64rpx; color: #FFD93D; }
+
+/* 底部导航 */
+.bottom-nav {
+  position: fixed; bottom: 16rpx; left: 16rpx; right: 16rpx;
+  display: flex; flex-direction: row; justify-content: space-around; align-items: center;
+  padding: 12rpx 40rpx; padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,0.95); border-radius: 28rpx; z-index: 999;
+  box-shadow: 0 8rpx 32rpx rgba(0,0,0,0.08), 0 0 0 1rpx rgba(0,0,0,0.04);
+}
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4rpx;
+  color: #9CA3AF; padding: 10rpx 32rpx; border-radius: 16rpx;
+}
+.nav-item.active { color: #4F9EF8; }
+.nav-item .ph { font-size: 40rpx; }
+.nav-label { font-size: 20rpx; font-weight: 600; }
 
 .achievements-grid { display: flex; gap: 16rpx; }
 .achievement-card {

@@ -36,7 +36,8 @@ def create_child(
         birth_date=child_data.birth_date,
         grade=child_data.grade,
         avatar_url=child_data.avatar_url,
-        has_difficulty=child_data.has_difficulty
+        has_difficulty=child_data.has_difficulty,
+        has_professional_eval=child_data.has_professional_eval
     )
     db.add(child)
     db.commit()
