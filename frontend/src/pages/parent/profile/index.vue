@@ -47,6 +47,13 @@
       <!-- 服务与设置 -->
       <view class="section-title">服务与设置</view>
       <view class="menu-card">
+        <view class="menu-item" @click="showInviteCode">
+          <view class="menu-icon orange">
+            <text class="ph ph-share-network"></text>
+          </view>
+          <view class="menu-label">邀请好友</view>
+          <text class="menu-arrow">›</text>
+        </view>
         <view class="menu-item" @click="goToReminder">
           <view class="menu-icon green">
             <text class="ph ph-clock"></text>
@@ -153,6 +160,31 @@ export default {
     },
     goToReminder() {
       uni.navigateTo({ url: '/pages/parent/reminder/index' })
+    },
+    async showInviteCode() {
+      try {
+        const { get } = await import('../../../api/index.js')
+        const res = await get('/api/auth/invite-code')
+        const code = res.invite_code || ''
+        uni.showModal({
+          title: '邀请好友',
+          content: `你的邀请码：${code}\n\n分享给好友，邀请他们一起发现孩子的读写潜力！`,
+          confirmText: '复制邀请码',
+          cancelText: '关闭',
+          success: (result) => {
+            if (result.confirm) {
+              uni.setClipboardData({
+                data: code,
+                success: () => {
+                  uni.showToast({ title: '邀请码已复制！', icon: 'success' })
+                },
+              })
+            }
+          },
+        })
+      } catch (e) {
+        uni.showToast({ title: '获取邀请码失败', icon: 'none' })
+      }
     },
     goToAccountEdit() {
       uni.navigateTo({ url: '/pages/parent/account/edit' })

@@ -15,7 +15,7 @@
           <text v-else class="ph ph-user avatar-icon"></text>
           <view class="camera-badge"><text class="ph ph-camera"></text></view>
         </view>
-        <view class="avatar-hint">点击更换头像</view>
+        <view class="avatar-hint">{{ uploading ? '上传中...' : '点击更换头像' }}</view>
       </view>
 
       <!-- 姓名 -->
@@ -48,38 +48,13 @@
         >{{ item.label }}</view>
       </view>
 
-      <!-- 出生年份 -->
-      <view class="section-title">出生年份</view>
-      <view class="tag-grid">
-        <view
-          v-for="y in birthYearOptions"
-          :key="y"
-          :class="['tag-option', { active: formData.birth_year === y }]"
-          @click="formData.birth_year = y"
-        >{{ y }}年</view>
-      </view>
-
-      <!-- 出生月份 -->
-      <view class="section-title">出生月份</view>
-      <view class="tag-grid">
-        <view
-          v-for="m in 12"
-          :key="m"
-          :class="['tag-option', { active: formData.birth_month === m }]"
-          @click="formData.birth_month = m"
-        >{{ m }}月</view>
-      </view>
-
-      <!-- 出生日期 -->
+      <!-- 出生日期（与创建档案保持一致，使用滚轮选择器） -->
       <view class="section-title">出生日期</view>
-      <view class="tag-grid">
-        <view
-          v-for="d in daysInMonth"
-          :key="d"
-          :class="['tag-option', { active: formData.birth_day === d }]"
-          @click="formData.birth_day = d"
-        >{{ d }}日</view>
-      </view>
+      <date-picker-wheel
+        v-model="formData.birth_date"
+        :grade="formData.grade"
+        @change="onBirthDateChange"
+      ></date-picker-wheel>
 
       <!-- 附加信息 -->
       <view class="section-title">附加信息（选填）</view>
@@ -87,7 +62,7 @@
         <view class="check-box">
           <text class="ph ph-check" v-if="formData.hasDifficulty"></text>
         </view>
-        <view class="check-text">已观察到孩子在识字、拼写或阅读方面存在困难（勾选后系统将调整筛查侧重点）</view>
+        <view class="check-text">已观察到孩子在识字、拼写或阅读方面存在困难（勾选后系统将调整能力探索侧重点）</view>
       </view>
       <view class="check-card" :class="{ checked: formData.hasProfessionalEval }" @click="formData.hasProfessionalEval = !formData.hasProfessionalEval">
         <view class="check-box">
@@ -100,7 +75,7 @@
     </scroll-view>
 
     <view class="bottom-bar">
-      <button class="submit-btn" @click="handleSave">
+      <button class="submit-btn" @click="handleSave" :disabled="uploading">
         {{ isEdit ? '保存修改' : '完成创建，进入首页' }}
       </button>
     </view>
@@ -110,9 +85,13 @@
 <script>
 import { createChild, updateChild, getChild } from '../../../api/child.js'
 import { uploadAvatar } from '../../../api/child.js'
+import DatePickerWheel from '../../../components/date-picker/DatePickerWheel.vue'
 
 export default {
+  components: { DatePickerWheel },
   data() {
+    const now = new Date()
+    const defaultYear = now.getFullYear() - 7
     return {
       childId: null,
       isEdit: false,
@@ -121,9 +100,7 @@ export default {
         name: '',
         gender: 'boy',
         grade: '一年级',
-        birth_year: new Date().getFullYear() - 7,
-        birth_month: 6,
-        birth_day: 15,
+        birth_date: `${defaultYear}-06-15`,
         hasDifficulty: false,
         hasProfessionalEval: false,
         avatar_url: ''
@@ -138,30 +115,6 @@ export default {
       ]
     }
   },
-  computed: {
-    birthYearOptions() {
-      const currentYear = new Date().getFullYear()
-      const years = []
-      for (let age = 3; age <= 13; age++) {
-        years.push(currentYear - age)
-      }
-      return years
-    },
-    daysInMonth() {
-      const days = new Date(this.formData.birth_year, this.formData.birth_month, 0).getDate()
-      return Array.from({ length: days }, (_, i) => i + 1)
-    }
-  },
-  watch: {
-    'formData.birth_month'(newMonth) {
-      const maxDay = new Date(this.formData.birth_year, newMonth, 0).getDate()
-      if (this.formData.birth_day > maxDay) this.formData.birth_day = maxDay
-    },
-    'formData.birth_year'(newYear) {
-      const maxDay = new Date(newYear, this.formData.birth_month, 0).getDate()
-      if (this.formData.birth_day > maxDay) this.formData.birth_day = maxDay
-    }
-  },
   onLoad(options) {
     if (options.id || options.child_id) {
       this.childId = parseInt(options.id || options.child_id)
@@ -173,14 +126,11 @@ export default {
     async loadChild() {
       try {
         const child = await getChild(this.childId)
-        const parts = (child.birth_date || '').split('-')
         this.formData = {
           name: child.name,
           gender: child.gender === 'female' ? 'girl' : 'boy',
           grade: child.grade || '一年级',
-          birth_year: parts[0] ? parseInt(parts[0]) : new Date().getFullYear() - 7,
-          birth_month: parts[1] ? parseInt(parts[1]) : 6,
-          birth_day: parts[2] ? parseInt(parts[2]) : 15,
+          birth_date: child.birth_date || `${new Date().getFullYear() - 7}-06-15`,
           hasDifficulty: child.has_difficulty || false,
           hasProfessionalEval: child.has_professional_eval || false,
           avatar_url: child.avatar_url || ''
@@ -188,6 +138,9 @@ export default {
       } catch (e) {
         uni.showToast({ title: '加载失败', icon: 'none' })
       }
+    },
+    onBirthDateChange({ date }) {
+      this.formData.birth_date = date
     },
     goBack() { uni.navigateBack() },
     getAvatarUrl(path) {
@@ -224,7 +177,7 @@ export default {
         const data = {
           name: this.formData.name,
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
-          birth_date: `${this.formData.birth_year}-${String(this.formData.birth_month).padStart(2,'0')}-${String(this.formData.birth_day).padStart(2,'0')}`,
+          birth_date: this.formData.birth_date,
           grade: this.formData.grade,
           has_difficulty: this.formData.hasDifficulty,
           has_professional_eval: this.formData.hasProfessionalEval,
@@ -286,6 +239,7 @@ export default {
   position: absolute; bottom: 4rpx; right: 4rpx;
   width: 44rpx; height: 44rpx; border-radius: 50%;
   background: #4F9EF8; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.15);
 }
 .camera-badge .ph { font-size: 22rpx; color: #FFFFFF; }
 .avatar-hint { font-size: 22rpx; color: #A0AEC0; font-weight: 500; }
@@ -343,4 +297,5 @@ export default {
   border-radius: 20rpx; padding: 28rpx; font-size: 30rpx; font-weight: 700;
   box-shadow: 0 4rpx 16rpx rgba(59,130,246,0.3);
 }
+.submit-btn[disabled] { opacity: 0.6; }
 </style>

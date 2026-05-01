@@ -9,7 +9,7 @@
         </view>
         <view class="user-text">
           <view class="hello">你好，{{ childName }}！</view>
-          <view class="welcome">准备好今天的挑战了吗？</view>
+          <view class="welcome">今天玩哪个文字游戏？</view>
         </view>
       </view>
       <view class="top-right">
@@ -38,8 +38,8 @@
         </view>
       </view>
 
-      <view class="title">语言探险之旅</view>
-      <view class="subtitle">选一个挑战，收集小星星！</view>
+      <view class="title">文字游戏大挑战</view>
+      <view class="subtitle">选一个游戏，赢取小星星！</view>
 
       <!-- 游戏类型卡片 -->
       <view class="game-grid">
@@ -63,13 +63,24 @@
         </view>
       </view>
 
-      <!-- 开始按钮 -->
       <button class="start-btn" @click="startChallenge">
-        <text class="ph ph-play"></text> 开始挑战
+        <text class="ph ph-play"></text> 开始游戏
       </button>
 
       <view class="parent-tip">
         <text class="ph ph-info"></text> 请在安静环境下独立完成
+      </view>
+
+      <!-- 成就徽章区域 -->
+      <view class="badges-section" v-if="earnedBadges.length > 0 || true">
+        <view class="badges-header">
+          <view class="badges-title">我的成就</view>
+          <view class="badges-count" v-if="earnedBadges.length > 0">已获得 {{ earnedBadges.length }} 个</view>
+        </view>
+        <badge-grid
+          :earned-badges="earnedBadges"
+          :new-badge-keys="newBadgeKeys"
+        ></badge-grid>
       </view>
 
       <!-- 底部安全区 -->
@@ -80,7 +91,7 @@
     <view class="child-tab-bar">
       <view class="child-tab-item active" @click="goToHome">
         <text class="ph-fill ph-game-controller"></text>
-        <view class="child-tab-label">挑战</view>
+        <view class="child-tab-label">游戏</view>
       </view>
       <view class="child-tab-item" @click="goToTraining">
         <text class="ph-fill ph-tree"></text>
@@ -134,67 +145,80 @@
 <script>
 import { getCurrentChild, getUser } from '../../../utils/auth.js'
 import { getTotalStars } from '../../../api/training.js'
-import { login } from '../../../api/auth.js'
-import { getBaseUrl } from '../../../api/index.js'
+import { verifyPassword } from '../../../api/auth.js'
+import BadgeGrid from '../../../components/game/BadgeGrid.vue'
+import { get } from '../../../api/index.js'
+
+// 获取徽章列表（过滤 reward_type=badge）
+async function fetchBadges(childId) {
+  try {
+    return await get('/api/training/rewards', { child_id: childId, reward_type: 'badge' }) || []
+  } catch (e) {
+    return []
+  }
+}
 
 const ALL_GAME_TYPES = [
   {
-    type: 'visual',
-    name: '视觉辨识',
-    desc: '找不同，练眼力',
-    icon: 'ph-eye',
-    color: '#4F9EF8',
-    bg: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
-  },
-  {
-    type: 'spelling',
-    name: '拼字识别',
-    desc: '认汉字，练拼写',
-    icon: 'ph-text-aa',
-    color: '#A78BFA',
-    bg: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)',
-  },
-  {
     type: 'comprehension',
-    name: '文字理解',
-    desc: '读故事，练理解',
+    name: '阅读理解',
+    desc: '读故事，答问题',
     icon: 'ph-book-open',
     color: '#22C55E',
     bg: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)',
   },
   {
-    type: 'working_memory',
-    name: '工作记忆',
-    desc: '记序列，练记忆',
-    icon: 'ph-brain',
-    color: '#F97316',
-    bg: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)',
+    type: 'spelling',
+    name: '文字认读',
+    desc: '认汉字，找规律',
+    icon: 'ph-text-aa',
+    color: '#A78BFA',
+    bg: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)',
   },
   {
     type: 'rapid_naming',
-    name: '快速命名',
-    desc: '快说出，练反应',
+    name: '快速阅读',
+    desc: '快速说出，练反应',
     icon: 'ph-lightning',
     color: '#EAB308',
     bg: 'linear-gradient(135deg, #FEFCE8, #FEF9C3)',
   },
   {
+    type: 'visual',
+    name: '找不同',
+    desc: '观察图形，找差异',
+    icon: 'ph-eye',
+    color: '#4F9EF8',
+    bg: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
+  },
+  {
+    type: 'working_memory',
+    name: '记忆游戏',
+    desc: '记住序列，练记忆',
+    icon: 'ph-brain',
+    color: '#F97316',
+    bg: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)',
+  },
+  {
     type: 'motor_coordination',
-    name: '精细动作',
-    desc: '判线条，练协调',
-    icon: 'ph-hand',
+    name: '书写练习',
+    desc: '判断笔画，练书写',
+    icon: 'ph-pencil-simple',
     color: '#EC4899',
     bg: 'linear-gradient(135deg, #FDF2F8, #FCE7F3)',
   },
 ]
 
 export default {
+  components: { BadgeGrid },
   data() {
     return {
       child: null,
       totalStars: 0,
       selectedGameType: 'visual',
       allGameTypes: ALL_GAME_TYPES,
+      earnedBadges: [],
+      newBadgeKeys: [],
       // 退出弹窗
       showExitModal: false,
       exitPassword: '',
@@ -228,6 +252,7 @@ export default {
       return
     }
     this.loadStars()
+    this.loadBadges()
   },
   // 拦截手势/物理返回键，必须输入密码才能退出儿童模式
   onBackPress(options) {
@@ -242,6 +267,17 @@ export default {
         this.totalStars = res.total_stars || 0
       } catch (e) {
         console.warn('加载星星失败', e)
+      }
+    },
+    async loadBadges() {
+      if (!this.child) return
+      try {
+        this.earnedBadges = await fetchBadges(this.child.id)
+        // 检查是否有新获得的徽章（从 last_game_result 读取）
+        const gameResult = uni.getStorageSync('last_game_result') || {}
+        this.newBadgeKeys = gameResult.new_badges || []
+      } catch (e) {
+        console.warn('加载徽章失败', e)
       }
     },
     goToHome() {
@@ -305,33 +341,8 @@ export default {
       this.exitLoading = true
       this.exitError = ''
       try {
-        const user = getUser()
-        if (!user?.username) {
-          this.exitError = '无法获取家长账号信息'
-          this.exitLoading = false
-          return
-        }
-        // 直接用 uni.request 绕过全局拦截器，避免密码错误时被强制登出
-        const baseUrl = getBaseUrl() || (typeof window !== 'undefined'
-          ? `${window.location.protocol}//${window.location.hostname}:8000`
-          : 'http://localhost:8000')
-        await new Promise((resolve, reject) => {
-          uni.request({
-            url: baseUrl + '/api/auth/login',
-            method: 'POST',
-            data: { username: user.username, password: this.exitPassword },
-            header: { 'Content-Type': 'application/json' },
-            timeout: 10000,
-            success: (res) => {
-              if (res.statusCode >= 200 && res.statusCode < 300) {
-                resolve(res.data)
-              } else {
-                reject(new Error('密码错误'))
-              }
-            },
-            fail: (err) => reject(err),
-          })
-        })
+        // 使用专用的密码验证接口，不会触发全局登出拦截器
+        await verifyPassword(this.exitPassword)
         // 验证通过
         this.showExitModal = false
         this.exitPassword = ''
@@ -542,6 +553,32 @@ export default {
   font-weight: 500;
 }
 .parent-tip .ph { font-size: 20rpx; margin-right: 6rpx; }
+
+/* ── 成就徽章区域 ── */
+.badges-section {
+  margin-top: 24rpx;
+  width: 100%;
+}
+
+.badges-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.badges-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #2D3748;
+}
+
+.badges-count {
+  font-size: 20rpx;
+  color: #A0AEC0;
+  font-weight: 500;
+}
 
 /* ── 底部导航 ── */
 .child-tab-bar {

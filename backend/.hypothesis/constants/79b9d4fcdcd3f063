@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\database.py
+# hypothesis_version: 6.151.12
+
+['INTEGER', 'accuracy', 'charset', 'check_same_thread', 'correct_count', 'mysql', 'name', 'sqlite', 'total_count', 'training_tasks', 'utf8mb4']

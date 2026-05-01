@@ -16,6 +16,27 @@ export const removeToken = () => {
   uni.removeStorageSync(TOKEN_KEY);
 };
 
+/**
+ * 检查 token 是否已过期（解析 JWT payload 中的 exp 字段）
+ * 提前 60 秒判定为过期，避免边界情况
+ * @returns {boolean} true = 已过期或无效
+ */
+export const isTokenExpired = () => {
+  const token = getToken();
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    // Base64url 解码 payload
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload.exp) return false; // 没有 exp 字段，视为永不过期
+    // 提前 60 秒判定过期
+    return Date.now() / 1000 > payload.exp - 60;
+  } catch (e) {
+    return true; // 解析失败视为过期
+  }
+};
+
 // 用户信息操作
 export const setUser = (user) => {
   if (user) {

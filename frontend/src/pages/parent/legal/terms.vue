@@ -7,12 +7,12 @@
       <view class="header-title">用户服务协议</view>
     </view>
     <scroll-view class="page-content" scroll-y>
-      <view class="doc-title">儿童读写障碍智能筛查与干预系统用户服务协议</view>
+      <view class="doc-title">悦读小灯塔用户服务协议</view>
       <view class="doc-date">更新日期：2024年1月1日</view>
 
       <view class="section">
         <view class="section-title">一、服务说明</view>
-        <view class="section-body">本产品（"悦读小灯塔"）是一款面向家庭场景的儿童读写能力智能筛查与干预支持工具。本产品不是医疗诊断工具，筛查结果仅供家庭参考，不构成任何医学诊断意见。</view>
+        <view class="section-body">本产品（"悦读小灯塔"）是一款面向家庭场景的儿童读写能力发展游戏平台。本产品不是医疗诊断工具，游戏评估结果仅供家庭参考，不构成任何医学诊断意见。</view>
       </view>
 
       <view class="section">
@@ -32,7 +32,7 @@
 
       <view class="section">
         <view class="section-title">五、免责声明</view>
-        <view class="section-body">本产品的筛查结果基于游戏化行为数据分析，存在一定误差范围。高风险结果不等于医学诊断，低风险结果也不排除存在问题的可能性。如有疑虑，请咨询专业医疗机构。</view>
+        <view class="section-body">本产品的评估结果基于游戏化行为数据分析，存在一定误差范围。"需要更多关注"的结果不等于医学诊断，"表现良好"的结果也不排除存在问题的可能性。如有疑虑，请咨询专业医疗机构。</view>
       </view>
 
       <view class="section">

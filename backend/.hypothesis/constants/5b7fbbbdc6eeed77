@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\api\training.py
+# hypothesis_version: 6.151.12
+
+[100, 400, 404, 2000, '/api/training', '/growth', '/rewards', '/stars', '/tasks', 'Child not found', 'Task not found', 'accuracy', 'all_games', 'avg_reaction_time_ms', 'badge', 'badge_display_name', 'badge_icon', 'badge_key', 'child_id', 'completed', 'completed_game_types', 'comprehension', 'current_streak', 'desc', 'description', 'earned_at', 'first_game', 'icon', 'id', 'is_first_game', 'month_streak', 'name', 'perfect_score', 'ph-star', 'reading', 'reward_type', 'speed_demon', 'star', 'streak_bonus', 'total_stars', 'training', 'training_complete', 'week_streak', '孩子', '完成一次训练任务', '训练', '训练之星', '连续打卡奖励', '🏅']

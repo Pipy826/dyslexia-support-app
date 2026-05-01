@@ -143,6 +143,9 @@ export default {
       const child = getCurrentChild()
       this.grade = child?.grade || ''
     }
+    // 保存游客模式参数，startGame 时透传给 game 页面
+    this._guestMode = options.guest_mode || ''
+    this._guestId = options.guest_id || ''
     this.startAnimations()
   },
   onUnload() {
@@ -209,8 +212,11 @@ export default {
 
     startGame() {
       const gradeParam = this.grade ? `&grade=${this.grade}` : ''
+      const guestParams = this._guestMode
+        ? `&guest_mode=${this._guestMode}&guest_id=${this._guestId}`
+        : ''
       uni.navigateTo({
-        url: `/pages/child/game/index?game_type=${this.gameType}${gradeParam}`
+        url: `/pages/child/game/index?game_type=${this.gameType}${gradeParam}${guestParams}`
       })
     }
   }

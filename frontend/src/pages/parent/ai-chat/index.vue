@@ -55,6 +55,17 @@
             <!-- 流式光标 -->
             <text class="cursor" v-if="msg.streaming">▋</text>
           </view>
+          <!-- 专业问题跳转提示 -->
+          <view class="professional-hint" v-if="msg.need_professional && !msg.streaming" @click="contactProfessional">
+            <view class="pro-hint-icon">
+              <text class="ph ph-user-circle-gear"></text>
+            </view>
+            <view class="pro-hint-text">
+              <view class="pro-hint-title">联系专业导师</view>
+              <view class="pro-hint-sub">{{ contactPhone }}</view>
+            </view>
+            <text class="ph ph-arrow-right pro-hint-arrow"></text>
+          </view>
           <view class="message-footer" v-if="msg.created_at && !msg.streaming">
             <view class="message-time">{{ formatTime(msg.created_at) }}</view>
             <!-- 收藏按钮（仅 AI 回复） -->
@@ -119,7 +130,7 @@
 </template>
 
 <script>
-import { chat, chatStream, getChatHistory, clearChatHistory, saveMessage, getSavedMessages, deleteSavedMessage } from '../../../api/ai.js';
+import { chat, chatStream, getChatHistory, clearChatHistory, saveMessage, getSavedMessages, deleteSavedMessage, getContactInfo } from '../../../api/ai.js';
 import { getCurrentChild } from '../../../utils/auth.js';
 import { getReports } from '../../../api/report.js';
 
@@ -133,6 +144,7 @@ export default {
       isStreaming: false,
       scrollTop: 0,
       _abortStream: null,
+      contactPhone: '0755-33941800',  // 默认值，会从后端动态加载
 
       quickQuestions: [
         { text: '什么是视觉加工速度慢？', icon: 'ph ph-eye' },
@@ -141,7 +153,7 @@ export default {
         { text: '孩子的风险等级怎么理解？', icon: 'ph ph-chart-bar' },
       ],
       reportContext: null,
-      savedIds: [],  // 已收藏的 conversation_id 数组（Set 在 Vue 响应式中不可靠）
+      savedIds: [],
     };  },
 
   onLoad(options) {
@@ -153,13 +165,32 @@ export default {
     this.loadHistory();
     this.loadReportContext();
     this.loadSavedIds();
+    this.loadContactInfo();
   },
   onUnload() {
-    // 页面卸载时中断流式请求
     if (this._abortStream) this._abortStream();
   },
 
   methods: {
+    async loadContactInfo() {
+      try {
+        const res = await getContactInfo()
+        if (res.phone) this.contactPhone = res.phone
+      } catch (e) {
+        // 静默失败，使用默认值
+      }
+    },
+
+    contactProfessional() {
+      uni.showActionSheet({
+        itemList: [`拨打电话：${this.contactPhone}`, '取消'],
+        success: (res) => {
+          if (res.tapIndex === 0) {
+            uni.makePhoneCall({ phoneNumber: this.contactPhone })
+          }
+        }
+      })
+    },
     async loadHistory() {      try {
         const history = await getChatHistory(this.currentChild?.id);
         this.messages = history.map((h) => ({
@@ -238,6 +269,7 @@ export default {
         message: '',
         streaming: true,
         created_at: null,
+        need_professional: false,
       });
 
       this._abortStream = chatStream(
@@ -251,17 +283,20 @@ export default {
           this.scrollToBottom();
         },
         // onDone
-        () => {
+        (doneData) => {
           this.messages[aiMsgIndex].streaming = false;
           this.messages[aiMsgIndex].created_at = new Date().toISOString();
+          // 解析专业问题标记
+          if (doneData && doneData.need_professional) {
+            this.messages[aiMsgIndex].need_professional = true;
+          }
           this.isStreaming = false;
           this.isThinking = false;
           this._abortStream = null;
         },
-        // onError：流式失败时提示用户重试（用户消息已入库，不重复调用避免重复入库）
+        // onError
         (err) => {
           console.error('流式请求失败', err);
-          // 移除空的 AI 占位消息
           this.messages.splice(aiMsgIndex, 1);
           this.isStreaming = false;
           this.isThinking = false;
@@ -287,6 +322,7 @@ export default {
           role: 'assistant',
           message: res.reply,
           created_at: new Date().toISOString(),
+          need_professional: res.need_professional || false,
         });
         this.scrollToBottom();
       } catch (e) {
@@ -591,6 +627,60 @@ export default {
   margin-top: 6rpx;
 }
 .message.user .message-footer { flex-direction: row-reverse; }
+
+/* 专业问题跳转提示 */
+.professional-hint {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: linear-gradient(135deg, #F5F3FF, #EDE9FE);
+  border: 2rpx solid #DDD6FE;
+  border-radius: 16rpx;
+  padding: 16rpx 20rpx;
+  margin-top: 12rpx;
+  transition: all 0.2s;
+}
+
+.professional-hint:active {
+  transform: scale(0.98);
+}
+
+.pro-hint-icon {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 12rpx;
+  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pro-hint-icon .ph {
+  font-size: 24rpx;
+  color: #FFFFFF;
+}
+
+.pro-hint-text { flex: 1; }
+
+.pro-hint-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #5B21B6;
+}
+
+.pro-hint-sub {
+  font-size: 18rpx;
+  color: #7C3AED;
+  margin-top: 2rpx;
+  font-weight: 500;
+}
+
+.pro-hint-arrow {
+  font-size: 22rpx;
+  color: #7C3AED;
+  flex-shrink: 0;
+}
 
 .save-btn {
   width: 40rpx; height: 40rpx;

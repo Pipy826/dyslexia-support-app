@@ -1,7 +1,8 @@
 import { get } from './index.js';
 
-export const getReports = (childId) => {
-  const params = childId ? { child_id: childId } : {};
+export const getReports = (childId, limit = 20, offset = 0) => {
+  const params = { limit, offset };
+  if (childId) params.child_id = childId;
   return get('/api/reports/', params);
 };
 
@@ -20,3 +21,8 @@ export const getMergedDimensions = (childId) => get(`/api/reports/child/${childI
  * 服务端导出报告文字内容
  */
 export const exportReportText = (id) => get(`/api/reports/${id}/export-text`)
+
+/**
+ * 获取孩子的成长日记数据
+ */
+export const getGrowthDiary = (childId) => get(`/api/reports/growth-diary/${childId}`)

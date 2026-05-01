@@ -174,16 +174,48 @@ export default {
       })
     },
     taskIcon(type) {
-      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', reading: 'ph-book-open', comprehension: 'ph-book-open' }[type] || 'ph-star'
+      return {
+        visual: 'ph-eye',
+        spelling: 'ph-puzzle-piece',
+        reading: 'ph-book-open',
+        comprehension: 'ph-book-open',
+        working_memory: 'ph-brain',
+        rapid_naming: 'ph-lightning',
+        motor_coordination: 'ph-hand',
+      }[type] || 'ph-star'
     },
     taskColor(type) {
-      return { visual: 'orange', spelling: 'blue', reading: 'green', comprehension: 'green' }[type] || 'blue'
+      return {
+        visual: 'orange',
+        spelling: 'blue',
+        reading: 'green',
+        comprehension: 'green',
+        working_memory: 'orange',
+        rapid_naming: 'blue',
+        motor_coordination: 'green',
+      }[type] || 'blue'
     },
     taskDefaultName(type) {
-      return { visual: '火眼金睛', spelling: '拼字小达人', reading: '故事大王', comprehension: '故事大王' }[type] || '训练任务'
+      return {
+        visual: '火眼金睛',
+        spelling: '拼字小达人',
+        reading: '故事大王',
+        comprehension: '故事大王',
+        working_memory: '记忆训练',
+        rapid_naming: '快速命名',
+        motor_coordination: '精细动作',
+      }[type] || '训练任务'
     },
     taskDesc(type) {
-      return { visual: '找出不一样的字', spelling: '把字拼完整', reading: '读句子选图片', comprehension: '读句子选图片' }[type] || ''
+      return {
+        visual: '找出不一样的字',
+        spelling: '把字拼完整',
+        reading: '读句子选图片',
+        comprehension: '读句子选图片',
+        working_memory: '记住序列顺序',
+        rapid_naming: '快速说出名称',
+        motor_coordination: '判断线条方向',
+      }[type] || ''
     },
     goToChallenge() {
       uni.redirectTo({ url: '/pages/child/home/index' })

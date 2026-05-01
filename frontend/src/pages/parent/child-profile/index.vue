@@ -25,15 +25,15 @@
         </view>
       </view>
 
-      <!-- 筛查统计 -->
+      <!-- 探索统计 -->
       <view class="stats-row">
         <view class="stat-card">
           <view class="stat-val blue">{{ screeningCount }}</view>
-          <view class="stat-label">筛查次数</view>
+          <view class="stat-label">探索次数</view>
         </view>
         <view class="stat-card">
           <view class="stat-val" :class="latestRiskClass">{{ latestRiskLabel }}</view>
-          <view class="stat-label">最新风险</view>
+          <view class="stat-label">最新关注等级</view>
         </view>
         <view class="stat-card">
           <view class="stat-val green">{{ completedTaskCount }}</view>
@@ -82,8 +82,8 @@
         </view>
       </view>
 
-      <!-- 历史筛查记录 -->
-      <view class="section-title" v-if="screenings.length > 0">历史筛查记录</view>
+      <!-- 历史探索记录 -->
+      <view class="section-title" v-if="screenings.length > 0">历史探索记录</view>
       <view class="screening-list" v-if="screenings.length > 0">
         <view
           class="screening-item"
@@ -95,7 +95,7 @@
             <text class="ph ph-file-text"></text>
           </view>
           <view class="screening-info">
-            <view class="screening-name">{{ gameTypeName(s.game_type) }}筛查</view>
+            <view class="screening-name">{{ gameTypeName(s.game_type) }}能力探索</view>
             <view class="screening-date">{{ formatDate(s.created_at) }}</view>
           </view>
           <view class="screening-right">
@@ -108,7 +108,7 @@
       <!-- 操作按钮 -->
       <view class="action-btns">
         <button class="action-btn primary" @click="goToScreening">
-          <text class="ph ph-play"></text> 发起筛查
+          <text class="ph ph-play"></text> 开始能力探索
         </button>
         <button class="action-btn danger" @click="confirmDelete">
           <text class="ph ph-trash"></text> 删除档案
@@ -156,7 +156,7 @@ export default {
     screeningCount() { return this.screenings.length },
     latestRiskLabel() {
       const s = this.screenings[0]
-      return s ? { low: '低风险', medium: '中风险', high: '高风险' }[s.risk_level] || '—' : '暂无'
+      return s ? { low: '表现良好', medium: '有些地方可以加强', high: '需要更多关注' }[s.risk_level] || '—' : '暂无'
     },
     latestRiskClass() {
       const s = this.screenings[0]
@@ -217,7 +217,7 @@ export default {
       return { visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解', working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作' }[type] || type
     },
     riskLabel(level) {
-      return { low: '低风险', medium: '中风险', high: '高风险' }[level] || level
+      return { low: '表现良好', medium: '有些地方可以加强', high: '需要更多关注' }[level] || level
     },
     formatDate(dateStr) {
       if (!dateStr) return ''
@@ -290,7 +290,7 @@ export default {
 .info-val.blue { color: #4F9EF8; }
 .info-val.gray { color: #A0AEC0; }
 
-/* 筛查记录 */
+/* 探索记录 */
 .screening-list { display: flex; flex-direction: column; gap: 12rpx; margin-bottom: 24rpx; }
 .screening-item { background: #FFFFFF; border-radius: 20rpx; padding: 20rpx 24rpx; display: flex; align-items: center; gap: 16rpx; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04); transition: all 0.2s; }
 .screening-item:active { transform: scale(0.98); }

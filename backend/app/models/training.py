@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Date
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Date, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database import Base
@@ -38,3 +38,17 @@ class GrowthRecord(Base):
 
     # Relationships
     child = relationship("Child", back_populates="growth_records")
+
+
+class CheckInRecord(Base):
+    __tablename__ = "check_in_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    child_id = Column(Integer, ForeignKey("children.id", ondelete="CASCADE"), nullable=False, index=True)
+    check_in_date = Column(Date, nullable=False)
+    streak_count = Column(Integer, default=1)  # 连续天数
+    reward_granted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    child = relationship("Child", back_populates="check_in_records")

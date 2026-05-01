@@ -1,20 +1,28 @@
 ﻿<template>
-  <view class="page-container">
-    <!-- 游戏顶部：进度条与退出 -->
-    <view class="game-header">
+  <view class="page-container" :style="{ '--game-primary': gameTheme.primary, '--game-gradient': gameTheme.gradient }">
+    <!-- 游戏顶部：渐变背景 + 进度条与退出 -->
+    <view class="game-header" :style="{ background: gameTheme.gradient }">
       <button class="exit-btn" @click="exitGame">
         <text class="ph ph-x"></text>
       </button>
       <view class="progress-section">
-        <view class="progress-track">
-          <view class="progress-fill" :style="{ width: progressPercent + '%' }"></view>
-        </view>
+        <!-- 关卡地图替换原有星星进度条 -->
+        <level-map
+          v-if="questions.length > 0"
+          :questions="questions"
+          :current-index="currentIndex"
+        ></level-map>
         <view class="progress-text">{{ currentIndex + 1 }}/{{ questions.length }}</view>
       </view>
-      <view class="timer-badge" :class="{ warning: timeLeft <= 3 }">
-        <text class="ph ph-timer"></text>
-        {{ timeLeft }}s
-      </view>
+      <circle-timer
+        :time-left="timeLeft"
+        :total-time="currentTimeLimit || currentQuestion?.time_limit || 10"
+      ></circle-timer>
+    </view>
+
+    <!-- 吉祥物区域 -->
+    <view class="mascot-area" v-if="!loading && currentQuestion && !showResult">
+      <mascot :state="mascotState" :show-bubble="true"></mascot>
     </view>
 
     <!-- 加载中 -->
@@ -27,73 +35,92 @@
 
     <!-- 游戏核心区域 -->
     <view class="game-content" v-else-if="currentQuestion && !showResult">
-      <view class="question-area">
-        <view class="question-header">
-          <button class="audio-btn" @click="playAudio">
-            <text class="ph ph-speaker-high"></text>
-          </button>
-          <view class="question-title">{{ currentQuestion.title }}</view>
-        </view>
-        <view class="question-instruction">{{ currentQuestion.instruction }}</view>
-
-        <!-- 文字理解题：支持重复阅读（记录次数） -->
-        <view class="reread-bar" v-if="currentQuestion.type === 'reading_comprehension' && rereadCount > 0">
-          <text class="ph ph-eye"></text> 已重读 {{ rereadCount }} 次
-        </view>
-
-        <!-- 视觉辨识：2x2 大字格 -->
-        <view class="options-grid" v-if="currentQuestion.type === 'visual_discrimination'">
-          <view
-            v-for="(option, index) in currentQuestion.options"
-            :key="index"
-            :class="['option-char', getOptionClass(index)]"
-            @click="selectAnswer(index)"
-          >
-            {{ option }}
+      <view class="question-card">
+        <view class="question-area">
+          <view class="question-header">
+            <button class="audio-btn" @click="playAudio">
+              <text class="ph ph-speaker-high"></text>
+            </button>
+            <view class="question-title">{{ currentQuestion.title }}</view>
           </view>
-        </view>
+          <view class="question-instruction">{{ currentQuestion.instruction }}</view>
 
-        <!-- 工作记忆序列：突出显示序列内容 -->
-        <view class="options-list" v-else-if="currentQuestion.type === 'working_memory_sequence'">
-          <view
-            v-for="(option, index) in currentQuestion.options"
-            :key="index"
-            :class="['option-item', 'option-sequence', getOptionClass(index)]"
-            @click="selectAnswer(index)"
-          >
-            <view class="option-label">{{ ['A','B','C','D'][index] }}</view>
-            <view class="option-text">{{ option }}</view>
+          <!-- 文字理解题：支持重复阅读（记录次数） -->
+          <view class="reread-bar" v-if="currentQuestion.type === 'reading_comprehension' && rereadCount > 0">
+            <text class="ph ph-eye"></text> 已重读 {{ rereadCount }} 次
           </view>
-        </view>
 
-        <!-- 排序题型：点击上移/下移调整顺序 -->
-        <view class="sort-container" v-else-if="currentQuestion.type === 'sort_order'">
-          <view class="sort-item" v-for="(item, idx) in sortItems" :key="item.originalIndex">
-            <view class="sort-num">{{ idx + 1 }}</view>
-            <view class="sort-text">{{ item.text }}</view>
-            <view class="sort-btns">
-              <view class="sort-btn" :class="{ disabled: idx === 0 }" @click="moveUp(idx)">↑</view>
-              <view class="sort-btn" :class="{ disabled: idx === sortItems.length - 1 }" @click="moveDown(idx)">↓</view>
+          <!-- 图片选择题型 -->
+          <image-choice
+            v-if="currentQuestion.interaction_type === 'image'"
+            :options="currentQuestion.image_options || []"
+            :correct-value="showFeedback ? currentQuestion.correct_value : undefined"
+            :disabled="showFeedback"
+            @select="handleImageSelect"
+          ></image-choice>
+
+          <!-- 拖拽排序题型（interaction_type） -->
+          <drag-sort
+            v-else-if="currentQuestion.interaction_type === 'drag'"
+            :items="currentQuestion.drag_items || []"
+            :disabled="showFeedback"
+            @change="handleDragChange"
+            @confirm="handleDragConfirm"
+          ></drag-sort>
+
+          <!-- 视觉辨识：2x2 大字格 -->
+          <view :class="['options-grid', { shake: shakeOptions }]" v-else-if="currentQuestion.type === 'visual_discrimination'">
+            <view
+              v-for="(option, index) in currentQuestion.options"
+              :key="index"
+              :class="['option-char', getOptionClass(index)]"
+              @click="selectAnswer(index)"
+            >
+              {{ option }}
             </view>
           </view>
-          <button class="confirm-sort-btn" @click="confirmSortAnswer">确认顺序 ✓</button>
-        </view>
 
-        <!-- 其他题型：竖向列表 -->
-        <view class="options-list" v-else>
-          <view
-            v-for="(option, index) in currentQuestion.options"
-            :key="index"
-            :class="['option-item', getOptionClass(index)]"
-            @click="selectAnswer(index)"
-          >
-            <view class="option-label">{{ ['A','B','C','D'][index] }}</view>
-            <view class="option-text">{{ option }}</view>
+          <!-- 工作记忆序列：突出显示序列内容 -->
+          <view class="options-list" v-else-if="currentQuestion.type === 'working_memory_sequence'">
+            <view
+              v-for="(option, index) in currentQuestion.options"
+              :key="index"
+              :class="['option-item', 'option-sequence', getOptionClass(index)]"
+              @click="selectAnswer(index)"
+            >
+              <view class="option-label">{{ ['A','B','C','D'][index] }}</view>
+              <view class="option-text">{{ option }}</view>
+            </view>
+          </view>
+
+          <!-- 排序题型：点击上移/下移调整顺序 -->
+          <view class="sort-container" v-else-if="currentQuestion.type === 'sort_order'">
+            <view class="sort-item" v-for="(item, idx) in sortItems" :key="item.originalIndex">
+              <view class="sort-num">{{ idx + 1 }}</view>
+              <view class="sort-text">{{ item.text }}</view>
+              <view class="sort-btns">
+                <view class="sort-btn" :class="{ disabled: idx === 0 }" @click="moveUp(idx)">↑</view>
+                <view class="sort-btn" :class="{ disabled: idx === sortItems.length - 1 }" @click="moveDown(idx)">↓</view>
+              </view>
+            </view>
+            <button class="confirm-sort-btn" @click="confirmSortAnswer">确认顺序 ✓</button>
+          </view>
+
+          <!-- 其他题型：竖向列表 -->
+          <view :class="['options-list', { shake: shakeOptions }]" v-else>
+            <view
+              v-for="(option, index) in currentQuestion.options"
+              :key="index"
+              :class="['option-item', getOptionClass(index)]"
+              @click="selectAnswer(index)"
+            >
+              <view class="option-label">{{ ['A','B','C','D'][index] }}</view>
+              <view class="option-text">{{ option }}</view>
+            </view>
           </view>
         </view>
       </view>
     </view>
-
     <!-- 答题反馈遮罩 -->
     <view class="feedback-overlay" v-if="showFeedback">
       <view :class="['feedback-icon', lastCorrect === true ? 'correct' : lastCorrect === false ? 'wrong' : 'neutral']">
@@ -106,6 +133,11 @@
       <view class="feedback-correct" v-if="lastCorrect === false && currentCorrectAnswer">
         正确答案：<text class="feedback-answer">{{ currentCorrectAnswer }}</text>
       </view>
+    </view>
+
+    <!-- 粒子动画（答对时，独立于反馈遮罩之外） -->
+    <view class="particles-overlay" v-if="showParticles">
+      <view class="particle" v-for="(p, i) in particles" :key="i" :style="p.style">{{ p.emoji }}</view>
     </view>
 
     <!-- 难度调整提示 -->
@@ -130,17 +162,27 @@
 </template>
 
 <script>
-import { getQuestions, startScreening, submitScreening } from '../../../api/screening.js'
+import { getQuestions, startScreening, submitScreening, guestSubmitScreening } from '../../../api/screening.js'
 import { completeTask } from '../../../api/training.js'
 import { evaluateAdaptiveDifficulty } from '../../../api/ai.js'
 import { getCurrentChild } from '../../../utils/auth.js'
+import { getGameTheme } from '../../../utils/gameThemes.js'
+import { saveGuestGameResult } from '../../../utils/guestSession.js'
+import CircleTimer from '../../../components/game/CircleTimer.vue'
+import Mascot from '../../../components/game/Mascot.vue'
+import ImageChoice from '../../../components/game/ImageChoice.vue'
+import DragSort from '../../../components/game/DragSort.vue'
+import LevelMap from '../../../components/game/LevelMap.vue'
 
 export default {
+  components: { CircleTimer, Mascot, ImageChoice, DragSort, LevelMap },
   data() {
     return {
       gameType: 'visual',
       difficulty: 'L1',
       grade: '',          // 孩子年级，用于后端难度映射
+      guestMode: false,   // 游客模式标记
+      guestId: '',        // 游客ID
       questions: [],
       currentIndex: 0,
       selectedAnswer: null,
@@ -169,6 +211,9 @@ export default {
       difficultyOverridden: false,  // true 表示自适应已手动覆盖 grade 映射
       currentTimeLimit: null,       // 动态时限（null 时回退到题目自带的 time_limit）
       sortItems: [],                // 排序题：当前排列的选项数组，每项含 {text, originalIndex}
+      showParticles: false,         // 答对粒子动画
+      shakeOptions: false,          // 答错震动动画
+      mascotState: 'idle',          // 吉祥物状态
     }
   },
   computed: {
@@ -178,7 +223,21 @@ export default {
     progressPercent() {
       if (this.questions.length === 0) return 0
       return (this.currentIndex / this.questions.length) * 100
-    }
+    },
+    gameTheme() {
+      return getGameTheme(this.gameType)
+    },
+    particles() {
+      const emojis = ['⭐', '✨', '🎉', '💫', '🌟', '🎊']
+      return Array.from({ length: 6 }, (_, i) => ({
+        emoji: emojis[i % emojis.length],
+        style: {
+          left: (10 + i * 15) + '%',
+          top: (20 + (i % 3) * 20) + '%',
+          animationDelay: (i * 0.08) + 's',
+        },
+      }))
+    },
   },
   onLoad(options) {
     this.child = getCurrentChild()
@@ -187,6 +246,11 @@ export default {
       this.grade = options.grade
     } else if (this.child?.grade) {
       this.grade = this.child.grade
+    }
+    // 游客模式
+    if (options.guest_mode === 'true' || options.guest_mode === true) {
+      this.guestMode = true
+      this.guestId = options.guest_id || ''
     }
     this.initScreening()
   },
@@ -202,6 +266,12 @@ export default {
     async initScreening() {
       this.loading = true
       try {
+        // 游客模式：直接加载题目，不需要创建筛查记录
+        if (this.guestMode) {
+          await this.loadQuestions()
+          return
+        }
+
         const saved = uni.getStorageSync('current_screening')
         if (saved && saved.game_type === this.gameType) {
           this.screeningId = saved.id
@@ -451,10 +521,30 @@ export default {
     showFeedbackAnim(correct) {
       this.lastCorrect = correct
       this.showFeedback = true
+
+      // 更新吉祥物状态
+      if (correct === true) {
+        this.mascotState = 'excited'
+      } else if (correct === false) {
+        this.mascotState = 'encouraging'
+      }
+
+      // 答对：触发粒子动画
+      if (correct === true) {
+        this.showParticles = true
+        setTimeout(() => { this.showParticles = false }, 800)
+      }
+      // 答错：触发震动动画
+      if (correct === false) {
+        this.shakeOptions = true
+        setTimeout(() => { this.shakeOptions = false }, 400)
+      }
+
       // 答对600ms，答错1200ms（让孩子看清正确答案）
       const delay = correct === true ? 600 : 1200
       setTimeout(() => {
         this.showFeedback = false
+        this.mascotState = 'thinking'  // 进入下一题时切换为思考状态
         this.nextQuestion()
       }, delay)
     },
@@ -553,7 +643,35 @@ export default {
     async submitResults() {
       this.showResult = true
       this.clearTimer()
+      this.mascotState = 'celebrating'
       try {
+        // 游客模式：调用游客提交接口
+        if (this.guestMode) {
+          const { post } = await import('../../../api/index.js')
+          const res = await post('/api/screenings/guest-submit', {
+            guest_id: this.guestId,
+            game_type: this.gameType,
+            answers: this.answers,
+            grade: this.grade || null,
+          })
+          // 保存游客结果到本地
+          const guestResult = {
+            game_type: this.gameType,
+            score: res.score || 0,
+            ability_label: res.ability_label,
+            ability_emoji: res.ability_emoji,
+            ability_desc: res.ability_desc,
+            encouragement: res.encouragement,
+            share_code: res.share_code,
+          }
+          uni.setStorageSync('last_guest_result', guestResult)
+          saveGuestGameResult(guestResult)
+          uni.redirectTo({
+            url: `/pages/child/result/index?game_type=${this.gameType}&guest_id=${this.guestId}&score=${res.score || 0}`,
+          })
+          return
+        }
+
         const res = await submitScreening({
           screening_id: this.screeningId,
           answers: this.answers
@@ -590,6 +708,9 @@ export default {
           correct_count: correctCount,
           total_count: this.answers.length,
           stars: 1,
+          streak_bonus: res.streak_bonus || 0,
+          current_streak: res.current_streak || 0,
+          new_badges: res.new_badges || [],
         })
 
         uni.removeStorageSync('current_screening')
@@ -628,6 +749,62 @@ export default {
       // #endif
     },
 
+    // ── ImageChoice 事件处理 ──────────────────────────────────────────────────
+    handleImageSelect(value) {
+      if (this.showFeedback) return
+      if (this.firstClickTime === null) {
+        this.firstClickTime = Date.now()
+      }
+      // 将 value 映射到 options 中的 index
+      const options = this.currentQuestion.image_options || []
+      const index = options.findIndex(o => o.value === value)
+      if (index === -1) return
+      this.selectedAnswer = index
+      this.confirmAnswer()
+    },
+
+    // ── DragSort 事件处理 ─────────────────────────────────────────────────────
+    handleDragChange(idOrder) {
+      // 记录首次操作时间
+      if (this.firstClickTime === null) {
+        this.firstClickTime = Date.now()
+      }
+      this.changeCount++
+    },
+
+    handleDragConfirm(idOrder) {
+      if (this.showFeedback) return
+      this.clearTimer()
+
+      const dragItems = this.currentQuestion.drag_items || []
+      // 检查顺序是否正确：按 correct_position 排序后的 id 序列
+      const correctOrder = [...dragItems]
+        .sort((a, b) => a.correct_position - b.correct_position)
+        .map(item => item.id)
+      const isCorrect = JSON.stringify(idOrder) === JSON.stringify(correctOrder)
+
+      const timeSpent = Math.round(30 - this.timeLeft)
+      const reactionTime = this.firstClickTime ? this.firstClickTime - this.questionStartTime : null
+
+      if (!isCorrect && correctOrder.length > 0) {
+        const idToContent = Object.fromEntries(dragItems.map(item => [item.id, item.content]))
+        this.currentCorrectAnswer = correctOrder.map(id => idToContent[id]).join(' → ')
+      } else {
+        this.currentCorrectAnswer = ''
+      }
+
+      this.answers.push({
+        question_id: this.currentQuestion.id,
+        answer: idOrder,
+        time_spent: timeSpent,
+        reaction_time: reactionTime,
+        change_count: this.changeCount,
+        is_timeout: false,
+      })
+
+      this.showFeedbackAnim(isCorrect)
+    },
+
     exitGame() { this.showExitModal = true },
     hideModal() { this.showExitModal = false },
     confirmExit() {
@@ -648,40 +825,52 @@ export default {
   overflow-x: hidden;
 }
 
-/* 游戏顶部 - 统一风格 */
+/* 游戏顶部 - 渐变主题色背景 */
 .game-header {
-  background: rgba(255, 255, 255, 0.95);
-  padding: 56rpx 32rpx 20rpx;
+  /* background 由 gameTheme.gradient 通过 :style 注入 */
+  padding: 56rpx 32rpx 24rpx;
+  min-height: 200rpx;
   display: flex;
   align-items: center;
   gap: 20rpx;
-  box-shadow: 0 1rpx 0 rgba(0,0,0,0.04);
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.15);
 }
 .exit-btn {
   width: 72rpx; height: 72rpx;
   display: flex; align-items: center; justify-content: center;
-  padding: 0; background: #FFF0F0;
+  padding: 0; background: rgba(255,255,255,0.25);
   border-radius: 50%;
   flex-shrink: 0;
-  border: 3rpx solid #FFD0D0;
-  box-shadow: 0 3rpx 0 #FFB3B3;
+  border: 2rpx solid rgba(255,255,255,0.4);
   transition: all 0.2s;
 }
-.exit-btn:active { transform: translateY(3rpx); box-shadow: none; }
-.exit-btn .ph { font-size: 36rpx; color: #FF6B6B; }
+.exit-btn:active { transform: translateY(3rpx); background: rgba(255,255,255,0.4); }
+.exit-btn .ph { font-size: 36rpx; color: #FFFFFF; }
 
 .progress-section { flex: 1; }
+.progress-stars {
+  display: flex;
+  gap: 4rpx;
+  flex-wrap: wrap;
+  margin-bottom: 6rpx;
+  justify-content: center;
+}
+.progress-star .ph {
+  font-size: 20rpx;
+}
+.progress-star.done .ph { color: rgba(255, 255, 255, 0.9); }
+.progress-star.current .ph { color: #FFD93D; }
+.progress-star.todo .ph { color: rgba(255, 255, 255, 0.3); }
 .progress-track {
-  height: 24rpx;
-  background: #F0F0F0;
+  height: 16rpx;
+  background: rgba(255,255,255,0.3);
   border-radius: 9999rpx;
   overflow: hidden;
   margin-bottom: 8rpx;
-  box-shadow: inset 0 2rpx 6rpx rgba(0,0,0,0.08);
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4F9EF8, #A78BFA, #FF9ECD);
+  background: rgba(255,255,255,0.9);
   border-radius: 9999rpx;
   transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
@@ -696,28 +885,18 @@ export default {
   animation: shimmer 2s infinite;
 }
 @keyframes shimmer { 0% { left: -100%; } 100% { left: 100%; } }
-.progress-text { font-size: 24rpx; font-weight: 800; color: #A0AEC0; text-align: center; }
+.progress-text { font-size: 24rpx; font-weight: 800; color: rgba(255,255,255,0.9); text-align: center; }
 
-.timer-badge {
-  display: flex; align-items: center; gap: 6rpx;
-  background: linear-gradient(135deg, #F0F7FF, #DBEAFE);
-  padding: 14rpx 24rpx;
-  border-radius: 9999rpx;
-  font-size: 28rpx; font-weight: 800; color: #4F9EF8;
-  flex-shrink: 0;
-  border: 3rpx solid #BFDBFE;
-  box-shadow: 0 3rpx 0 #93C5FD;
-  transition: all 0.3s;
+/* timer-badge 已被 CircleTimer 组件替换，保留空规则避免报错 */
+.timer-badge { display: none; }
+
+/* 吉祥物区域 */
+.mascot-area {
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0 8rpx;
+  background: #F5F7FA;
 }
-.timer-badge .ph { font-size: 30rpx; }
-.timer-badge.warning {
-  background: linear-gradient(135deg, #FFF0F0, #FFE4E4);
-  color: #FF6B6B;
-  border-color: #FFB3B3;
-  box-shadow: 0 3rpx 0 #FF8080;
-  animation: pulse 0.5s infinite;
-}
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
 /* 加载中 */
 .loading-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24rpx; }
@@ -727,7 +906,19 @@ export default {
 .spin { animation: spin 1s linear infinite; display: inline-block; }
 
 /* 游戏内容区 */
-.game-content { flex: 1; padding: 48rpx 48rpx 0; display: flex; flex-direction: column; }
+.game-content { flex: 1; padding: 24rpx 32rpx 0; display: flex; flex-direction: column; }
+
+/* 题目卡片 - 白色背景 + 主题色顶部装饰条 */
+.question-card {
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 32rpx 32rpx 40rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+  border-top: 8rpx solid var(--game-primary, #4F9EF8);
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .question-area { display: flex; flex-direction: column; align-items: center; }
 .question-header { display: flex; align-items: center; gap: 16rpx; margin-bottom: 16rpx; }
 
@@ -848,6 +1039,41 @@ export default {
 .feedback-text { font-size: 52rpx; font-weight: 900; color: #2D3748; letter-spacing: 2rpx; }
 .feedback-correct { font-size: 28rpx; color: #718096; margin-top: 8rpx; font-weight: 600; }
 .feedback-answer { font-size: 36rpx; font-weight: 800; color: #22C55E; }
+
+/* 粒子动画（答对时） */
+.particles-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 600;
+}
+
+.particle {
+  position: absolute;
+  font-size: 48rpx;
+  opacity: 0;
+  animation: particleFly 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes particleFly {
+  0% { transform: scale(0) translateY(0); opacity: 0; }
+  30% { opacity: 1; }
+  60% { transform: scale(1.2) translateY(-80rpx); opacity: 1; }
+  100% { transform: scale(0.8) translateY(-160rpx); opacity: 0; }
+}
+
+/* 震动动画（答错时） */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-12rpx); }
+  40% { transform: translateX(12rpx); }
+  60% { transform: translateX(-6rpx); }
+  80% { transform: translateX(6rpx); }
+}
+
+.options-list.shake,
+.options-grid.shake {
+  animation: shake 0.4s ease;
+}
 
 /* 弹窗 */
 .modal-overlay {

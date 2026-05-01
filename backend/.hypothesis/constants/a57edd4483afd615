@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\schemas\user.py
+# hypothesis_version: 6.151.12
+
+[100, 128, '^1[3-9]\\d{9}$', '^\\d{4,6}$', 'bearer', 'code', 'password', 'phone', 'username', '密码不能为空', '密码不能为空且长度不能少于6位', '密码不能超过128位', '密码格式不正确', '手机号格式不正确，请输入11位有效手机号', '用户名不能少于2个字符', '用户名不能超过50个字符', '账号不能为空', '账号格式不正确', '验证码格式不正确']

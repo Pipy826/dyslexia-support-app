@@ -193,6 +193,20 @@
       <text class="switch-link" @click="toggleRegisterMode">{{ isRegisterMode ? '去登录' : '立即注册' }}</text>
     </view>
 
+    <!-- 游客试玩入口 -->
+    <view class="guest-section" v-if="!isRegisterMode">
+      <view class="guest-divider">
+        <view class="guest-divider-line"></view>
+        <view class="guest-divider-text">或者</view>
+        <view class="guest-divider-line"></view>
+      </view>
+      <view class="guest-btn" @click="goGuestPlay">
+        <text class="ph ph-game-controller"></text>
+        先试玩，不注册
+      </view>
+      <view class="guest-tip">无需账号，直接体验6种趣味游戏</view>
+    </view>
+
     <!-- 第三方快捷登录 -->
     <!-- #ifdef MP-WEIXIN -->
     <view class="wx-login-section">
@@ -263,6 +277,9 @@ export default {
     goToPrivacy() {
       uni.navigateTo({ url: '/pages/parent/legal/privacy' })
     },
+    goGuestPlay() {
+      uni.navigateTo({ url: '/pages/guest/play/index' })
+    },
     async handleWxLogin() {
       this.wxLoading = true
       try {
@@ -274,7 +291,13 @@ export default {
             // 新用户引导创建孩子档案
             uni.reLaunch({ url: '/pages/parent/auth/create-profile' })
           } else {
-            uni.reLaunch({ url: '/pages/parent/home/index' })
+            // 检查是否已完成引导流程
+            const onboardingDone = uni.getStorageSync('onboarding_completed')
+            if (!onboardingDone) {
+              uni.reLaunch({ url: '/pages/parent/onboarding/index' })
+            } else {
+              uni.reLaunch({ url: '/pages/parent/home/index' })
+            }
           }
         }, 1000)
       } catch (e) {
@@ -425,7 +448,12 @@ export default {
           handleLoginSuccess(res)
           uni.showToast({ title: '登录成功', icon: 'success' })
           setTimeout(() => {
-            uni.reLaunch({ url: '/pages/parent/home/index' })
+            const onboardingDone = uni.getStorageSync('onboarding_completed')
+            if (!onboardingDone) {
+              uni.reLaunch({ url: '/pages/parent/onboarding/index' })
+            } else {
+              uni.reLaunch({ url: '/pages/parent/home/index' })
+            }
           }, 1000)
         } catch (e) {
           if (this.loginMode === 'code') {
@@ -668,6 +696,63 @@ export default {
   font-size: 26rpx;
   font-weight: 700;
   color: #3B82F6;
+}
+
+/* 游客试玩入口 */
+.guest-section {
+  margin-top: 48rpx;
+}
+
+.guest-divider {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 32rpx;
+}
+
+.guest-divider-line {
+  flex: 1;
+  height: 2rpx;
+  background: #F3F4F6;
+}
+
+.guest-divider-text {
+  font-size: 22rpx;
+  color: #9CA3AF;
+  white-space: nowrap;
+}
+
+.guest-btn {
+  width: 100%;
+  background: #F5F7FA;
+  color: #4F9EF8;
+  border: 2rpx solid #DBEAFE;
+  border-radius: 32rpx;
+  padding: 28rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  transition: all 0.2s;
+  margin-bottom: 16rpx;
+}
+
+.guest-btn:active {
+  background: #EFF6FF;
+  transform: scale(0.98);
+}
+
+.guest-btn .ph {
+  font-size: 32rpx;
+}
+
+.guest-tip {
+  text-align: center;
+  font-size: 22rpx;
+  color: #9CA3AF;
+  font-weight: 500;
 }
 
 /* 第三方登录 */

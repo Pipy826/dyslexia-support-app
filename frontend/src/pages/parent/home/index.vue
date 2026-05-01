@@ -47,7 +47,12 @@
           </view>
           <view class="tip-content">
             <view class="tip-label">今日 AI 建议</view>
+            <!-- #ifdef H5 -->
+            <view class="tip-text" v-html="highlightedTip"></view>
+            <!-- #endif -->
+            <!-- #ifndef H5 -->
             <view class="tip-text">{{ dailyTip }}</view>
+            <!-- #endif -->
           </view>
         </view>
         <text class="ph ph-arrow-right tip-arrow"></text>
@@ -57,30 +62,30 @@
       <view class="guide-card" v-if="!recentReport">
         <view class="guide-decoration"></view>
         <view class="guide-icon">
-          <text class="ph ph-star"></text>
+          <text class="ph ph-game-controller"></text>
         </view>
-        <view class="guide-tag">系统建议</view>
-        <view class="guide-title">初步能力筛查</view>
-        <view class="guide-desc">{{ currentChild ? currentChild.name : '孩子' }}尚未进行全面的读写能力筛查，建议抽出15分钟了解孩子的现状，生成定制专属干预计划。</view>
-        <button class="guide-btn" @click="goToScreening">立即发起筛查</button>
+        <view class="guide-tag">今日推荐</view>
+        <view class="guide-title">今天玩什么游戏？</view>
+        <view class="guide-desc">6种趣味小游戏，发现{{ currentChild ? currentChild.name : '孩子' }}的读写小秘密，轻松有趣不枯燥。</view>
+        <button class="guide-btn" @click="goToScreening">带孩子去玩</button>
       </view>
 
       <!-- 有报告时显示最新报告摘要 -->
       <view class="guide-card report-card" v-else @click="goToReport">
         <view class="guide-decoration"></view>
-        <view class="guide-tag" :class="recentReport.risk_level">{{ riskLabel(recentReport.risk_level) }}</view>
-        <view class="guide-title">最新评估报告</view>
-        <view class="guide-desc">{{ recentReport.summary || '点击查看详细报告和干预建议' }}</view>
-        <button class="guide-btn" @click.stop="goToReport">查看报告详情</button>
+        <view class="guide-tag">能力地图</view>
+        <view class="guide-title">{{ currentChild ? currentChild.name : '孩子' }}的能力地图</view>
+        <ability-map :dimensions="reportDimensions" class="guide-ability-map"></ability-map>
+        <button class="guide-btn" @click.stop="goToReport">查看完整报告</button>
       </view>
 
       <!-- 四宫格快捷入口 -->
       <view class="grid-section">
         <view class="grid-item" @click="goToReport">
           <view class="grid-icon blue">
-            <text class="ph ph-file-text"></text>
+            <text class="ph ph-map-trifold"></text>
           </view>
-          <view class="grid-label">评估报告</view>
+          <view class="grid-label">能力地图</view>
         </view>
         <view class="grid-item" @click="goToTraining">
           <view class="grid-icon green">
@@ -105,7 +110,7 @@
       <!-- 近期动态模块 -->
       <view class="section-header">
         <view class="section-title">近期动态</view>
-        <view class="more-link" @click="goToReport">查看全部</view>
+        <view class="more-link" @click="goToReportList">查看全部</view>
       </view>
 
       <view class="activity-list" v-if="activities.length > 0">
@@ -146,9 +151,11 @@ import { getChildren } from '../../../api/child.js'
 import { getReports } from '../../../api/report.js'
 import { getDailyTip } from '../../../api/ai.js'
 import TabBar from '../../../components/tab-bar/index.vue'
+import AbilityMap from '../../../components/ability/AbilityMap.vue'
+import { friendlyRiskLevel } from '../../../utils/terminology.js'
 
 export default {
-  components: { TabBar },
+  components: { TabBar, AbilityMap },
   data() {
     return {
       user: null,
@@ -169,7 +176,47 @@ export default {
       if (h < 14) return '中午好'
       if (h < 18) return '下午好'
       return '晚上好'
-    }
+    },
+    // 高亮 dailyTip 中出现的孩子名字（仅 H5 端通过 v-html 渲染）
+    highlightedTip() {
+      if (!this.dailyTip || !this.currentChild?.name) return this.dailyTip
+      const name = this.currentChild.name
+      // 用 split/join 替换，避免正则特殊字符问题
+      return this.dailyTip.split(name).join('<text class="tip-highlight">' + name + '</text>')
+    },
+    reportDimensions() {
+      if (!this.recentReport?.dimensions) return {}
+      try {
+        const dims = typeof this.recentReport.dimensions === 'string'
+          ? JSON.parse(this.recentReport.dimensions)
+          : this.recentReport.dimensions
+        // 将维度名映射到游戏类型
+        const gameTypeMap = {
+          visual_discrimination: 'visual',
+          attention: 'visual',
+          spelling: 'spelling',
+          phonological: 'spelling',
+          reading_comprehension: 'comprehension',
+          semantic_integration: 'comprehension',
+          working_memory_capacity: 'working_memory',
+          short_term_memory: 'working_memory',
+          rapid_naming_speed: 'rapid_naming',
+          phonological_awareness: 'rapid_naming',
+          fine_motor_control: 'motor_coordination',
+          visual_motor_integration: 'motor_coordination',
+        }
+        const result = {}
+        for (const [dim, score] of Object.entries(dims)) {
+          const gameType = gameTypeMap[dim]
+          if (gameType && result[gameType] === undefined) {
+            result[gameType] = score
+          }
+        }
+        return result
+      } catch (e) {
+        return {}
+      }
+    },
   },
   onShow() {
     this.user = getUser()
@@ -195,7 +242,7 @@ export default {
           // 没有孩子档案，引导创建
           uni.showModal({
             title: '欢迎使用',
-            content: '请先创建孩子的档案，以便开始筛查和训练。',
+            content: '请先创建孩子的档案，以便开始游戏和探索。',
             showCancel: false,
             confirmText: '立即创建',
             success: () => {
@@ -231,9 +278,9 @@ export default {
       this.activities = reports.slice(0, 3).map(r => ({
         icon: 'ph-file-text',
         color: 'blue',
-        title: `完成筛查评估 · ${this.riskLabel(r.risk_level)}`,
+        title: `完成能力探索 · ${this.riskLabel(r.risk_level)}`,
         time: this.formatDate(r.created_at),
-        status: r.risk_level === 'low' ? '良好' : r.risk_level === 'medium' ? '需关注' : '重点关注'
+        status: r.risk_level === 'low' ? '表现良好' : r.risk_level === 'medium' ? '可加强' : '需关注'
       }))
     },
     getAge(birthDate) {
@@ -243,7 +290,7 @@ export default {
       return now.getFullYear() - birth.getFullYear()
     },
     riskLabel(level) {
-      return { low: '低风险', medium: '中风险', high: '高风险' }[level] || level
+      return friendlyRiskLevel(level)
     },
     formatDate(dateStr) {
       if (!dateStr) return ''
@@ -275,6 +322,13 @@ export default {
         uni.navigateTo({ url: '/pages/parent/report/index' })
       }
     },
+    goToReportList() {
+      if (this.currentChild) {
+        uni.navigateTo({ url: `/pages/parent/activities/index` })
+      } else {
+        uni.navigateTo({ url: '/pages/parent/report/index' })
+      }
+    },
     goToTraining() {
       uni.navigateTo({ url: '/pages/parent/training/index' })
     },
@@ -289,9 +343,16 @@ export default {
     goToNotifications() {
       uni.navigateTo({ url: '/pages/parent/notifications/index' })
     },
-    checkUnread() {
-      const stored = uni.getStorageSync('app_notifications') || []
-      this.hasUnread = Array.isArray(stored) && stored.some(n => !n.read)
+    async checkUnread() {
+      try {
+        const { getUnreadCount } = await import('../../../api/notification.js')
+        const res = await getUnreadCount()
+        this.hasUnread = (res.unread_count || 0) > 0
+      } catch (e) {
+        // 降级：读本地缓存
+        const stored = uni.getStorageSync('app_notifications') || []
+        this.hasUnread = Array.isArray(stored) && stored.some(n => !n.read)
+      }
     },
   }
 }
@@ -455,6 +516,11 @@ export default {
   font-weight: 500;
 }
 
+.tip-highlight {
+  font-weight: 800;
+  color: #F57F17;
+}
+
 .tip-arrow {
   font-size: 28rpx;
   color: #D97706;
@@ -541,6 +607,17 @@ export default {
 
 .guide-btn:active {
   transform: scale(0.97);
+}
+
+/* AttentionBadge 在报告卡片中的间距 */
+.guide-attention-badge {
+  display: inline-flex;
+  margin-bottom: 12rpx;
+}
+
+/* 能力地图在引导卡片中的样式 */
+.guide-ability-map {
+  margin-bottom: 24rpx;
 }
 
 /* 四宫格 - 紧凑图标网格 */

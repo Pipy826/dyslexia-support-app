@@ -414,3 +414,225 @@ def test_low_score_dimensions_generate_recommendations(scores):
         assert len(result) > 0, (
             f"generate_recommendations({risk_level!r}) 返回空字符串"
         )
+
+
+# ── 属性 5：连续打卡逻辑正确性 ────────────────────────────────────────────────
+# Feature: judge-feedback-optimization, Property 5: 连续打卡逻辑正确性
+
+if HYPOTHESIS_AVAILABLE:
+    from datetime import date, timedelta
+    from unittest.mock import patch
+
+    def streak_value_strategy():
+        """生成合法的连续天数值（0 到 365）"""
+        return st.integers(min_value=0, max_value=365)
+
+    def past_date_strategy(today):
+        """生成过去的日期（2天前到365天前），排除昨天和今天"""
+        return st.dates(
+            min_value=today - timedelta(days=365),
+            max_value=today - timedelta(days=2),
+        )
+
+    def future_date_strategy(today):
+        """生成未来的日期（明天到365天后）"""
+        return st.dates(
+            min_value=today + timedelta(days=1),
+            max_value=today + timedelta(days=365),
+        )
+
+
+class _MockChild:
+    """轻量级 Child 替代对象，用于属性测试（不依赖数据库/SQLAlchemy ORM）"""
+    def __init__(self, current_streak=0, longest_streak=0, last_activity_date=None):
+        self.current_streak = current_streak
+        self.longest_streak = longest_streak
+        self.last_activity_date = last_activity_date
+
+
+def _make_child(current_streak=0, longest_streak=0, last_activity_date=None):
+    """创建一个轻量级的 Child 替代对象（不依赖数据库）"""
+    return _MockChild(
+        current_streak=current_streak,
+        longest_streak=longest_streak,
+        last_activity_date=last_activity_date,
+    )
+
+
+@pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")
+@given(
+    streak_value_strategy(),
+    streak_value_strategy(),
+)
+@settings(max_examples=200)
+def test_update_streak_yesterday_increments(initial_streak, initial_longest):
+    """
+    **Validates: Requirements 2.1**
+    属性 5a：当 last_activity_date 为昨天时，current_streak 应加1。
+    """
+    from app.api.training import update_streak
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    # longest_streak 必须 >= current_streak（合法初始状态）
+    longest = max(initial_streak, initial_longest)
+    child = _make_child(
+        current_streak=initial_streak,
+        longest_streak=longest,
+        last_activity_date=yesterday,
+    )
+
+    with patch("app.api.training.date") as mock_date:
+        mock_date.today.return_value = today
+        update_streak(child, db=None)
+
+    assert child.current_streak == initial_streak + 1, (
+        f"last_activity_date=昨天时，current_streak 应从 {initial_streak} 增加到 "
+        f"{initial_streak + 1}，实际={child.current_streak}"
+    )
+
+
+@pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")
+@given(
+    streak_value_strategy(),
+    streak_value_strategy(),
+)
+@settings(max_examples=200)
+def test_update_streak_today_unchanged(initial_streak, initial_longest):
+    """
+    **Validates: Requirements 2.1**
+    属性 5b：当 last_activity_date 为今天时，current_streak 应保持不变。
+    """
+    from app.api.training import update_streak
+
+    today = date.today()
+
+    longest = max(initial_streak, initial_longest)
+    child = _make_child(
+        current_streak=initial_streak,
+        longest_streak=longest,
+        last_activity_date=today,
+    )
+
+    with patch("app.api.training.date") as mock_date:
+        mock_date.today.return_value = today
+        update_streak(child, db=None)
+
+    assert child.current_streak == initial_streak, (
+        f"last_activity_date=今天时，current_streak 应保持 {initial_streak} 不变，"
+        f"实际={child.current_streak}"
+    )
+
+
+@pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")
+@given(
+    streak_value_strategy(),
+    streak_value_strategy(),
+)
+@settings(max_examples=200)
+def test_update_streak_none_resets_to_one(initial_streak, initial_longest):
+    """
+    **Validates: Requirements 2.1**
+    属性 5c：当 last_activity_date 为 None（首次打卡）时，current_streak 应重置为1。
+    """
+    from app.api.training import update_streak
+
+    today = date.today()
+
+    longest = max(initial_streak, initial_longest)
+    child = _make_child(
+        current_streak=initial_streak,
+        longest_streak=longest,
+        last_activity_date=None,
+    )
+
+    with patch("app.api.training.date") as mock_date:
+        mock_date.today.return_value = today
+        update_streak(child, db=None)
+
+    assert child.current_streak == 1, (
+        f"last_activity_date=None 时，current_streak 应重置为1，"
+        f"实际={child.current_streak}"
+    )
+
+
+@pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")
+@given(
+    streak_value_strategy(),
+    streak_value_strategy(),
+    st.dates(
+        min_value=date(2000, 1, 1),
+        max_value=date(2099, 12, 31),
+    ),
+)
+@settings(max_examples=200)
+def test_update_streak_old_date_resets_to_one(initial_streak, initial_longest, last_date):
+    """
+    **Validates: Requirements 2.1**
+    属性 5d：当 last_activity_date 既不是今天也不是昨天时（包括2天前、更早、未来），
+    current_streak 应重置为1。
+    """
+    from app.api.training import update_streak
+
+    # 固定 today 为 2025-06-15，确保 last_date 不是今天或昨天
+    today = date(2025, 6, 15)
+    yesterday = today - timedelta(days=1)
+
+    # 跳过今天和昨天（这两种情况由其他测试覆盖）
+    assume(last_date != today and last_date != yesterday)
+
+    longest = max(initial_streak, initial_longest)
+    child = _make_child(
+        current_streak=initial_streak,
+        longest_streak=longest,
+        last_activity_date=last_date,
+    )
+
+    with patch("app.api.training.date") as mock_date:
+        mock_date.today.return_value = today
+        update_streak(child, db=None)
+
+    assert child.current_streak == 1, (
+        f"last_activity_date={last_date}（非今天非昨天）时，current_streak 应重置为1，"
+        f"实际={child.current_streak}"
+    )
+
+
+@pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="hypothesis not installed")
+@given(
+    streak_value_strategy(),
+    streak_value_strategy(),
+    st.one_of(
+        st.none(),
+        st.dates(min_value=date(2000, 1, 1), max_value=date(2099, 12, 31)),
+    ),
+)
+@settings(max_examples=300)
+def test_update_streak_longest_always_gte_current(initial_streak, initial_longest, last_date):
+    """
+    **Validates: Requirements 2.1**
+    属性 5e：调用 update_streak 后，longest_streak 始终 >= current_streak。
+    """
+    from app.api.training import update_streak
+
+    today = date(2025, 6, 15)
+    yesterday = today - timedelta(days=1)
+
+    longest = max(initial_streak, initial_longest)
+    child = _make_child(
+        current_streak=initial_streak,
+        longest_streak=longest,
+        last_activity_date=last_date,
+    )
+
+    # 跳过 last_date 为今天的情况（今天不更新，longest 不变，仍满足不变量）
+    # 但我们仍然测试它，因为不变量应该始终成立
+    with patch("app.api.training.date") as mock_date:
+        mock_date.today.return_value = today
+        update_streak(child, db=None)
+
+    assert child.longest_streak >= child.current_streak, (
+        f"调用 update_streak 后，longest_streak={child.longest_streak} 应 >= "
+        f"current_streak={child.current_streak}"
+    )

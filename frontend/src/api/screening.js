@@ -26,3 +26,18 @@ export const getScreeningHistory = (childId) => {
   const params = childId ? { child_id: childId } : {};
   return get('/api/screenings/history', params);
 };
+
+/**
+ * 游客模式提交游戏结果（无需认证）
+ * @param {object} data - { guest_id, game_type, answers, grade }
+ */
+export const guestSubmitScreening = (data) => post('/api/screenings/guest-submit', data);
+
+/**
+ * 获取游戏排名（无需认证）
+ * @param {string} gameType - 游戏类型
+ * @param {number} score    - 当前分数
+ * @returns {{ percentile, total_players, avg_score, suggest_screening }}
+ */
+export const getGameRanking = (gameType, score) =>
+  get(`/api/screenings/ranking/${gameType}`, { score });

@@ -19,6 +19,11 @@ class Child(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # 连续打卡字段
+    current_streak = Column(Integer, default=0, nullable=False)
+    longest_streak = Column(Integer, default=0, nullable=False)
+    last_activity_date = Column(Date, nullable=True)
+
     # Relationships
     parent = relationship("User", back_populates="children")
     screenings = relationship("Screening", back_populates="child", cascade="all, delete-orphan")
@@ -26,3 +31,4 @@ class Child(Base):
     training_tasks = relationship("TrainingTask", back_populates="child", cascade="all, delete-orphan")
     growth_records = relationship("GrowthRecord", back_populates="child", cascade="all, delete-orphan")
     rewards = relationship("Reward", back_populates="child", cascade="all, delete-orphan")
+    check_in_records = relationship("CheckInRecord", back_populates="child", cascade="all, delete-orphan")

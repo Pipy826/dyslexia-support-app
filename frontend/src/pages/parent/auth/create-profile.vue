@@ -49,37 +49,15 @@
         >{{ item.label }}</view>
       </view>
 
-      <!-- 出生年份 -->
-      <view class="section-title">出生年份</view>
-      <view class="tag-grid">
-        <view
-          v-for="y in birthYearOptions"
-          :key="y"
-          :class="['tag-option', { active: formData.birth_year === y }]"
-          @click="formData.birth_year = y"
-        >{{ y }}年</view>
-      </view>
-
-      <!-- 出生月份 -->
-      <view class="section-title">出生月份</view>
-      <view class="tag-grid">
-        <view
-          v-for="m in 12"
-          :key="m"
-          :class="['tag-option', { active: formData.birth_month === m }]"
-          @click="formData.birth_month = m"
-        >{{ m }}月</view>
-      </view>
-
       <!-- 出生日期 -->
       <view class="section-title">出生日期</view>
-      <view class="tag-grid">
-        <view
-          v-for="d in daysInMonth"
-          :key="d"
-          :class="['tag-option', { active: formData.birth_day === d }]"
-          @click="formData.birth_day = d"
-        >{{ d }}日</view>
+      <view class="date-picker-wrap">
+        <date-picker-wheel
+          v-if="pickerReady"
+          v-model="formData.birth_date"
+          :grade="formData.grade"
+          @change="onBirthDateChange"
+        ></date-picker-wheel>
       </view>
 
       <!-- 附加信息 -->
@@ -88,7 +66,7 @@
         <view class="check-box">
           <text class="ph ph-check" v-if="formData.hasDifficulty"></text>
         </view>
-        <view class="check-text">已观察到孩子在识字、拼写或阅读方面存在困难（勾选后系统将调整筛查侧重点）</view>
+        <view class="check-text">已观察到孩子在识字、拼写或阅读方面存在困难（勾选后系统将调整能力探索侧重点）</view>
       </view>
       <view class="check-card" :class="{ checked: formData.hasProfessionalEval }" @click="formData.hasProfessionalEval = !formData.hasProfessionalEval">
         <view class="check-box">
@@ -97,15 +75,16 @@
         <view class="check-text">孩子曾在医院或专业机构进行过相关评估或诊断</view>
       </view>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
+      <!-- 底部按钮（放在 scroll-view 内部，避免遮挡问题） -->
+      <view class="bottom-bar">
+        <button class="submit-btn" @click="handleFinish" :disabled="uploading || submitting">
+          <text v-if="submitting">创建中...</text>
+          <text v-else>完成创建，进入首页</text>
+        </button>
+      </view>
 
-    <!-- 底部按钮 -->
-    <view class="bottom-bar">
-      <button class="submit-btn" @click="handleFinish" :disabled="uploading">
-        完成创建，进入首页
-      </button>
-    </view>
+      <view style="height: env(safe-area-inset-bottom); min-height: 20rpx;"></view>
+    </scroll-view>
   </view>
 </template>
 
@@ -113,17 +92,19 @@
 import { createChild } from '../../../api/child.js'
 import { setCurrentChild } from '../../../utils/auth.js'
 import { uploadAvatar, getAvatarUrl } from '../../../api/child.js'
+import DatePickerWheel from '../../../components/date-picker/DatePickerWheel.vue'
 
 export default {
+  components: { DatePickerWheel },
   data() {
+    const now = new Date()
+    const defaultYear = now.getFullYear() - 7
     return {
       formData: {
         name: '',
         gender: 'boy',
         grade: '一年级',
-        birth_year: new Date().getFullYear() - 7,
-        birth_month: 6,
-        birth_day: 15,
+        birth_date: `${defaultYear}-06-15`,
         hasDifficulty: false,
         hasProfessionalEval: false,
         avatar_url: ''
@@ -136,49 +117,28 @@ export default {
         { label: '四年级', value: '四年级' },
         { label: '五/六年级', value: '五年级' }
       ],
-      uploading: false
+      uploading: false,
+      submitting: false,
+      pickerReady: false,
     }
   },
-  computed: {
-    birthYearOptions() {
-      const currentYear = new Date().getFullYear()
-      // 3岁（学龄前）到 13岁（六年级）
-      const years = []
-      for (let age = 3; age <= 13; age++) {
-        years.push(currentYear - age)
-      }
-      return years
-    },
-    daysInMonth() {
-      // 根据选中的年月计算该月有多少天
-      const year = this.formData.birth_year
-      const month = this.formData.birth_month
-      const days = new Date(year, month, 0).getDate()
-      const result = []
-      for (let d = 1; d <= days; d++) {
-        result.push(d)
-      }
-      return result
-    }
+  mounted() {
+    // 延迟渲染 picker-view，等 scroll-view 的 DOM 完全就绪后再挂载
+    // 避免 H5 模式下 ResizeSensor 读取 offsetWidth 时 DOM 还未准备好
+    this.$nextTick(() => {
+      setTimeout(() => {
+        this.pickerReady = true
+      }, 100)
+    })
   },
-  watch: {
-    'formData.birth_month'(newMonth) {
-      // 切换月份时，如果当前日期超出该月天数，自动修正到最后一天
-      const maxDay = new Date(this.formData.birth_year, newMonth, 0).getDate()
-      if (this.formData.birth_day > maxDay) {
-        this.formData.birth_day = maxDay
-      }
-    },
-    'formData.birth_year'(newYear) {
-      const maxDay = new Date(newYear, this.formData.birth_month, 0).getDate()
-      if (this.formData.birth_day > maxDay) {
-        this.formData.birth_day = maxDay
-      }
-    }
-  },
+  computed: {},
+  watch: {},
   methods: {
     goBack() {
       uni.navigateBack()
+    },
+    onBirthDateChange({ date, age }) {
+      this.formData.birth_date = date
     },
     chooseAvatar() {
       uni.chooseImage({
@@ -203,11 +163,13 @@ export default {
         uni.showToast({ title: '请输入孩子姓名或昵称', icon: 'none' })
         return
       }
+      if (this.submitting) return
+      this.submitting = true
       try {
         const child = await createChild({
           name: this.formData.name,
           gender: this.formData.gender === 'girl' ? 'female' : 'male',
-          birth_date: `${this.formData.birth_year}-${String(this.formData.birth_month).padStart(2, '0')}-${String(this.formData.birth_day).padStart(2, '0')}`,
+          birth_date: this.formData.birth_date,
           grade: this.formData.grade,
           has_difficulty: this.formData.hasDifficulty,
           has_professional_eval: this.formData.hasProfessionalEval,
@@ -216,10 +178,17 @@ export default {
         setCurrentChild(child)
         uni.showToast({ title: '创建成功', icon: 'success' })
         setTimeout(() => {
-          uni.reLaunch({ url: '/pages/parent/home/index' })
+          const onboardingDone = uni.getStorageSync('onboarding_completed')
+          if (!onboardingDone) {
+            uni.reLaunch({ url: '/pages/parent/onboarding/index' })
+          } else {
+            uni.reLaunch({ url: '/pages/parent/home/index' })
+          }
         }, 1000)
       } catch (e) {
         uni.showToast({ title: '创建失败，请重试', icon: 'none' })
+      } finally {
+        this.submitting = false
       }
     }
   }
@@ -228,10 +197,11 @@ export default {
 
 <style scoped>
 .page-container {
-  min-height: 100vh;
+  height: 100vh;
   background: #F5F7FA;
   overflow-x: hidden;
-  padding-bottom: 160rpx;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 头部 */
@@ -253,7 +223,13 @@ export default {
 .header-title { font-size: 30rpx; font-weight: 700; color: #2D3748; }
 
 /* 内容区 */
-.page-content { padding: 24rpx 32rpx; width: 100%; box-sizing: border-box; }
+.page-content {
+  flex: 1;
+  padding: 24rpx 32rpx;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
 
 /* 头像区 */
 .avatar-section {
@@ -311,6 +287,12 @@ export default {
 }
 .tag-option.active { background: linear-gradient(135deg, #EFF6FF, #DBEAFE); border-color: #4F9EF8; color: #4F9EF8; }
 
+/* 日期选择器包裹层，避免 picker 未渲染时高度塌陷 */
+.date-picker-wrap {
+  min-height: 300rpx;
+  margin-bottom: 24rpx;
+}
+
 /* 勾选卡片 */
 .check-card {
   background: #FFFFFF; border: 2rpx solid #E5E7EB; border-radius: 20rpx;
@@ -329,10 +311,7 @@ export default {
 
 /* 底部按钮栏 */
 .bottom-bar {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
-  background: rgba(255,255,255,0.95);
-  box-shadow: 0 -1rpx 0 rgba(0,0,0,0.06);
+  padding: 24rpx 0 8rpx;
 }
 .submit-btn {
   width: 100%; background: linear-gradient(135deg, #4F9EF8, #3B82F6); color: #FFFFFF;

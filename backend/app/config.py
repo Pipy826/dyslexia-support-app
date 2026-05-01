@@ -24,10 +24,41 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = ""
 
     # AI 配置（兼容 OpenAI 格式）
-    # 支持 OpenAI / DeepSeek / 通义千问 等
+    # 支持 OpenAI / DeepSeek / 通义千问 / NVIDIA 等
+    # 根据 API_KEY 的前缀自动识别服务商：
+    #   sk- 开头 → OpenAI
+    #   nvapi- 开头 → NVIDIA
+    #   ds- 开头 → DeepSeek
+    #   其他 → 默认 OpenAI 兼容格式
     AI_API_KEY: str = ""
     AI_API_BASE_URL: str = "https://api.openai.com/v1"
     AI_MODEL: str = "gpt-4o-mini"
+
+    @field_validator("AI_API_BASE_URL", "AI_MODEL", mode="before")
+    @classmethod
+    def auto_detect_ai_provider(cls, v: str, info) -> str:
+        # 获取已设置的 API_KEY（通过 info.data 获取）
+        api_key = info.data.get('AI_API_KEY', '') or ''
+        
+        # 如果没有 API_KEY，跳过自动检测
+        if not api_key:
+            return v
+        
+        # 根据 key 前缀自动设置 API 地址
+        if api_key.startswith('nvapi-'):
+            # NVIDIA NIM
+            if 'openai' in v or v == "https://api.openai.com/v1":
+                return "https://api.nvcf.nvidia.com/v1"
+        elif api_key.startswith('ds-'):
+            # DeepSeek
+            if 'openai' in v or v == "https://api.openai.com/v1":
+                return "https://api.deepseek.com/v1"
+        elif api_key.startswith('sk-') and 'aliyuncs' not in v:
+            # OpenAI（默认）
+            if 'dashscope' in v or 'qwen' in v:
+                return "https://api.openai.com/v1"
+        
+        return v
 
     # 文件上传
     UPLOAD_DIR: str = "uploads"
@@ -36,6 +67,10 @@ class Settings(BaseSettings):
     # 微信小程序
     WX_APPID: str = ""
     WX_SECRET: str = ""
+
+    # 专业咨询联系方式（显示在 AI 跳转提示中）
+    CONTACT_PHONE: str = "0755-33941800"
+    CONTACT_WECHAT: str = ""  # 可选：微信客服号
 
     # 短信服务（可选，不配置则 DEBUG 模式下打印到日志）
     # 支持 aliyun（阿里云）/ tencent（腾讯云）

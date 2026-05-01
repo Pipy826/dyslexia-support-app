@@ -31,6 +31,14 @@
       }
     },
     {
+      "path": "pages/parent/onboarding/index",
+      "style": {
+        "navigationBarTitleText": "欢迎使用",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
       "path": "pages/parent/auth/onboarding",
       "style": {
         "navigationBarTitleText": "新手引导",
@@ -66,6 +74,14 @@
       "path": "pages/parent/report/compare",
       "style": {
         "navigationBarTitleText": "复评对比",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/report/growth-diary",
+      "style": {
+        "navigationBarTitleText": "成长日记",
         "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#FFFFFF"
       }
@@ -238,6 +254,44 @@
         "navigationBarTitleText": "关于系统",
         "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/activities/index",
+      "style": {
+        "navigationBarTitleText": "全部动态",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/articles/index",
+      "style": {
+        "navigationBarTitleText": "读写科普",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/parent/articles/detail",
+      "style": {
+        "navigationBarTitleText": "文章详情",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
+      "path": "pages/guest/play/index",
+      "style": {
+        "navigationBarTitleText": "悦读小灯塔",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#4F9EF8"
+      }
+    },
+    {
+      "path": "pages/child/result/index",
+      "style": {
+        "navigationStyle": "custom"
       }
     }
   ],

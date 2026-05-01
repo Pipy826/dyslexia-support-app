@@ -11,7 +11,7 @@
       <!-- 对比概览 -->
       <view class="compare-overview">
         <view class="compare-col">
-          <view class="col-label">上次筛查</view>
+          <view class="col-label">上次探索</view>
           <view class="col-date">{{ formatDate(previous.created_at) }}</view>
           <view class="col-score" :class="previous.overall_score >= 75 ? 'green' : previous.overall_score >= 60 ? 'orange' : 'red'">
             {{ previous.overall_score }}分
@@ -26,7 +26,7 @@
           </view>
         </view>
         <view class="compare-col">
-          <view class="col-label">本次筛查</view>
+          <view class="col-label">本次探索</view>
           <view class="col-date">{{ formatDate(current.created_at) }}</view>
           <view class="col-score" :class="current.overall_score >= 75 ? 'green' : current.overall_score >= 60 ? 'orange' : 'red'">
             {{ current.overall_score }}分
@@ -197,11 +197,11 @@ export default {
         advice.push({ text: '得分基本稳定，可适当增加训练强度', color: 'blue' })
       }
       if (level === 'high') {
-        advice.push({ text: '仍处于高风险，建议尽快联系专业机构评估', color: 'red' })
+        advice.push({ text: '仍需要更多关注，建议尽快联系专业机构评估', color: 'red' })
       } else if (level === 'medium') {
         advice.push({ text: '建议2周后再次复评，持续跟踪变化', color: 'orange' })
       } else {
-        advice.push({ text: '已达低风险，建议1个月后复评维持效果', color: 'green' })
+        advice.push({ text: '已表现良好，建议1个月后复评维持效果', color: 'green' })
       }
       // 找出最弱维度
       const weakest = this.dimCompareList.filter(d => d.curr < 60).slice(0, 2)
@@ -237,7 +237,7 @@ export default {
         const prevDims = this._parseDims(this.previous.dimensions)
         const delta = this.scoreDelta
         const dimChanges = this.dimCompareList.slice(0, 5).map(d => `${d.name}: ${d.prev}→${d.curr}(${d.delta > 0 ? '+' : ''}${d.delta})`).join('、')
-        const prompt = `请对比分析孩子两次筛查结果：上次${this.previous.overall_score}分(${this.previous.risk_level})，本次${this.current.overall_score}分(${this.current.risk_level})，变化${delta > 0 ? '+' : ''}${delta}分。主要维度变化：${dimChanges}。请给出简洁的对比解读和下一步建议，100字以内。`
+        const prompt = `请对比分析孩子两次能力探索结果：上次${this.previous.overall_score}分(${this.previous.risk_level})，本次${this.current.overall_score}分(${this.current.risk_level})，变化${delta > 0 ? '+' : ''}${delta}分。主要维度变化：${dimChanges}。请给出简洁的对比解读和下一步建议，100字以内。`
         const res = await post('/api/ai/chat', { child_id: child.id, message: prompt })
         this.aiAnalysis = res.reply || ''
       } catch (e) {
@@ -252,7 +252,7 @@ export default {
       } catch { return {} }
     },
     riskLabel(level) {
-      return { low: '低风险', medium: '中风险', high: '高风险' }[level] || level
+      return { low: '表现良好', medium: '有些地方可以加强', high: '需要更多关注' }[level] || level
     },
     scoreClass(score) {
       if (score >= 75) return 'green'

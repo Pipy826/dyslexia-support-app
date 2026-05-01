@@ -4,7 +4,7 @@
       <view class="back-btn" @click="goBack">
         <text class="ph ph-arrow-left"></text>
       </view>
-      <view class="header-title">消息通知</view>
+      <view class="header-title">🔔 消息通知</view>
       <view class="clear-btn" @click="markAll" v-if="hasUnread">全部已读</view>
     </view>
 
@@ -13,31 +13,58 @@
       <text class="ph ph-circle-notch spin"></text>
     </view>
 
-    <scroll-view class="page-content" scroll-y v-else @scrolltolower="loadMore">
-      <view class="notif-list" v-if="notifications.length > 0">
-        <view
-          class="notif-item"
-          v-for="n in notifications"
-          :key="n.id"
-          :class="{ unread: !n.is_read }"
-          @click="handleNotif(n)"
-        >
-          <view class="notif-icon" :class="n.notif_type === 'training_complete' ? 'green' : n.notif_type === 'reassess' ? 'orange' : n.notif_type === 'system' ? 'gray' : 'blue'">
-            <text :class="'ph ' + (n.icon || 'ph-bell')"></text>
+    <scroll-view class="page-content" scroll-y v-else>
+      <!-- AI 推送通知 -->
+      <view v-if="aiNotifications.length > 0">
+        <view class="date-group-label">AI 个性化推送</view>
+        <view class="notif-list">
+          <view
+            class="notif-item"
+            v-for="n in aiNotifications"
+            :key="'ai-' + n.id"
+            :class="{ unread: !n.is_read }"
+            @click="handleAiNotif(n)"
+          >
+            <view class="notif-icon blue">
+              <text class="ph ph-robot"></text>
+            </view>
+            <view class="notif-body">
+              <view class="notif-desc">{{ n.content }}</view>
+              <view class="notif-time">{{ formatTime(n.created_at) }}</view>
+            </view>
+            <view class="unread-dot" v-if="!n.is_read"></view>
           </view>
-          <view class="notif-body">
-            <view class="notif-title">{{ n.title }}</view>
-            <view class="notif-desc">{{ n.body }}</view>
-            <view class="notif-time">{{ formatTime(n.created_at) }}</view>
-          </view>
-          <view class="unread-dot" v-if="!n.is_read"></view>
         </view>
       </view>
 
-      <view class="empty-state" v-else>
+      <!-- 系统通知 -->
+      <view v-if="systemNotifications.length > 0">
+        <view class="date-group-label">系统通知</view>
+        <view class="notif-list">
+          <view
+            class="notif-item"
+            v-for="n in systemNotifications"
+            :key="'sys-' + n.id"
+            :class="{ unread: !n.is_read }"
+            @click="handleNotif(n)"
+          >
+            <view class="notif-icon" :class="notifColor(n.notif_type)">
+              <text :class="'ph ' + (n.icon || 'ph-bell')"></text>
+            </view>
+            <view class="notif-body">
+              <view class="notif-title">{{ n.title }}</view>
+              <view class="notif-desc">{{ n.body }}</view>
+              <view class="notif-time">{{ formatTime(n.created_at) }}</view>
+            </view>
+            <view class="unread-dot" v-if="!n.is_read"></view>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-state" v-if="aiNotifications.length === 0 && systemNotifications.length === 0">
         <text class="ph ph-bell-slash empty-icon"></text>
         <view class="empty-title">暂无通知</view>
-        <view class="empty-desc">完成训练或筛查后，系统会在这里提醒您</view>
+        <view class="empty-desc">完成游戏后，AI 会在这里给你发送孩子的个性化建议</view>
       </view>
 
       <view style="height: 80rpx;"></view>
@@ -47,48 +74,77 @@
 
 <script>
 import { getNotifications, markAsRead, markAllRead } from '../../../api/notification.js'
+import { get, post } from '../../../api/index.js'
 
 export default {
   data() {
     return {
-      notifications: [],
+      systemNotifications: [],
+      aiNotifications: [],
       loading: true,
     }
   },
   computed: {
     hasUnread() {
-      return this.notifications.some(n => !n.is_read)
+      return (
+        this.systemNotifications.some(n => !n.is_read) ||
+        this.aiNotifications.some(n => !n.is_read)
+      )
     }
   },
   onLoad() {
     this.loadNotifications()
   },
   onShow() {
-    // 每次显示时刷新
     if (!this.loading) this.loadNotifications()
   },
   methods: {
     async loadNotifications() {
       this.loading = true
       try {
-        this.notifications = await getNotifications()
+        // 并行加载系统通知和 AI 推送通知
+        const [sysResult, aiResult] = await Promise.allSettled([
+          getNotifications(),
+          get('/api/notifications/list'),
+        ])
+        this.systemNotifications = sysResult.status === 'fulfilled' ? (sysResult.value || []) : []
+        this.aiNotifications = aiResult.status === 'fulfilled'
+          ? (aiResult.value?.notifications || [])
+          : []
+
+        // 进入页面时标记 AI 通知为已读
+        const unreadAiIds = this.aiNotifications.filter(n => !n.is_read).map(n => n.id)
+        if (unreadAiIds.length > 0) {
+          post('/api/notifications/mark-read', { notification_ids: unreadAiIds }, {}, true)
+            .then(() => {
+              this.aiNotifications = this.aiNotifications.map(n => ({ ...n, is_read: true }))
+            })
+            .catch(() => {})
+        }
       } catch (e) {
-        // 降级：显示空列表
-        this.notifications = []
+        this.systemNotifications = []
+        this.aiNotifications = []
       } finally {
         this.loading = false
       }
     },
 
+    async handleAiNotif(n) {
+      if (!n.is_read) {
+        n.is_read = true
+        post('/api/notifications/mark-read', { notification_ids: [n.id] }, {}, true).catch(() => {})
+      }
+      // 跳转到成长日记
+      uni.navigateTo({ url: '/pages/parent/report/growth-diary' })
+    },
+
     async handleNotif(n) {
-      // 标记已读
       if (!n.is_read) {
         try {
           await markAsRead(n.id)
           n.is_read = true
         } catch (e) { /* 静默 */ }
       }
-      // 跳转
       const routes = {
         training: '/pages/parent/training/index',
         screening: '/pages/parent/screening/index',
@@ -102,7 +158,13 @@ export default {
     async markAll() {
       try {
         await markAllRead()
-        this.notifications = this.notifications.map(n => ({ ...n, is_read: true }))
+        this.systemNotifications = this.systemNotifications.map(n => ({ ...n, is_read: true }))
+        // 同时标记 AI 通知
+        const allAiIds = this.aiNotifications.map(n => n.id)
+        if (allAiIds.length > 0) {
+          post('/api/notifications/mark-read', { notification_ids: allAiIds }, {}, true).catch(() => {})
+        }
+        this.aiNotifications = this.aiNotifications.map(n => ({ ...n, is_read: true }))
         uni.showToast({ title: '已全部标记已读', icon: 'success', duration: 1000 })
       } catch (e) {
         uni.showToast({ title: '操作失败', icon: 'none' })
@@ -188,4 +250,13 @@ export default {
 .empty-icon { font-size: 80rpx; color: #D1D5DB; margin-bottom: 24rpx; }
 .empty-title { font-size: 30rpx; font-weight: 700; color: #2D3748; margin-bottom: 12rpx; }
 .empty-desc { font-size: 24rpx; color: #A0AEC0; text-align: center; line-height: 1.6; }
+
+.date-group-label {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #A0AEC0;
+  letter-spacing: 1rpx;
+  padding: 16rpx 4rpx 8rpx;
+  margin-bottom: 4rpx;
+}
 </style>

@@ -14,11 +14,11 @@
       <!-- 基本信息 -->
       <view class="summary-card">
         <view class="summary-top">
-          <view class="risk-badge" :class="report.risk_level">{{ riskLabel(report.risk_level) }}</view>
+          <attention-badge :level="report.risk_level"></attention-badge>
           <view class="summary-date">{{ formatDate(report.created_at) }}</view>
         </view>
         <view class="summary-score">{{ report.overall_score }}<text class="score-unit">分</text></view>
-        <view class="summary-game">{{ gameTypeName(report.game_type) }} 筛查</view>
+        <view class="summary-game">{{ gameTypeName(report.game_type) }} 能力探索</view>
         <view class="summary-text">{{ report.summary }}</view>
       </view>
 
@@ -41,8 +41,8 @@
         <view>暂无维度数据</view>
       </view>
 
-      <!-- 干预建议 -->
-      <view class="section-title">干预建议</view>
+      <!-- 成长建议 -->
+      <view class="section-title">成长建议</view>
       <view class="advice-card">
         <view class="advice-text">{{ report.recommendations }}</view>
         <button class="advice-btn" @click="goToTraining">查看训练计划 →</button>
@@ -83,6 +83,9 @@
 
 <script>
 import { getReport, getReportDimensions, exportReportText } from '../../../api/report.js'
+import AttentionBadge from '../../../components/common/AttentionBadge.vue'
+import { friendlyRiskLevel } from '../../../utils/terminology.js'
+
 const GAME_TYPE_NAMES = {
   visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
   working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
@@ -99,6 +102,7 @@ const DIM_NAMES = {
 }
 
 export default {
+  components: { AttentionBadge },
   data() {
     return {
       reportId: null,
@@ -135,7 +139,7 @@ export default {
       }
     },
     riskLabel(level) {
-      return { low: '低风险', medium: '中风险', high: '高风险' }[level] || level
+      return friendlyRiskLevel(level)
     },
     gameTypeName(type) {
       return GAME_TYPE_NAMES[type] || type || '综合'
@@ -195,12 +199,12 @@ export default {
     _exportLocal() {
       const lines = []
       lines.push('═══════════════════════════════')
-      lines.push('  悦读小灯塔 · 筛查评估报告')
+      lines.push('  悦读小灯塔 · 成长评估报告')
       lines.push('═══════════════════════════════')
       lines.push(`游戏类型：${this.gameTypeName(this.report.game_type)}`)
       lines.push(`评估日期：${this.formatDate(this.report.created_at)}`)
       lines.push(`综合得分：${this.report.overall_score} 分`)
-      lines.push(`风险等级：${this.riskLabel(this.report.risk_level)}`)
+      lines.push(`关注等级：${this.riskLabel(this.report.risk_level)}`)
       lines.push('───────────────────────────────')
       lines.push('【评估总结】')
       lines.push(this.report.summary || '暂无')
@@ -215,10 +219,10 @@ export default {
         lines.push('暂无维度数据')
       }
       lines.push('───────────────────────────────')
-      lines.push('【干预建议】')
+      lines.push('【成长建议】')
       lines.push(this.report.recommendations || '暂无')
       lines.push('───────────────────────────────')
-      lines.push('⚠️ 本报告仅供参考，不构成医学诊断')
+      lines.push('⚠️ 本报告仅供参考，不构成专业观察结论')
       lines.push('═══════════════════════════════')
       uni.setClipboardData({
         data: lines.join('\n'),

@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\api\ai_qa.py
+# hypothesis_version: 6.151.12
+
+[100, 404, '/adaptive-difficulty', '/api/ai', '/chat', '/chat/stream', '/emotional-support', '/encouragement', '/history', '/saved-messages', '/training-plan', 'AI问答', 'Cache-Control', 'X-Accel-Buffering', 'analysis', 'assistant', 'checklist', 'child_age', 'child_id', 'child_name', 'completed', 'content', 'conversation_id', 'created_at', 'date', 'declining', 'dimensions', 'encouragement', 'guidance', 'has_report', 'id', 'improving', 'interpretation', 'low', 'medium', 'message', 'needs_professional', 'no', 'no-cache', 'no_data', 'overall_score', 'plan', 'report_count', 'report_id', 'risk_level', 'role', 'score', 'score_trend', 'scores', 'stable', 'support', 'text/event-stream', 'tip', 'training_days', 'urgency', 'user', '孩子档案不存在', '对话历史已清空', '已取消收藏', '已收藏', '报告不存在', '收藏不存在', '收藏成功', '暂无筛查报告，请先完成筛查', '消息不存在']

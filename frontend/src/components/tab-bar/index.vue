@@ -47,8 +47,8 @@ export default {
     return {
       parentTabs: [
         { pagePath: '/pages/parent/home/index', text: '首页', icon: 'ph ph-house', activeIcon: 'ph-fill ph-house' },
-        { pagePath: '/pages/parent/screening/index', text: '筛查', icon: 'ph ph-magnifying-glass', activeIcon: 'ph-fill ph-magnifying-glass' },
-        { pagePath: '/pages/parent/report/index', text: '报告', icon: 'ph ph-chart-pie', activeIcon: 'ph-fill ph-chart-pie' },
+        { pagePath: '/pages/parent/screening/index', text: '游戏', icon: 'ph ph-game-controller', activeIcon: 'ph-fill ph-game-controller' },
+        { pagePath: '/pages/parent/articles/index', text: '科普', icon: 'ph ph-newspaper', activeIcon: 'ph-fill ph-newspaper' },
         { pagePath: '/pages/parent/training/index', text: '训练', icon: 'ph ph-squares-four', activeIcon: 'ph-fill ph-squares-four' },
         { pagePath: '/pages/parent/profile/index', text: '我的', icon: 'ph ph-user', activeIcon: 'ph-fill ph-user' }
       ],

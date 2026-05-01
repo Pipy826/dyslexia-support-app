@@ -7,11 +7,11 @@ services:
       dockerfile: Dockerfile
     container_name: dyslexia-backend
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
       - DEBUG=False
       - DATABASE_URL=sqlite:////app/data/dyslexia.db
-      - SECRET_KEY=4f7a217b0b92ca54a2ac384a948a571576d75df3ebcd13d2ef7b82321952feeb
-      - ALLOWED_ORIGINS=http://118.145.185.15
       - UPLOAD_DIR=/app/uploads
     volumes:
       - uploads_data:/app/uploads

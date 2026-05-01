@@ -2,14 +2,14 @@
   <view class="page-container">
     <!-- 极简头部 -->
     <view class="page-header">
-      <view class="header-title">能力筛查</view>
+      <view class="header-title">能力探索</view>
       <view class="header-action">
         <text class="ph ph-question"></text>
       </view>
     </view>
 
     <view class="page-content">
-      <!-- 筛查对象信息区 -->
+      <!-- 探索对象信息区 -->
       <view class="child-info-card">
         <view class="child-avatar">
           <text class="ph ph-user"></text>
@@ -27,7 +27,7 @@
       <!-- 无孩子档案提示 -->
       <view class="no-child-tip" v-if="!currentChild">
         <text class="ph ph-info"></text>
-        <text>请先添加孩子档案，以开始筛查</text>
+        <text>请先添加孩子档案，以开始能力探索</text>
       </view>
 
       <!-- 进入儿童模式入口 -->
@@ -39,11 +39,52 @@
           </view>
           <view class="handover-text">
             <view class="handover-title">进入儿童模式</view>
-            <view class="handover-desc">将设备交给 {{ currentChild.name }}，由孩子自主选择游戏开始筛查</view>
+            <view class="handover-desc">将设备交给 {{ currentChild.name }}，由孩子自主选择游戏开始能力探索</view>
           </view>
         </view>
         <view class="handover-arrow">
           <text class="ph ph-arrow-right"></text>
+        </view>
+      </view>
+
+      <!-- 读写能力风险筛查入口（二维码） -->
+      <view class="screening-qr-card" v-if="currentChild">
+        <view class="qr-card-header">
+          <view class="qr-badge">专业筛查</view>
+          <view class="qr-title">读写能力风险筛查</view>
+          <view class="qr-desc">由星萌乐学专业团队提供，扫码即可完成专业筛查，结果由专业老师解读</view>
+        </view>
+        <view class="qr-body">
+          <view class="qr-image-wrap">
+            <image
+              class="qr-image"
+              src="/static/images/screening_qr.png"
+              mode="aspectFit"
+              @error="qrLoadError = true"
+            />
+            <view class="qr-placeholder" v-if="qrLoadError">
+              <text class="ph ph-qr-code"></text>
+              <text class="qr-placeholder-text">筛查二维码</text>
+            </view>
+          </view>
+          <view class="qr-tips">
+            <view class="qr-tip-row">
+              <text class="ph ph-check-circle qr-tip-icon"></text>
+              <text class="qr-tip-text">专业团队设计，科学可靠</text>
+            </view>
+            <view class="qr-tip-row">
+              <text class="ph ph-check-circle qr-tip-icon"></text>
+              <text class="qr-tip-text">筛查数据由专业老师查看</text>
+            </view>
+            <view class="qr-tip-row">
+              <text class="ph ph-check-circle qr-tip-icon"></text>
+              <text class="qr-tip-text">高风险可联系专业导师</text>
+            </view>
+          </view>
+        </view>
+        <view class="qr-footer">
+          <text class="ph ph-info"></text>
+          游戏成绩偏低时，建议扫码做专业筛查
         </view>
       </view>
 
@@ -65,7 +106,7 @@
 
       <!-- 历史记录区 -->
       <view class="section-header">
-        <view class="section-title">历史筛查记录</view>
+        <view class="section-title">历史探索记录</view>
       </view>
 
       <!-- 历史列表 -->
@@ -80,7 +121,7 @@
             <text class="ph ph-file-text"></text>
           </view>
           <view class="history-info">
-            <view class="history-title">{{ gameTypeName(item.game_type) }}筛查</view>
+            <view class="history-title">{{ gameTypeName(item.game_type) }}能力探索</view>
             <view class="history-time">{{ formatDate(item.created_at) }}</view>
           </view>
           <view class="history-score" v-if="item.score > 0">{{ item.score }}分</view>
@@ -93,8 +134,8 @@
         <view class="empty-icon">
           <text class="ph ph-clock"></text>
         </view>
-        <view class="empty-text">暂无历史筛查记录</view>
-        <view class="empty-hint">完成筛查后将在这里生成成长报告</view>
+        <view class="empty-text">暂无历史探索记录</view>
+        <view class="empty-hint">完成能力探索后将在这里生成成长报告</view>
       </view>
     </view>
 
@@ -129,6 +170,7 @@ import { getChildren } from '../../../api/child.js'
 import { getScreeningHistory } from '../../../api/screening.js'
 import { getReportByScreening } from '../../../api/report.js'
 import TabBar from '../../../components/tab-bar/index.vue'
+import { friendlyRiskLevel } from '../../../utils/terminology.js'
 
 export default {
   components: { TabBar },
@@ -138,6 +180,7 @@ export default {
       children: [],
       showPicker: false,
       screeningHistory: [],
+      qrLoadError: false,
     }
   },
   onShow() {
@@ -174,6 +217,8 @@ export default {
         uni.showToast({ title: '请先添加孩子档案', icon: 'none' })
         return
       }
+      // 确保当前孩子信息已持久化，儿童端可以读取
+      setCurrentChild(this.currentChild)
       uni.navigateTo({ url: '/pages/child/home/index' })
     },
     getAge(birthDate) {
@@ -193,7 +238,7 @@ export default {
       return map[type] || type
     },
     riskLabel(level) {
-      return { low: '低风险', medium: '中风险', high: '高风险' }[level] || '未知'
+      return friendlyRiskLevel(level)
     },
     showChildPicker() {
       this.showPicker = true
@@ -342,6 +387,134 @@ export default {
 .tips-icon.orange { background: linear-gradient(135deg, #FFF9C4, #FFE082); }
 .tips-icon.orange .ph { color: #F57F17; }
 .tips-text { font-size: 24rpx; color: #718096; font-weight: 500; line-height: 1.5; }
+
+/* 读写能力风险筛查二维码卡片 */
+.screening-qr-card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.05);
+  border: 2rpx solid #EDE9FE;
+}
+
+.qr-card-header { margin-bottom: 20rpx; }
+
+.qr-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  color: #FFFFFF;
+  font-size: 18rpx;
+  font-weight: 700;
+  padding: 4rpx 16rpx;
+  border-radius: 9999rpx;
+  margin-bottom: 10rpx;
+  letter-spacing: 1rpx;
+}
+
+.qr-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #2D3748;
+  margin-bottom: 8rpx;
+}
+
+.qr-desc {
+  font-size: 22rpx;
+  color: #718096;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.qr-body {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.qr-image-wrap {
+  width: 180rpx;
+  height: 180rpx;
+  flex-shrink: 0;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background: #F5F7FA;
+  border: 2rpx solid #E5E7EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.qr-image {
+  width: 100%;
+  height: 100%;
+}
+
+.qr-placeholder {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+
+.qr-placeholder .ph {
+  font-size: 60rpx;
+  color: #A78BFA;
+}
+
+.qr-placeholder-text {
+  font-size: 18rpx;
+  color: #A0AEC0;
+  font-weight: 600;
+}
+
+.qr-tips {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.qr-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.qr-tip-icon {
+  font-size: 24rpx;
+  color: #7C3AED;
+  flex-shrink: 0;
+}
+
+.qr-tip-text {
+  font-size: 22rpx;
+  color: #4A5568;
+  font-weight: 500;
+}
+
+.qr-footer {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 20rpx;
+  color: #A0AEC0;
+  font-weight: 500;
+  background: #F9FAFB;
+  border-radius: 12rpx;
+  padding: 12rpx 16rpx;
+}
+
+.qr-footer .ph {
+  font-size: 22rpx;
+  color: #A78BFA;
+  flex-shrink: 0;
+}
 
 /* 区域标题 */
 .section-title {

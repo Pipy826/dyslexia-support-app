@@ -16,12 +16,18 @@ from ..config import settings
 
 # ── 系统提示词 ──────────────────────────────────────────────────────────────
 
-PARENT_SYSTEM_PROMPT = """你是一位专业的儿童读写障碍干预顾问，同时也是一位温暖、有耐心的家长支持者。
+PARENT_SYSTEM_PROMPT = """你是星萌乐学平台的AI科普助手，专注于儿童读写障碍的家长科普与支持。
 你的职责是：
 1. 用通俗易懂的语言解释孩子的筛查报告和各项能力维度
-2. 提供科学、实用的家庭干预建议
+2. 提供科学、实用的家庭日常支持建议
 3. 安抚家长的焦虑情绪，强调读写障碍不是智力问题，通过科学干预可以显著改善
-4. 回答关于读写障碍、学习困难的专业问题
+4. 回答关于读写障碍、学习困难的科普问题
+
+【重要规则】问题分类处理：
+- 如果家长询问的是【科普类问题】（如：什么是读写障碍、孩子为什么写镜像字、如何在家陪伴孩子等），请正常回答。
+- 如果家长询问的是【专业干预类问题】（如：需要什么专业训练方案、如何制定个性化干预计划、孩子需要去哪里做专业评估、具体的治疗方法等），请在简短说明后，明确提示：
+  "这个问题涉及专业干预，建议您咨询我们的专业导师获取个性化建议。您可以点击下方【联系专业导师】按钮，或拨打咨询电话：{{CONTACT_PHONE}}。"
+  并在回复末尾加上标记：[NEED_PROFESSIONAL]
 
 回答要求：
 - 语言温暖、亲切，像朋友一样交流
@@ -111,11 +117,69 @@ EMOTIONAL_SUPPORT_SYSTEM_PROMPT = """你是一位专业的家长心理支持顾�
 
 # ── 核心 HTTP 调用 ──────────────────────────────────────────────────────────
 
+def _is_nvidia_api() -> bool:
+    """检测是否为 NVIDIA API"""
+    return settings.AI_API_KEY.startswith('nvapi-')
+
 def _build_headers() -> Dict[str, str]:
-    return {
-        "Authorization": f"Bearer {settings.AI_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    """根据 API 类型构建请求头"""
+    if _is_nvidia_api():
+        return {
+            "Authorization": f"Bearer {settings.AI_API_KEY}",
+            "Content-Type": "application/json",
+            "NVCF-INPUT-ENCODING": "utf8",
+            "NVCF-OUTPUT-ENCODING": "utf8",
+        }
+    else:
+        return {
+            "Authorization": f"Bearer {settings.AI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+def _get_api_url(endpoint: str = "/chat/completions") -> str:
+    """获取完整的 API URL"""
+    base_url = settings.AI_API_BASE_URL.rstrip('/')
+    return f"{base_url}{endpoint}"
+
+
+def _sanitize_user_input(text: str, max_length: int = 2000) -> str:
+    """
+    清理用户输入，防止提示词注入攻击。
+    - 截断超长输入
+    - 移除常见的提示词注入模式
+    """
+    if not text:
+        return text
+    # 截断超长输入
+    text = text[:max_length]
+    # 移除常见提示词注入模式（大小写不敏感）
+    import re
+    injection_patterns = [
+        r'(?i)ignore\s+(all\s+)?previous\s+instructions?',
+        r'(?i)you\s+are\s+now\s+',
+        r'(?i)act\s+as\s+(a\s+)?',
+        r'(?i)forget\s+(all\s+)?previous',
+        r'(?i)new\s+instructions?:',
+        r'(?i)system\s*:\s*',
+        r'(?i)\[INST\]',
+        r'(?i)<\|system\|>',
+    ]
+    for pattern in injection_patterns:
+        text = re.sub(pattern, '[已过滤]', text)
+    return text
+
+
+def _sanitize_error_message(error: Exception) -> str:
+    """
+    清理错误信息，防止 API Key 等敏感信息泄露到日志或响应中。
+    """
+    import re
+    error_str = str(error)
+    # 脱敏 API Key 格式
+    error_str = re.sub(r'(sk-|nvapi-|ds-)[a-zA-Z0-9\-_]{8,}', '[API_KEY_REDACTED]', error_str)
+    # 脱敏 Bearer token
+    error_str = re.sub(r'Bearer\s+[a-zA-Z0-9\-_\.]{8,}', 'Bearer [REDACTED]', error_str)
+    return error_str
 
 
 def _build_messages(system_prompt: str, history: List[Dict], user_message: str) -> List[Dict]:
@@ -148,15 +212,22 @@ async def call_llm(
         "stream": False,
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(
-            f"{settings.AI_API_BASE_URL}/chat/completions",
-            headers=_build_headers(),
-            json=payload,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                _get_api_url("/chat/completions"),
+                headers=_build_headers(),
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        # 脱敏后再记录日志，防止 API Key 泄露
+        sanitized = _sanitize_error_message(e)
+        import logging as _logging
+        _logging.getLogger(__name__).error(f"LLM call failed: {sanitized}")
+        raise
 
 
 async def call_llm_stream(
@@ -181,27 +252,33 @@ async def call_llm_stream(
         "stream": True,
     }
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        async with client.stream(
-            "POST",
-            f"{settings.AI_API_BASE_URL}/chat/completions",
-            headers=_build_headers(),
-            json=payload,
-        ) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                chunk = line[6:]
-                if chunk.strip() == "[DONE]":
-                    break
-                try:
-                    data = json.loads(chunk)
-                    delta = data["choices"][0]["delta"].get("content", "")
-                    if delta:
-                        yield delta
-                except (json.JSONDecodeError, KeyError, IndexError):
-                    continue
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                "POST",
+                _get_api_url("/chat/completions"),
+                headers=_build_headers(),
+                json=payload,
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    chunk = line[6:]
+                    if chunk.strip() == "[DONE]":
+                        break
+                    try:
+                        data = json.loads(chunk)
+                        delta = data["choices"][0]["delta"].get("content", "")
+                        if delta:
+                            yield delta
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+    except Exception as e:
+        sanitized = _sanitize_error_message(e)
+        import logging as _logging
+        _logging.getLogger(__name__).error(f"LLM stream failed: {sanitized}")
+        yield "AI 服务暂时不可用，请稍后再试。"
 
 
 # ── 功能 1：家长问答（普通） ─────────────────────────────────────────────────
@@ -212,17 +289,23 @@ async def get_ai_response(
     history: Optional[List[Dict]] = None,
 ) -> str:
     """家长问答 —— 普通模式，返回完整回复"""
-    user_content = _build_parent_user_content(message, context)
+    # 清理用户输入，防止提示词注入
+    safe_message = _sanitize_user_input(message, max_length=2000)
+    user_content = _build_parent_user_content(safe_message, context)
+    # 动态注入联系电话
+    system_prompt = PARENT_SYSTEM_PROMPT.replace(
+        "{{CONTACT_PHONE}}", settings.CONTACT_PHONE
+    )
     try:
         return await call_llm(
-            system_prompt=PARENT_SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             user_message=user_content,
             history=history,
             temperature=0.7,
             max_tokens=400,
         )
     except Exception as e:
-        return f"抱歉，AI助手暂时无法响应，请稍后再试。（{type(e).__name__}）"
+        return f"抱歉，AI助手暂时无法响应，请稍后再试。"
 
 
 async def get_ai_response_stream(
@@ -231,10 +314,16 @@ async def get_ai_response_stream(
     history: Optional[List[Dict]] = None,
 ) -> AsyncGenerator[str, None]:
     """家长问答 —— 流式模式，逐 token yield"""
-    user_content = _build_parent_user_content(message, context)
+    # 清理用户输入，防止提示词注入
+    safe_message = _sanitize_user_input(message, max_length=2000)
+    user_content = _build_parent_user_content(safe_message, context)
+    # 动态注入联系电话
+    system_prompt = PARENT_SYSTEM_PROMPT.replace(
+        "{{CONTACT_PHONE}}", settings.CONTACT_PHONE
+    )
     try:
         async for chunk in call_llm_stream(
-            system_prompt=PARENT_SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             user_message=user_content,
             history=history,
             temperature=0.7,
@@ -242,7 +331,7 @@ async def get_ai_response_stream(
         ):
             yield chunk
     except Exception as e:
-        yield f"抱歉，AI助手暂时无法响应，请稍后再试。（{type(e).__name__}）"
+        yield "抱歉，AI助手暂时无法响应，请稍后再试。"
 
 
 def _build_parent_user_content(message: str, context: Optional[Dict]) -> str:

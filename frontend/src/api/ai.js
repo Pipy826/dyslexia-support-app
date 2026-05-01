@@ -49,7 +49,7 @@ export const chatStream = (data, onChunk, onDone, onError) => {
         try {
           const parsed = JSON.parse(jsonStr);
           if (parsed.chunk) onChunk(parsed.chunk);
-          if (parsed.done) onDone && onDone();
+          if (parsed.done) onDone && onDone(parsed);
         } catch (e) {}
       }
     } catch (e) {}
@@ -88,7 +88,7 @@ export const chatStream = (data, onChunk, onDone, onError) => {
           try {
             const parsed = JSON.parse(jsonStr);
             if (parsed.chunk) onChunk(parsed.chunk);
-            if (parsed.done) onDone && onDone();
+            if (parsed.done) onDone && onDone(parsed);
           } catch (e) {}
         }
       }
@@ -152,3 +152,6 @@ export const getSavedMessages = (childId) => {
   return get('/api/ai/saved-messages', params);
 };
 export const deleteSavedMessage = (id) => del(`/api/ai/saved-messages/${id}`);
+
+// ── 13. 联系方式 ──────────────────────────────────────────────────────────────
+export const getContactInfo = () => get('/api/ai/contact-info');

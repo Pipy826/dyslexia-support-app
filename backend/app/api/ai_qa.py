@@ -45,6 +45,18 @@ logger = logging.getLogger(__name__)
 from ..models.ai_chat import SavedMessage
 
 
+# ── 联系方式配置接口 ──────────────────────────────────────────────────────────
+
+@router.get("/contact-info")
+def get_contact_info():
+    """获取专业咨询联系方式（无需认证）"""
+    from ..config import settings
+    return {
+        "phone": settings.CONTACT_PHONE,
+        "wechat": settings.CONTACT_WECHAT,
+    }
+
+
 # ── 工具函数 ─────────────────────────────────────────────────────────────────
 
 def _safe_json_loads(value: Optional[str], default=None):
@@ -69,6 +81,40 @@ def _calc_age(birth_date: date) -> int:
 
 
 # ── 辅助：构建孩子上下文 ─────────────────────────────────────────────────────
+
+def _build_behavior_summary(child_id: int, db: Session) -> dict:
+    """从最近3次筛查的 behavior_data 中提取行为特征摘要"""
+    from ..models.screening import Screening
+
+    screenings = db.query(Screening).filter(
+        Screening.child_id == child_id,
+        Screening.behavior_data.isnot(None)
+    ).order_by(Screening.created_at.desc()).limit(3).all()
+
+    summary = {
+        "hesitation_patterns": [],   # 犹豫次数多的题型
+        "slow_response_types": [],   # 反应时长的游戏类型
+        "improvement_areas": [],     # 近期有进步的维度
+    }
+
+    for s in screenings:
+        try:
+            behavior = json.loads(s.behavior_data or '{}')
+        except Exception:
+            continue
+        answers = behavior.get('answers_detail', [])
+        for ans in answers:
+            if ans.get('change_count', 0) >= 2:
+                if s.game_type not in summary['hesitation_patterns']:
+                    summary['hesitation_patterns'].append(s.game_type)
+            if ans.get('reaction_time', 0) and ans.get('time_limit', 10):
+                # reaction_time 单位 ms，time_limit 单位 s
+                if ans['reaction_time'] > ans['time_limit'] * 0.8 * 1000:
+                    if s.game_type not in summary['slow_response_types']:
+                        summary['slow_response_types'].append(s.game_type)
+
+    return summary
+
 
 def _build_child_context(child_id: Optional[int], db: Session, current_user: User) -> dict:
     """从数据库读取孩子最新报告，构建上下文字典"""
@@ -97,6 +143,11 @@ def _build_child_context(child_id: Optional[int], db: Session, current_user: Use
         context["overall_score"] = report.overall_score
         if report.dimensions:
             context["dimensions"] = _safe_json_loads(report.dimensions)
+
+    # 注入行为摘要
+    behavior_summary = _build_behavior_summary(child_id, db)
+    if behavior_summary['hesitation_patterns'] or behavior_summary['slow_response_types']:
+        context['behavior_summary'] = behavior_summary
 
     return context
 
@@ -141,17 +192,26 @@ async def chat(
     # 调用 LLM
     reply = await get_ai_response(data.message, context, history)
 
+    # 检测是否需要跳转专业导师
+    need_professional = "[NEED_PROFESSIONAL]" in reply
+    # 清理标记，不暴露给前端原始标记
+    clean_reply = reply.replace("[NEED_PROFESSIONAL]", "").strip()
+
     # 保存 AI 回复
     assistant_msg = AIConversation(
         user_id=current_user.id,
         child_id=data.child_id,
         role="assistant",
-        message=reply
+        message=clean_reply
     )
     db.add(assistant_msg)
     db.commit()
 
-    return AIChatResponse(reply=reply, conversation_id=assistant_msg.id)
+    return AIChatResponse(
+        reply=clean_reply,
+        conversation_id=assistant_msg.id,
+        need_professional=need_professional,
+    )
 
 
 # ── 2. 流式对话（SSE） ───────────────────────────────────────────────────────
@@ -187,16 +247,19 @@ async def chat_stream(
         finally:
             # 流结束后保存完整回复
             complete_reply = "".join(full_reply)
-            if complete_reply:
+            # 检测专业问题标记
+            need_professional = "[NEED_PROFESSIONAL]" in complete_reply
+            clean_reply = complete_reply.replace("[NEED_PROFESSIONAL]", "").strip()
+            if clean_reply:
                 assistant_msg = AIConversation(
                     user_id=current_user.id,
                     child_id=data.child_id,
                     role="assistant",
-                    message=complete_reply
+                    message=clean_reply
                 )
                 db.add(assistant_msg)
                 db.commit()
-            yield f"data: {json.dumps({'done': True, 'conversation_id': user_msg_id}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'done': True, 'conversation_id': user_msg_id, 'need_professional': need_professional}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -218,6 +281,8 @@ def get_chat_history(
     current_user: User = Depends(get_current_user)
 ):
     """获取对话历史"""
+    # limit 范围限制，防止一次拉取过多数据
+    limit = max(1, min(limit, 100))
     query = db.query(AIConversation).filter(
         AIConversation.user_id == current_user.id
     )
@@ -738,3 +803,78 @@ def delete_saved_message(
     db.delete(saved)
     db.commit()
     return {"message": "已取消收藏"}
+
+
+# ── 13. 语音答题识别 ─────────────────────────────────────────────────────────
+
+class VoiceAnswerRequest(BaseModel):
+    audio_base64: str
+    expected_answer: str
+    game_type: str
+
+
+@router.post("/voice-answer")
+async def voice_answer(
+    request: VoiceAnswerRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    语音答题识别接口（无需 JWT 认证，供儿童端直接调用）。
+    先尝试调用微信小程序语音识别，失败时返回降级响应。
+    """
+    import httpx
+    import os
+
+    # 尝试调用微信语音识别服务
+    wx_appid = os.getenv("WX_APPID", "")
+    wx_secret = os.getenv("WX_SECRET", "")
+
+    if wx_appid and wx_secret:
+        try:
+            # 获取微信 access_token
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                token_resp = await client.get(
+                    "https://api.weixin.qq.com/cgi-bin/token",
+                    params={
+                        "grant_type": "client_credential",
+                        "appid": wx_appid,
+                        "secret": wx_secret,
+                    }
+                )
+                token_data = token_resp.json()
+                access_token = token_data.get("access_token", "")
+
+            if access_token:
+                import base64
+                audio_bytes = base64.b64decode(request.audio_base64)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    asr_resp = await client.post(
+                        "https://api.weixin.qq.com/cv/visionai/asr",
+                        params={"access_token": access_token},
+                        content=audio_bytes,
+                        headers={"Content-Type": "audio/mp3"},
+                    )
+                    asr_data = asr_resp.json()
+
+                recognized_text = asr_data.get("result", {}).get("text", "")
+                if recognized_text:
+                    # 简单相似度比较（去除空格后比较）
+                    clean_recognized = recognized_text.replace(" ", "").strip()
+                    clean_expected = request.expected_answer.replace(" ", "").strip()
+                    is_correct = clean_recognized == clean_expected
+                    confidence = 0.9 if is_correct else 0.6
+                    return {
+                        "recognized_text": recognized_text,
+                        "is_correct": is_correct,
+                        "confidence": confidence,
+                    }
+        except Exception as e:
+            logger.warning(f"微信语音识别调用失败: {e}")
+
+    # 降级响应：语音识别服务不可用
+    return {
+        "recognized_text": "",
+        "is_correct": False,
+        "confidence": 0.0,
+        "error": "语音识别服务暂不可用",
+    }

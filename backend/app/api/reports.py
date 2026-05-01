@@ -16,6 +16,8 @@ router = APIRouter(prefix="/api/reports", tags=["报告"])
 @router.get("/", response_model=List[ReportResponse])
 def get_reports(
     child_id: int = None,
+    limit: int = 20,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -23,11 +25,15 @@ def get_reports(
     from ..models.screening import Screening
     import json as _json
 
+    # 参数范围校验
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
     query = db.query(Report).join(Child).filter(Child.parent_id == current_user.id)
     if child_id:
         query = query.filter(Report.child_id == child_id)
 
-    reports = query.order_by(Report.created_at.desc()).all()
+    reports = query.order_by(Report.created_at.desc()).offset(offset).limit(limit).all()
 
     # 批量查询关联的 Screening，避免 N+1
     screening_ids = [r.screening_id for r in reports if r.screening_id]
@@ -44,6 +50,8 @@ def get_reports(
         results.append(item)
     return results
 
+
+# ── 固定路径路由必须在参数路由之前注册，避免被 /{report_id} 误匹配 ──────────
 
 @router.get("/by-screening/{screening_id}", response_model=ReportResponse)
 def get_report_by_screening(
@@ -63,57 +71,228 @@ def get_report_by_screening(
     return ReportResponse.model_validate(report)
 
 
-@router.get("/{report_id}", response_model=ReportResponse)
-def get_report(
-    report_id: int,
+@router.get("/growth-diary/{child_id}")
+def get_growth_diary(
+    child_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get a specific report"""
-    from ..models.screening import Screening
-    report = db.query(Report).join(Child).filter(
-        Report.id == report_id,
-        Child.parent_id == current_user.id
-    ).first()
-
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-
-    # 附加 game_type（来自关联的 Screening）
-    result = ReportResponse.model_validate(report)
-    if report.screening_id:
-        screening = db.query(Screening).filter(Screening.id == report.screening_id).first()
-        if screening:
-            result.game_type = screening.game_type
-    return result
-
-
-@router.get("/{report_id}/dimensions")
-def get_report_dimensions(
-    report_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get detailed dimension scores for a report"""
-    report = db.query(Report).join(Child).filter(
-        Report.id == report_id,
-        Child.parent_id == current_user.id
-    ).first()
-
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-
+    """
+    获取孩子的成长日记数据，包含：
+    - 最新游戏的能力标签
+    - 6维度星级（来自合并维度）
+    - 近5次游戏的星级变化
+    - AI 个性化观察文字
+    - 推荐练习列表（基于最低分维度）
+    """
     import json
-    try:
-        dimensions = json.loads(report.dimensions) if report.dimensions else {}
-    except (json.JSONDecodeError, TypeError):
-        dimensions = {}
+    from ..models.screening import Screening
+
+    # 1. 验证孩子归属
+    child = db.query(Child).filter(
+        Child.id == child_id,
+        Child.parent_id == current_user.id
+    ).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="孩子档案不存在")
+
+    # 2. 查询最新报告
+    latest_report = db.query(Report).filter(
+        Report.child_id == child_id
+    ).order_by(Report.created_at.desc()).first()
+
+    # 3. 构建合并维度（取每个游戏类型最新报告的分数）
+    all_reports = db.query(Report).filter(
+        Report.child_id == child_id
+    ).order_by(Report.created_at.asc()).all()
+
+    merged_dimensions: dict = {}
+    for report in all_reports:
+        if not report.dimensions:
+            continue
+        try:
+            dims = json.loads(report.dimensions)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for dim, score in dims.items():
+            if isinstance(score, (int, float)):
+                merged_dimensions[dim] = int(score)
+
+    # 将子维度映射到6个游戏类型维度
+    GAME_TYPE_DIM_MAP = {
+        "visual": ["visual_discrimination"],
+        "spelling": ["phonological", "character_order", "spelling"],
+        "comprehension": ["reading_comprehension", "semantic_integration", "information_extraction"],
+        "working_memory": ["working_memory_capacity", "short_term_memory", "attention"],
+        "rapid_naming": ["rapid_naming_speed", "phonological_awareness"],
+        "motor_coordination": ["fine_motor_control", "visual_motor_integration"],
+    }
+
+    def get_game_type_score(game_type: str) -> int | None:
+        """从合并维度中计算游戏类型的平均分"""
+        dims = GAME_TYPE_DIM_MAP.get(game_type, [])
+        scores = [merged_dimensions[d] for d in dims if d in merged_dimensions]
+        if not scores:
+            return None
+        return int(sum(scores) / len(scores))
+
+    # 构建6维度分数
+    all_game_types = ["visual", "spelling", "comprehension", "working_memory", "rapid_naming", "motor_coordination"]
+    dimensions_6 = {}
+    for gt in all_game_types:
+        # 优先从筛查记录直接取分数
+        sc = db.query(Screening).filter(
+            Screening.child_id == child_id,
+            Screening.game_type == gt,
+            Screening.completed_at.isnot(None)
+        ).order_by(Screening.created_at.desc()).first()
+        if sc:
+            dimensions_6[gt] = sc.score
+        else:
+            computed = get_game_type_score(gt)
+            if computed is not None:
+                dimensions_6[gt] = computed
+
+    # 4. 获取最新游戏的能力标签
+    latest_ability = None
+    if latest_report and latest_report.screening_id:
+        latest_sc = db.query(Screening).filter(
+            Screening.id == latest_report.screening_id
+        ).first()
+        if latest_sc:
+            game_type = latest_sc.game_type
+            score = latest_sc.score
+
+            # 能力标签映射（与前端 abilityLabels.js 保持一致）
+            ABILITY_LABELS = {
+                "visual": {
+                    "high": {"label": "眼力小达人", "emoji": "👁️", "desc": "你的眼睛很厉害，能快速找到不同！"},
+                    "mid":  {"label": "眼力不错哦", "emoji": "😊", "desc": "再多练练，眼力会更强！"},
+                    "low":  {"label": "眼力在成长", "emoji": "💪", "desc": "没关系，多玩几次就会进步！"},
+                },
+                "spelling": {
+                    "high": {"label": "文字小魔法师", "emoji": "✨", "desc": "你认识好多字，真厉害！"},
+                    "mid":  {"label": "文字小学徒",   "emoji": "📚", "desc": "继续加油，你会认识更多字！"},
+                    "low":  {"label": "文字探险家",   "emoji": "🔍", "desc": "每个字都是新朋友，慢慢认识它们！"},
+                },
+                "comprehension": {
+                    "high": {"label": "故事小达人",   "emoji": "📖", "desc": "你理解故事的能力超强！"},
+                    "mid":  {"label": "故事小读者",   "emoji": "🌱", "desc": "多读故事，理解力会越来越好！"},
+                    "low":  {"label": "故事小探索者", "emoji": "🗺️", "desc": "每个故事都有宝藏，慢慢发现！"},
+                },
+                "working_memory": {
+                    "high": {"label": "记忆小冠军",   "emoji": "🧠", "desc": "你的记忆力超级棒！"},
+                    "mid":  {"label": "记忆小能手",   "emoji": "💡", "desc": "记忆力不错，继续练习会更强！"},
+                    "low":  {"label": "记忆小训练师", "emoji": "🎯", "desc": "记忆力是可以练出来的，加油！"},
+                },
+                "rapid_naming": {
+                    "high": {"label": "反应小闪电", "emoji": "⚡", "desc": "你的反应速度超快！"},
+                    "mid":  {"label": "反应小能手", "emoji": "🏃", "desc": "反应不错，多练练会更快！"},
+                    "low":  {"label": "反应小学员", "emoji": "🌟", "desc": "慢慢来，速度会越来越快的！"},
+                },
+                "motor_coordination": {
+                    "high": {"label": "手眼协调王",   "emoji": "🎯", "desc": "你的手眼配合超级棒！"},
+                    "mid":  {"label": "手眼小能手",   "emoji": "✋", "desc": "配合不错，继续练习！"},
+                    "low":  {"label": "手眼小训练师", "emoji": "💪", "desc": "多做手工游戏，会越来越好！"},
+                },
+            }
+
+            level_key = "high" if score >= 75 else ("mid" if score >= 55 else "low")
+            labels = ABILITY_LABELS.get(game_type, {})
+            label_info = labels.get(level_key, {"label": "小小探险家", "emoji": "🌟", "desc": "你完成了挑战，真棒！"})
+
+            latest_ability = {
+                "game_type": game_type,
+                "ability_label": label_info["label"],
+                "ability_emoji": label_info["emoji"],
+                "ability_desc": label_info["desc"],
+                "score": score,
+            }
+
+    # 5. 查询近5次筛查记录，构建 score_history
+    recent_screenings = db.query(Screening).filter(
+        Screening.child_id == child_id,
+        Screening.completed_at.isnot(None)
+    ).order_by(Screening.created_at.desc()).limit(5).all()
+
+    def score_to_stars(score: int) -> int:
+        """score/20 取整，最小1最大5"""
+        stars = max(1, min(5, int(score / 20)))
+        return stars
+
+    score_history = []
+    for sc in reversed(recent_screenings):  # 按时间升序展示
+        date_str = sc.created_at.strftime("%Y-%m-%d") if sc.created_at else ""
+        score_history.append({
+            "date": date_str,
+            "score": sc.score,
+            "stars": score_to_stars(sc.score),
+            "game_type": sc.game_type,
+        })
+
+    # 6. 推荐游戏：从6维度中找出最低分的3个
+    GAME_TYPE_NAMES = {
+        "visual": "视觉辨识",
+        "spelling": "拼字识别",
+        "comprehension": "文字理解",
+        "working_memory": "工作记忆",
+        "rapid_naming": "快速命名",
+        "motor_coordination": "精细动作",
+    }
+    GAME_TYPE_REASONS = {
+        "visual": "视觉辨识能力需要加强",
+        "spelling": "拼字识别需要加强",
+        "comprehension": "文字理解需要加强",
+        "working_memory": "工作记忆需要加强",
+        "rapid_naming": "快速命名需要加强",
+        "motor_coordination": "精细动作需要加强",
+    }
+
+    sorted_dims = sorted(dimensions_6.items(), key=lambda x: x[1])
+    recommended_games = []
+    for game_type, score in sorted_dims[:3]:
+        recommended_games.append({
+            "game_type": game_type,
+            "game_name": GAME_TYPE_NAMES.get(game_type, game_type),
+            "reason": GAME_TYPE_REASONS.get(game_type, f"{game_type}需要加强"),
+        })
+
+    # 如果维度不足3个，补充未完成的游戏类型
+    completed_types = {item["game_type"] for item in recommended_games}
+    for gt in all_game_types:
+        if len(recommended_games) >= 3:
+            break
+        if gt not in completed_types and gt not in dimensions_6:
+            recommended_games.append({
+                "game_type": gt,
+                "game_name": GAME_TYPE_NAMES.get(gt, gt),
+                "reason": "还未探索过，快来试试！",
+            })
+
+    # 7. AI 观察文字（静态模板，基于最新报告数据）
+    ai_observation = ""
+    if latest_ability:
+        child_name = child.name
+        label = latest_ability["ability_label"]
+        game_name = GAME_TYPE_NAMES.get(latest_ability["game_type"], "")
+        score_val = latest_ability["score"]
+        if score_val >= 75:
+            ai_observation = f'{child_name}在{game_name}游戏中表现出色，获得了\u201c{label}\u201d称号！继续保持这种好状态，能力会越来越强的。'
+        elif score_val >= 55:
+            ai_observation = f'{child_name}在{game_name}游戏中表现不错，已经获得了\u201c{label}\u201d称号。再多练习几次，一定能更上一层楼！'
+        else:
+            ai_observation = f'{child_name}在{game_name}游戏中正在成长，获得了\u201c{label}\u201d称号。每一次练习都是进步，加油！'
+    elif child:
+        ai_observation = f"{child.name}还没有完成任何游戏，快去开始第一次冒险吧！"
 
     return {
-        "report_id": report.id,
-        "dimensions": dimensions,
-        "overall_score": report.overall_score,
-        "risk_level": report.risk_level
+        "child_id": child_id,
+        "child_name": child.name,
+        "latest_ability": latest_ability,
+        "dimensions": dimensions_6,
+        "score_history": score_history,
+        "ai_observation": ai_observation,
+        "recommended_games": recommended_games,
     }
 
 
@@ -185,6 +364,62 @@ def get_merged_dimensions(
         "completed_game_types": completed_game_types,
         "pending_game_types": pending_game_types,
         "is_complete": len(pending_game_types) == 0,
+    }
+
+
+# ── 参数路由（必须在所有固定路径之后）────────────────────────────────────────
+
+@router.get("/{report_id}", response_model=ReportResponse)
+def get_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get a specific report"""
+    from ..models.screening import Screening
+    report = db.query(Report).join(Child).filter(
+        Report.id == report_id,
+        Child.parent_id == current_user.id
+    ).first()
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # 附加 game_type（来自关联的 Screening）
+    result = ReportResponse.model_validate(report)
+    if report.screening_id:
+        screening = db.query(Screening).filter(Screening.id == report.screening_id).first()
+        if screening:
+            result.game_type = screening.game_type
+    return result
+
+
+@router.get("/{report_id}/dimensions")
+def get_report_dimensions(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get detailed dimension scores for a report"""
+    report = db.query(Report).join(Child).filter(
+        Report.id == report_id,
+        Child.parent_id == current_user.id
+    ).first()
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    import json
+    try:
+        dimensions = json.loads(report.dimensions) if report.dimensions else {}
+    except (json.JSONDecodeError, TypeError):
+        dimensions = {}
+
+    return {
+        "report_id": report.id,
+        "dimensions": dimensions,
+        "overall_score": report.overall_score,
+        "risk_level": report.risk_level
     }
 
 

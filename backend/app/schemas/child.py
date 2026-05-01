@@ -34,6 +34,9 @@ class ChildResponse(BaseModel):
     has_difficulty: Optional[bool] = None
     has_professional_eval: Optional[bool] = None
     created_at: datetime
+    current_streak: int = 0
+    longest_streak: int = 0
+    last_activity_date: Optional[date] = None
 
     class Config:
         from_attributes = True

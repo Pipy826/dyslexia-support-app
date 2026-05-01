@@ -2,7 +2,7 @@
   <view class="page-container">
     <!-- 极简头部 -->
     <view class="page-header">
-      <view class="header-title">评估报告</view>
+      <view class="header-title">成长记录</view>
       <button class="ai-btn" @click="goToAiChat">
         <text class="ph ph-robot"></text> 问问AI
       </button>
@@ -11,6 +11,18 @@
     <view class="page-content">
       <!-- 有报告时显示 -->
       <template v-if="latestReport">
+        <!-- 成长日记入口 -->
+        <view class="diary-entry-card" @click="goToGrowthDiary">
+          <view class="diary-entry-left">
+            <text class="diary-entry-emoji">📅</text>
+            <view class="diary-entry-info">
+              <view class="diary-entry-title">成长日记</view>
+              <view class="diary-entry-desc">查看趣味成长报告和能力轨迹</view>
+            </view>
+          </view>
+          <text class="ph ph-arrow-right diary-entry-arrow"></text>
+        </view>
+
         <!-- 总体结论卡片 -->
         <view class="conclusion-card">
           <view class="report-time">生成时间：{{ formatDate(latestReport.created_at) }}</view>
@@ -24,10 +36,10 @@
         <!-- 能力多维剖析 -->
         <view class="section-title">综合能力剖析</view>
 
-        <!-- 未完成全部筛查时的提示 -->
+        <!-- 未完成全部探索时的提示 -->
         <view class="pending-hint" v-if="!isMergedComplete && completedGameTypes.length > 0">
           <text class="ph ph-clock"></text>
-          已完成 {{ completedGameTypes.length }}/6 项筛查，尚未完成：{{ pendingGameTypes.map(g => gameTypeName(g)).join('、') }}
+          已完成 {{ completedGameTypes.length }}/6 项能力探索，尚未完成：{{ pendingGameTypes.map(g => gameTypeName(g)).join('、') }}
         </view>
 
         <view class="ability-card">
@@ -66,8 +78,8 @@
           </view>
         </view>
 
-        <!-- 历史筛查记录（按游戏类型分组，每种取最新） -->
-        <view class="section-title">历史筛查记录</view>
+        <!-- 历史探索记录（按游戏类型分组，每种取最新） -->
+        <view class="section-title">历史探索记录</view>
         <view class="history-list">
           <view
             class="history-item"
@@ -79,7 +91,7 @@
               <text class="ph ph-file-text"></text>
             </view>
             <view class="history-info">
-              <view class="history-title">{{ gameTypeName(r.game_type) }}筛查</view>
+              <view class="history-title">{{ gameTypeName(r.game_type) }}能力探索</view>
               <view class="history-date">{{ formatDate(r.created_at) }}</view>
             </view>
             <view class="history-score-wrap">
@@ -89,15 +101,15 @@
           </view>
         </view>
 
-        <!-- 家长建议 -->
-        <view class="section-title">干预建议</view>
+        <!-- 成长建议 -->
+        <view class="section-title">成长建议</view>
         <view class="advice-card">
           <view class="advice-header">
             <text class="ph ph-info"></text>
             <view class="advice-title">专业建议</view>
           </view>
           <view class="advice-desc">{{ latestReport.recommendations }}</view>
-          <button class="advice-btn" @click="goToTraining">查看专属干预方案 →</button>
+          <button class="advice-btn" @click="goToTraining">查看专属成长方案 →</button>
         </view>
 
         <!-- 复评建议 -->
@@ -119,7 +131,7 @@
             <text class="ph ph-warning-circle high-risk-icon"></text>
             <view class="high-risk-title">建议专业评估</view>
           </view>
-          <view class="high-risk-desc">根据本次评估结果，建议尽快联系专业机构进行全面评估，以获得更准确的诊断和干预方案。</view>
+          <view class="high-risk-desc">根据本次评估结果，建议尽快联系专业机构进行全面评估，以获得更准确的专业意见和成长支持方案。</view>
           <button class="high-risk-btn" @click="goToAiChat">了解更多</button>
         </view>
       </template>
@@ -127,9 +139,9 @@
       <!-- 无报告时 -->
       <view class="empty-state" v-else>
         <view class="empty-icon"><text class="ph ph-file-text"></text></view>
-        <view class="empty-title">暂无评估报告</view>
-        <view class="empty-desc">完成筛查后，系统将自动生成详细的能力评估报告</view>
-        <button class="empty-btn" @click="goToScreening">立即发起筛查</button>
+        <view class="empty-title">暂无成长记录</view>
+        <view class="empty-desc">完成能力探索后，系统将自动生成详细的能力观察报告</view>
+        <button class="empty-btn" @click="goToScreening">开始能力探索</button>
       </view>
     </view>
 
@@ -171,6 +183,7 @@ import { getCurrentChild, setCurrentChild } from '../../../utils/auth.js'
 import { getEmotionalSupport } from '../../../api/ai.js'
 import TabBar from '../../../components/tab-bar/index.vue'
 import RadarChart from '../../../components/charts/RadarChart.vue'
+import { friendlyRiskLevel } from '../../../utils/terminology.js'
 
 // 游戏类型中文名
 const GAME_TYPE_NAMES = {
@@ -245,7 +258,7 @@ export default {
         this.latestReport = this.reports[0] || null
         // 加载综合维度
         await this.loadMergedDimensions()
-        // 高风险时自动触发情绪支持弹窗
+        // 需要更多关注时自动触发情绪支持弹窗
         if (this.latestReport?.risk_level === 'high') {
           this.loadEmotionalSupport()
         }
@@ -279,7 +292,12 @@ export default {
       }
     },
     riskTitle(level) {
-      return { low: '低风险 / 正常', medium: '中风险 / 需关注', high: '高风险 / 重点关注' }[level] || level
+      const map = {
+        low: '表现良好',
+        medium: '有些地方可以加强',
+        high: '需要更多关注',
+      }
+      return map[level] || friendlyRiskLevel(level)
     },
     gameTypeName(type) {
       return GAME_TYPE_NAMES[type] || type || '综合'
@@ -373,6 +391,10 @@ export default {
         url: `/pages/parent/report/compare?current_id=${this.reports[0].id}&previous_id=${this.reports[1].id}`
       })
     },
+    goToGrowthDiary() {
+      if (!this.currentChild) return
+      uni.navigateTo({ url: `/pages/parent/report/growth-diary?child_id=${this.currentChild.id}` })
+    },
   }
 }
 </script>
@@ -420,6 +442,53 @@ export default {
 .ai-btn .ph { font-size: 24rpx; margin-right: 6rpx; }
 
 .page-content { padding: 24rpx 32rpx; width: 100%; box-sizing: border-box; overflow-x: hidden; }
+
+/* 成长日记入口卡片 */
+.diary-entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border: 1rpx solid #FDE68A;
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 20rpx;
+  transition: all 0.2s;
+}
+.diary-entry-card:active { transform: scale(0.98); }
+
+.diary-entry-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.diary-entry-emoji {
+  font-size: 44rpx;
+}
+
+.diary-entry-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.diary-entry-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #92400E;
+}
+
+.diary-entry-desc {
+  font-size: 20rpx;
+  color: #B45309;
+  font-weight: 500;
+}
+
+.diary-entry-arrow {
+  font-size: 28rpx;
+  color: #D97706;
+}
 
 .conclusion-card {
   background: #FFFFFF;

@@ -13,6 +13,7 @@ class Screening(Base):
     score = Column(Integer, nullable=False)
     risk_level = Column(String(20), nullable=True)  # 'low', 'medium', 'high'
     behavior_data = Column(Text, nullable=True)  # JSON string
+    guest_id = Column(String(64), nullable=True, index=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

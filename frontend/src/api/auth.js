@@ -32,6 +32,13 @@ export const checkVerifyCode = (phone, code) =>
   get('/api/auth/verify-code', { phone, code });
 
 /**
+ * 验证当前登录用户的密码（用于儿童模式退出验证）
+ * 使用 silent=true 避免密码错误时弹出全局 toast
+ */
+export const verifyPassword = (password) =>
+  post('/api/auth/verify-password', { password }, {}, true);
+
+/**
  * 微信小程序登录
  * 调用 wx.login() 获取 code，发送给后端换取 JWT
  */

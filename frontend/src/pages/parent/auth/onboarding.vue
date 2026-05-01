@@ -91,8 +91,8 @@ export default {
           iconColor: '#4F9EF8',
           bgColor: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
           title: '早发现，不焦虑',
-          desc: '通过游戏化互动，在家就能完成儿童读写能力初步筛查，帮助家长更早了解孩子的能力特点。',
-          tags: ['游戏化筛查', '10分钟完成', '无需专业知识'],
+          desc: '通过游戏化互动，在家就能了解孩子的读写能力特点，帮助家长更早发现成长卡点。',
+          tags: ['趣味游戏', '10分钟完成', '无需专业知识'],
         },
         {
           icon: 'ph-chart-bar',
@@ -107,7 +107,7 @@ export default {
           iconColor: '#F57F17',
           bgColor: 'linear-gradient(135deg, #FFF9C4, #FFE082)',
           title: '可干预，有方向',
-          desc: '根据筛查结果，系统自动推荐个性化家庭训练方案，每天15分钟，在家就能持续改善。',
+          desc: '根据能力报告，系统自动推荐个性化家庭训练方案，每天15分钟，在家就能持续改善。',
           tags: ['个性化训练', '每日任务', '家长陪伴'],
         },
         {
@@ -143,8 +143,8 @@ export default {
       }
     },
     finish() {
-      // 标记已完成引导
-      uni.setStorageSync('onboarding_done', true)
+      // 标记已完成引导（与系统其他地方保持一致，使用 onboarding_completed）
+      uni.setStorageSync('onboarding_completed', true)
       uni.navigateTo({ url: '/pages/parent/auth/create-profile' })
     },
   },

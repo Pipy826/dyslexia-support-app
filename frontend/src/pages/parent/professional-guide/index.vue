@@ -98,9 +98,9 @@
       <!-- 无报告 -->
       <view class="empty-state" v-else-if="!loading">
         <text class="ph ph-file-text empty-icon"></text>
-        <view class="empty-title">暂无筛查数据</view>
-        <view class="empty-desc">请先完成一次筛查，系统将根据结果为您提供专业支持建议。</view>
-        <button class="empty-btn" @click="goToScreening">立即筛查</button>
+        <view class="empty-title">暂无探索数据</view>
+        <view class="empty-desc">请先完成一次能力探索，系统将根据结果为您提供专业支持建议。</view>
+        <button class="empty-btn" @click="goToScreening">开始能力探索</button>
       </view>
 
       <view style="height: 80rpx;"></view>

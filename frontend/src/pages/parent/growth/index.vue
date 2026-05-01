@@ -16,7 +16,7 @@
       <view class="child-bar" v-if="childName">
         <view class="child-avatar-sm">{{ childName.charAt(0) }}</view>
         <view class="child-bar-name">{{ childName }} 的成长轨迹</view>
-        <view class="report-count-badge">{{ reportCount }} 次筛查</view>
+        <view class="report-count-badge">{{ reportCount }} 次探索</view>
       </view>
 
       <!-- 得分趋势图 -->
@@ -24,7 +24,7 @@
       <view class="chart-card">
         <view class="chart-empty" v-if="scores.length === 0">
           <text class="ph ph-chart-line"></text>
-          <view>暂无筛查数据</view>
+          <view>暂无探索数据</view>
         </view>
         <view class="chart-area" v-else>
           <!-- SVG 折线图，宽度自适应 -->
@@ -33,9 +33,9 @@
 
         <!-- 图例 -->
         <view class="chart-legend">
-          <view class="legend-item"><view class="legend-dot green"></view>低风险</view>
-          <view class="legend-item"><view class="legend-dot orange"></view>中风险</view>
-          <view class="legend-item"><view class="legend-dot red"></view>高风险</view>
+          <view class="legend-item"><view class="legend-dot green"></view>表现良好</view>
+          <view class="legend-item"><view class="legend-dot orange"></view>可以加强</view>
+          <view class="legend-item"><view class="legend-dot red"></view>需要关注</view>
         </view>
       </view>
 
@@ -72,9 +72,9 @@
 
         <!-- 无数据 -->
         <view class="analysis-empty" v-else>
-          <view class="analysis-empty-text">完成至少一次筛查后，AI 将为您生成专属成长分析。</view>
+          <view class="analysis-empty-text">完成至少一次能力探索后，AI 将为您生成专属成长分析。</view>
           <button class="go-screen-btn" @click="goToScreening">
-            <text class="ph ph-play"></text> 去筛查
+            <text class="ph ph-play"></text> 开始能力探索
           </button>
         </view>
       </view>
@@ -105,8 +105,8 @@
         </view>
       </view>
 
-      <!-- 干预阶段记录 -->
-      <view class="section-title" v-if="milestoneRecords.length > 0">干预阶段记录</view>
+      <!-- 成长阶段记录 -->
+      <view class="section-title" v-if="milestoneRecords.length > 0">成长阶段记录</view>
       <view class="milestone-list" v-if="milestoneRecords.length > 0">
         <view class="milestone-item" v-for="r in milestoneRecords" :key="r.id">
           <view class="milestone-dot" :class="r.record_type === 'screening' ? 'blue' : 'green'"></view>
@@ -272,11 +272,11 @@ export default {
       const latest = this.scores[this.scores.length - 1]?.score || 0
       const first = this.scores[0]?.score || 0
       const delta = latest - first
-      if (label === '稳定改善') return `经过 ${count} 次筛查，${this.childName || '孩子'}的综合得分从 ${first} 分提升到 ${latest} 分，整体呈稳定上升趋势，训练效果良好，请继续保持。`
-      if (label === '波动改善') return `经过 ${count} 次筛查，${this.childName || '孩子'}的综合得分整体有所提升（${first}→${latest}分），过程中有一定波动，属于正常现象，建议保持规律训练。`
-      if (label === '可能恶化') return `近期筛查显示得分有所下降（${first}→${latest}分），建议检查训练频率是否规律，并关注孩子的状态，必要时调整训练方案。`
-      if (label === '持续无改善') return `经过 ${count} 次筛查，得分基本维持在 ${latest} 分左右，建议尝试调整训练方式或增加训练频率，也可咨询专业人士获取建议。`
-      return `已完成 ${count} 次筛查，当前综合得分 ${latest} 分，整体表现基本稳定，建议继续坚持每日训练。`
+      if (label === '稳定改善') return `经过 ${count} 次能力探索，${this.childName || '孩子'}的综合得分从 ${first} 分提升到 ${latest} 分，整体呈稳定上升趋势，训练效果良好，请继续保持。`
+      if (label === '波动改善') return `经过 ${count} 次能力探索，${this.childName || '孩子'}的综合得分整体有所提升（${first}→${latest}分），过程中有一定波动，属于正常现象，建议保持规律训练。`
+      if (label === '可能恶化') return `近期探索显示得分有所下降（${first}→${latest}分），建议检查训练频率是否规律，并关注孩子的状态，必要时调整训练方案。`
+      if (label === '持续无改善') return `经过 ${count} 次能力探索，得分基本维持在 ${latest} 分左右，建议尝试调整训练方式或增加训练频率，也可咨询专业人士获取建议。`
+      return `已完成 ${count} 次能力探索，当前综合得分 ${latest} 分，整体表现基本稳定，建议继续坚持每日训练。`
     },
 
     async loadNotes() {

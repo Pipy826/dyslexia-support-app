@@ -2,7 +2,7 @@
   <view class="page-container">
     <!-- 极简头部 -->
     <view class="page-header">
-      <view class="header-title">干预与训练</view>
+      <view class="header-title">成长训练</view>
       <view class="header-subtitle">已为{{ currentChild ? currentChild.name : '孩子' }}定制专属的家庭提升计划</view>
     </view>
 
@@ -15,7 +15,7 @@
           </view>
           <view class="ai-plan-text">
             <view class="ai-plan-title">AI 智能训练计划</view>
-            <view class="ai-plan-sub">根据筛查报告，一键生成专属方案</view>
+            <view class="ai-plan-sub">根据成长报告，一键生成专属方案</view>
           </view>
         </view>
         <text class="ph ph-arrow-right ai-plan-arrow"></text>
@@ -95,7 +95,7 @@
             <view class="task-name">亲子共读打卡</view>
             <view class="task-desc">培养语感与阅读兴趣</view>
           </view>
-          <button class="task-btn" @click="startTask({ task_type: 'reading', status: 'pending' })">去完成</button>
+          <button class="task-btn" @click="startTask({ task_type: 'comprehension', status: 'pending' })">去完成</button>
         </view>
       </view>
 
@@ -218,7 +218,7 @@
 
         <!-- 未生成 -->
         <view class="modal-empty" v-else>
-          <view class="modal-empty-text">AI 将根据孩子的最新筛查报告，生成个性化的家庭训练计划。</view>
+          <view class="modal-empty-text">AI 将根据孩子的最新成长报告，生成个性化的家庭训练计划。</view>
           <button class="generate-btn" @click="generateAiPlan">
             <text class="ph ph-sparkle"></text> 立即生成
           </button>
@@ -329,7 +329,7 @@ export default {
         if (this.continuousDays >= 14) {
           this.showReassessReminder = true
         }
-        // 高风险或长期训练无改善时显示专业支持引导
+        // 需要更多关注或长期训练无改善时显示专业支持引导
         if (latest.risk_level === 'high' || (this.continuousDays >= 30 && !this.showReassessReminder)) {
           this.showProfessionalGuide = true
         }
@@ -395,7 +395,8 @@ export default {
       for (const t of defaults) {
         try { await createTask(t) } catch (e) { /* ignore */ }
       }
-    },    async doCompleteTask(task) {
+    },
+    async doCompleteTask(task) {
       if (task.status === 'completed') return
       try {
         await completeTask(task.id)
@@ -487,7 +488,7 @@ export default {
         const res = await generateTrainingPlan(this.currentChild.id)
         this.aiPlan = res.plan
       } catch (e) {
-        uni.showToast({ title: 'AI生成失败，请先完成筛查', icon: 'none' })
+        uni.showToast({ title: 'AI生成失败，请先完成能力探索', icon: 'none' })
       } finally {
         this.aiPlanLoading = false
       }
