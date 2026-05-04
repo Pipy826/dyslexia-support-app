@@ -499,7 +499,7 @@ export default {
       this._nextQuestion()
     },
 
-    _nextQuestion() {
+    async _nextQuestion() {
       if (this.currentIndex + 1 >= this.questions.length) {
         // 所有题目完成
         await this._finishSession()
