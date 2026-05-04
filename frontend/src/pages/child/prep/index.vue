@@ -1,7 +1,12 @@
 <template>
-  <view class="page-container">
-    <view class="back-btn" @click="goBack">
-      <text class="ph ph-arrow-left"></text>
+  <view class="page-container" :style="{ '--game-color': gameColor }">
+    <!-- 顶部栏：返回 + 游戏名 -->
+    <view class="prep-header">
+      <view class="back-btn" @click="goBack">
+        <text class="ph ph-arrow-left"></text>
+      </view>
+      <view class="header-game-name">{{ gameName }}</view>
+      <view class="header-placeholder"></view>
     </view>
 
     <!-- 卡通角色欢迎动画区 -->
@@ -29,9 +34,9 @@
     </view>
 
     <view class="content-area">
-      <view class="game-badge">
+      <view class="game-badge" :style="{ background: 'linear-gradient(135deg, ' + gameColor + '22, ' + gameColor + '44)', color: gameColor }">
         <text :class="'ph ' + gameIcon"></text>
-        {{ gameName }}
+        {{ gameAnimal }} {{ gameName }}
       </view>
 
       <view class="title">挑战前的小准备</view>
@@ -111,11 +116,7 @@ export default {
       visibleSteps: 0,
       readyPulse: false,
       showParentHint: false,
-      steps: [
-        { icon: 'ph-headphones', color: 'blue', title: '找个安静的地方', desc: '关掉电视，找个安静的角落' },
-        { icon: 'ph-eye', color: 'green', title: '仔细看，认真听', desc: '每道题都要认真思考哦' },
-        { icon: 'ph-smiley', color: 'orange', title: '不用害怕答错', desc: '这只是一个有趣的游戏！' },
-      ],
+      steps: [],
       _timers: [],
     }
   },
@@ -124,6 +125,7 @@ export default {
       const names = {
         visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
         working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
+        handwriting: '汉字书写', flip_card: '翻牌记忆', connect_game: '连一连',
       }
       return names[this.gameType] || '综合挑战'
     },
@@ -131,9 +133,59 @@ export default {
       const icons = {
         visual: 'ph-eye', spelling: 'ph-text-aa', comprehension: 'ph-book-open',
         working_memory: 'ph-brain', rapid_naming: 'ph-lightning', motor_coordination: 'ph-hand',
+        handwriting: 'ph-pencil-line', flip_card: 'ph-cards', connect_game: 'ph-link',
       }
       return icons[this.gameType] || 'ph-star'
-    }
+    },
+    gameColor() {
+      const colors = {
+        visual: '#4F9EF8', spelling: '#A78BFA', comprehension: '#22C55E',
+        working_memory: '#F97316', rapid_naming: '#EAB308', motor_coordination: '#EC4899',
+        handwriting: '#F57F17', flip_card: '#7C3AED', connect_game: '#16A34A',
+      }
+      return colors[this.gameType] || '#4F9EF8'
+    },
+    gameAnimal() {
+      const animals = {
+        visual: '🦉', spelling: '🐝', comprehension: '🐸',
+        working_memory: '🐘', rapid_naming: '🐇', motor_coordination: '🐼',
+        handwriting: '🦊', flip_card: '🐱', connect_game: '🐶',
+      }
+      return animals[this.gameType] || '🌟'
+    },
+    gameSteps() {
+      const stepMap = {
+        handwriting: [
+          { icon: 'ph-pencil-line', color: 'orange', title: '准备好小手', desc: '找个平稳的地方，握好笔' },
+          { icon: 'ph-eye', color: 'blue', title: '仔细看笔顺', desc: '先看清楚每一笔的顺序' },
+          { icon: 'ph-smiley', color: 'green', title: '慢慢写，不着急', desc: '认真写比写快更重要！' },
+        ],
+        flip_card: [
+          { icon: 'ph-brain', color: 'blue', title: '记住卡片位置', desc: '翻开后要记住每张卡在哪里' },
+          { icon: 'ph-cards', color: 'orange', title: '找到配对的卡', desc: '翻两张一样的就算配对成功' },
+          { icon: 'ph-lightning', color: 'green', title: '越快越好', desc: '翻牌次数越少，得分越高！' },
+        ],
+        connect_game: [
+          { icon: 'ph-link', color: 'green', title: '找到对应关系', desc: '左边和右边哪个是一对？' },
+          { icon: 'ph-hand-pointing', color: 'blue', title: '拖动连线', desc: '按住左边，拖到右边配对' },
+          { icon: 'ph-check-circle', color: 'orange', title: '全部连对就赢了', desc: '仔细想想，不要连错哦！' },
+        ],
+      }
+      return stepMap[this.gameType] || [
+        { icon: 'ph-headphones', color: 'blue', title: '找个安静的地方', desc: '关掉电视，找个安静的角落' },
+        { icon: 'ph-eye', color: 'green', title: '仔细看，认真听', desc: '每道题都要认真思考哦' },
+        { icon: 'ph-smiley', color: 'orange', title: '不用害怕答错', desc: '这只是一个有趣的游戏！' },
+      ]
+    },
+    // 实际游戏页面路由
+    gamePlayRoute() {
+      const routes = {
+        handwriting: '/pages/child/handwriting-game/index',
+        flip_card: '/pages/child/flip-card-game/index',
+        connect_game: '/pages/child/connect-game/index',
+      }
+      return routes[this.gameType] || '/pages/child/game/index'
+    },
   },
   onLoad(options) {
     if (options.game_type) this.gameType = options.game_type
@@ -146,6 +198,12 @@ export default {
     // 保存游客模式参数，startGame 时透传给 game 页面
     this._guestMode = options.guest_mode || ''
     this._guestId = options.guest_id || ''
+    // 保存 task_id（训练任务模式）
+    this._taskId = options.task_id || ''
+    // 保存 difficulty（训练任务模式）
+    this._difficulty = options.difficulty || ''
+    // 根据游戏类型设置步骤
+    this.steps = this.gameSteps
     this.startAnimations()
   },
   onUnload() {
@@ -210,13 +268,31 @@ export default {
       uni.navigateBack()
     },
 
+    confirmExit() {
+      uni.showModal({
+        title: '退出游戏',
+        content: '确定要退出吗？进度不会保存哦',
+        confirmText: '退出',
+        cancelText: '继续',
+        confirmColor: '#FF6B6B',
+        success: (res) => {
+          if (res.confirm) {
+            uni.navigateBack()
+          }
+        }
+      })
+    },
+
     startGame() {
       const gradeParam = this.grade ? `&grade=${this.grade}` : ''
       const guestParams = this._guestMode
         ? `&guest_mode=${this._guestMode}&guest_id=${this._guestId}`
         : ''
+      const taskParam = this._taskId ? `&task_id=${this._taskId}` : ''
+      const diffParam = this._difficulty ? `&difficulty=${this._difficulty}` : ''
+      const route = this.gamePlayRoute
       uni.navigateTo({
-        url: `/pages/child/game/index?game_type=${this.gameType}${gradeParam}${guestParams}`
+        url: `${route}?game_type=${this.gameType}${gradeParam}${guestParams}${taskParam}${diffParam}`
       })
     }
   }
@@ -232,11 +308,34 @@ export default {
   overflow-x: hidden;
 }
 
+/* ── 顶部栏 ── */
+.prep-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 56rpx 32rpx 16rpx;
+  flex-shrink: 0;
+}
+
 .back-btn {
-  padding: 56rpx 32rpx 0;
-  display: inline-flex;
+  width: 64rpx; height: 64rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.08);
 }
 .back-btn .ph { font-size: 28rpx; color: #718096; }
+
+.header-game-name {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #2D3748;
+}
+
+.header-placeholder {
+  width: 64rpx; height: 64rpx;
+}
 
 /* ── 吉祥物区域 ── */
 .mascot-area {
@@ -402,14 +501,12 @@ export default {
   display: flex;
   align-items: center;
   gap: 10rpx;
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-  color: #4F9EF8;
   padding: 10rpx 24rpx;
   border-radius: 16rpx;
   font-size: 24rpx;
   font-weight: 700;
   margin-bottom: 16rpx;
-  box-shadow: 0 2rpx 8rpx rgba(79, 158, 248, 0.15);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
 }
 .game-badge .ph { font-size: 26rpx; }
 

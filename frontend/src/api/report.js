@@ -26,3 +26,9 @@ export const exportReportText = (id) => get(`/api/reports/${id}/export-text`)
  * 获取孩子的成长日记数据
  */
 export const getGrowthDiary = (childId) => get(`/api/reports/growth-diary/${childId}`)
+
+/**
+ * 获取孩子的游戏活动情况报告（家长端）
+ */
+export const getGameActivityReport = (childId, days = 30) =>
+  get(`/api/reports/game-activity/${childId}`, { days })

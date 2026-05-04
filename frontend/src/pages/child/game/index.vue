@@ -273,7 +273,7 @@ export default {
         }
 
         const saved = uni.getStorageSync('current_screening')
-        if (saved && saved.game_type === this.gameType) {
+        if (saved && saved.game_type === this.gameType && saved.child_id === this.child?.id) {
           this.screeningId = saved.id
           this.gameType = saved.game_type
           this.difficulty = saved.difficulty || 'L1'
@@ -289,7 +289,7 @@ export default {
 
         if (!this.child) {
           uni.showToast({ title: '请先在家长端选择孩子', icon: 'none' })
-          setTimeout(() => uni.redirectTo({ url: '/pages/child/home/index' }), 1500)
+          setTimeout(() => uni.redirectTo({ url: '/pages/child/child-training/index' }), 1500)
           return
         }
 
@@ -301,7 +301,8 @@ export default {
         uni.setStorageSync('current_screening', {
           id: res.id,
           game_type: this.gameType,
-          difficulty: this.difficulty
+          difficulty: this.difficulty,
+          child_id: this.child.id,
         })
         await this.loadQuestions()
       } catch (e) {
@@ -809,7 +810,7 @@ export default {
     hideModal() { this.showExitModal = false },
     confirmExit() {
       this.clearTimer()
-      uni.redirectTo({ url: '/pages/child/home/index' })
+      uni.redirectTo({ url: '/pages/child/child-training/index' })
     }
   }
 }

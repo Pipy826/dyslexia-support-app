@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\api\articles.py
+# hypothesis_version: 6.151.12
+
+[404, ',', '/api/articles', '/{article_id}', 'article', 'author', 'content', 'content_type', 'cover_image', 'created_at', 'id', 'is_featured', 'is_published', 'items', 'message', 'page', 'page_size', 'summary', 'tags', 'title', 'total', 'updated_at', 'video', 'video_url', 'view_count', '已删除', '文章不存在', '星萌乐学', '科普文章']

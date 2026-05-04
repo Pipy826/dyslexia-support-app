@@ -51,7 +51,9 @@
       <!-- 操作按钮 -->
       <view class="action-row">
         <button class="action-btn primary" @click="goToScreening">发起复评</button>
-        <button class="action-btn outline" @click="goToAiChat">AI 解读</button>
+        <button class="action-btn" :class="report.risk_level === 'high' ? 'ai-highlight' : 'outline'" @click="goToAiChat">
+          <text class="ph ph-robot"></text> AI 解读
+        </button>
       </view>
 
       <!-- 导出报告 -->
@@ -317,6 +319,56 @@ export default {
 .action-btn:active { transform: scale(0.97); }
 .action-btn.primary { background: linear-gradient(135deg, #4F9EF8, #3B82F6); color: #FFFFFF; box-shadow: 0 4rpx 12rpx rgba(59,130,246,0.2); }
 .action-btn.outline { background: #FFFFFF; border: 2rpx solid #E5E7EB; color: #718096; }
+.action-btn.ai-highlight {
+  background: linear-gradient(135deg, #F5F3FF, #EDE9FE);
+  border: 2rpx solid #DDD6FE;
+  color: #7C3AED;
+  font-weight: 700;
+}
+.action-btn.ai-highlight .ph { margin-right: 6rpx; }
+
+/* 高风险 AI 引导卡片 */
+.ai-guide-card {
+  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  box-shadow: 0 6rpx 20rpx rgba(124, 58, 237, 0.3);
+  transition: all 0.2s;
+}
+.ai-guide-card:active { transform: scale(0.98); }
+
+.ai-guide-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex: 1;
+}
+
+.ai-guide-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 18rpx;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ai-guide-icon .ph { font-size: 36rpx; color: #FFFFFF; }
+
+.ai-guide-text { flex: 1; }
+.ai-guide-title { font-size: 28rpx; font-weight: 800; color: #FFFFFF; margin-bottom: 6rpx; }
+.ai-guide-desc { font-size: 22rpx; color: rgba(255,255,255,0.85); line-height: 1.4; font-weight: 500; }
+
+.ai-guide-arrow {
+  font-size: 28rpx;
+  color: rgba(255,255,255,0.8);
+  flex-shrink: 0;
+}
 
 .export-row { display: flex; flex-direction: column; align-items: center; gap: 10rpx; margin-bottom: 24rpx; }
 .export-btn {

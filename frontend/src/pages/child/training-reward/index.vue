@@ -145,6 +145,7 @@ export default {
       const typeNames = {
         visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
         working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
+        handwriting: '汉字书写', flip_card: '翻牌记忆', connect_game: '连一连',
       }
       const typeName = typeNames[type] || '本项训练'
 
@@ -176,7 +177,7 @@ export default {
     },
     returnHome() {
       uni.removeStorageSync('last_training_result')
-      uni.redirectTo({ url: '/pages/child/training/index' })
+      uni.redirectTo({ url: '/pages/child/child-training/index' })
     },
   },
 }

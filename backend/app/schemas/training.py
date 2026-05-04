@@ -29,6 +29,7 @@ class TrainingTaskResponse(BaseModel):
     correct_count: Optional[int] = None
     total_count: Optional[int] = None
     accuracy: Optional[int] = None
+    extra_data: Optional[str] = None
 
     class Config:
         from_attributes = True

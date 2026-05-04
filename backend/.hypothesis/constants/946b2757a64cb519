@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\models\reward.py
+# hypothesis_version: 6.151.12
+
+[100, 'CASCADE', 'Child', 'all_games', 'children.id', 'comprehension', 'connect_game', 'desc', 'first_game', 'flip_card', 'handwriting', 'icon', 'month_streak', 'motor_coordination', 'name', 'perfect_score', 'rapid_naming', 'rewards', 'speed_demon', 'spelling', 'visual', 'week_streak', 'working_memory', '⚡', '全能探险家', '初次探险', '单次游戏正确率100%', '坚持一周', '完成全部9种游戏', '完成第一次能力探索', '完美表现', '平均反应时间低于2秒', '月度冠军', '连续30天完成挑战', '连续7天完成挑战', '闪电侠', '🌟', '🏆', '💎', '🔥', '🚀']

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database import Base
@@ -12,6 +12,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     phone = Column(String(20), unique=True, nullable=True, index=True)
     wechat_openid = Column(String(64), unique=True, nullable=True, index=True)
+    is_guest = Column(Boolean, default=False, nullable=False)  # 游客账号标记
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

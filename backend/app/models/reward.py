@@ -24,7 +24,7 @@ BADGE_DEFINITIONS = {
     "all_games": {
         "name": "全能探险家",
         "icon": "🌟",
-        "desc": "完成全部6种游戏",
+        "desc": "完成全部9种游戏",
     },
     "perfect_score": {
         "name": "完美表现",
@@ -38,8 +38,11 @@ BADGE_DEFINITIONS = {
     },
 }
 
-# 全部6种游戏类型
-ALL_GAME_TYPES = {"visual", "spelling", "comprehension", "working_memory", "rapid_naming", "motor_coordination"}
+# 全部6种游戏类型（含新增的3种游戏）
+ALL_GAME_TYPES = {
+    "visual", "spelling", "comprehension", "working_memory", "rapid_naming", "motor_coordination",
+    "handwriting", "flip_card", "connect_game",
+}
 
 
 class Reward(Base):

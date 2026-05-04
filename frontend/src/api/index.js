@@ -21,7 +21,6 @@ export const getBaseUrl = () => {
   // #ifndef APP-PLUS || MP-WEIXIN
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    const port = window.location.port;
     if (host === 'localhost' || host === '127.0.0.1') {
       // 本地开发环境：所有端口都直连后端（避免 Vite 代理不稳定的问题）
       return 'http://localhost:8000';

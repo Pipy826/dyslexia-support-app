@@ -29,3 +29,7 @@ export const getTotalStars = (childId) => {
   const params = childId ? { child_id: childId } : {};
   return get('/api/training/stars', params);
 };
+
+export const getLeaderboard = (childId, scope = 'global', limit = 20) => {
+  return get('/api/training/leaderboard', { child_id: childId, scope, limit });
+};

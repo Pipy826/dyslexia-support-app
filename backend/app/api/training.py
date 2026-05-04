@@ -161,8 +161,8 @@ def update_task_progress(
                 description="完成一次训练任务"
             )
             db.add(reward)
-            # 更新连续打卡
-            child = db.query(Child).filter(Child.id == task.child_id).first()
+            # 更新连续打卡（加行锁防止并发竞态）
+            child = db.query(Child).filter(Child.id == task.child_id).with_for_update().first()
             if child:
                 new_streak = update_streak(child, db)
                 bonus = calculate_streak_bonus(new_streak)
@@ -187,6 +187,7 @@ class CompleteTaskRequest(PydanticBase):
     correct_count: Optional[int] = None
     total_count: Optional[int] = None
     accuracy: Optional[int] = None
+    extra_data: Optional[str] = None  # JSON 字符串，游戏特有数据
 
 
 class CompleteTaskResponse(PydanticBase):
@@ -243,6 +244,8 @@ def complete_task(
             if not (0 <= data.accuracy <= 100):
                 raise HTTPException(status_code=400, detail="accuracy 必须在 0-100 之间")
             task.accuracy = data.accuracy
+        if data.extra_data is not None:
+            task.extra_data = data.extra_data
 
     # Award a star
     reward = Reward(
@@ -548,49 +551,42 @@ def check_in(
     db.add(record)
 
     # 检查连续天数奖励节点（3/7/30天）
+    # 注意：徽章使用 _award_badge_if_not_exists 保证幂等，
+    # 即使 complete_task 已通过 check_and_award_badges 发放过，也不会重复。
     rewards_granted = []
 
     if streak_count == 3:
-        # 3天 → 坚持小勇士徽章
-        badge = Reward(
-            child_id=data.child_id,
-            reward_type="badge",
-            name="streak_3",
-            description="坚持小勇士",
-        )
-        db.add(badge)
+        # 3天 → 坚持小勇士徽章（幂等，不重复发放）
+        _award_badge_if_not_exists(data.child_id, "streak_3", db)
         rewards_granted.append({"type": "badge", "name": "streak_3", "description": "坚持小勇士"})
         record.reward_granted = True
 
     elif streak_count == 7:
         # 7天 → 一周挑战者徽章 + 10颗星星
-        badge = Reward(
-            child_id=data.child_id,
-            reward_type="badge",
-            name="streak_7",
-            description="一周挑战者",
-        )
-        db.add(badge)
+        # 星星通过检查 reward_granted 防止重复（只在首次打卡到7天时发放）
+        _award_badge_if_not_exists(data.child_id, "streak_7", db)
         rewards_granted.append({"type": "badge", "name": "streak_7", "description": "一周挑战者"})
-        for _ in range(10):
-            db.add(Reward(
-                child_id=data.child_id,
-                reward_type="star",
-                name="连续打卡奖励",
-                description="连续7天打卡奖励",
-            ))
-        rewards_granted.append({"type": "star", "count": 10, "description": "连续7天打卡奖励"})
+        # 检查是否已发放过7天星星奖励（防止重复）
+        already_rewarded = db.query(Reward).filter(
+            Reward.child_id == data.child_id,
+            Reward.reward_type == "star",
+            Reward.name == "连续打卡奖励",
+            Reward.description == "连续7天打卡奖励",
+        ).first()
+        if not already_rewarded:
+            for _ in range(10):
+                db.add(Reward(
+                    child_id=data.child_id,
+                    reward_type="star",
+                    name="连续打卡奖励",
+                    description="连续7天打卡奖励",
+                ))
+            rewards_granted.append({"type": "star", "count": 10, "description": "连续7天打卡奖励"})
         record.reward_granted = True
 
     elif streak_count == 30:
-        # 30天 → 月度冠军徽章
-        badge = Reward(
-            child_id=data.child_id,
-            reward_type="badge",
-            name="streak_30",
-            description="月度冠军",
-        )
-        db.add(badge)
+        # 30天 → 月度冠军徽章（幂等）
+        _award_badge_if_not_exists(data.child_id, "streak_30", db)
         rewards_granted.append({"type": "badge", "name": "streak_30", "description": "月度冠军"})
         record.reward_granted = True
 
@@ -645,3 +641,378 @@ def get_check_in_streak(
         "today_checked": today_checked,
         "check_in_dates": check_in_dates,
     }
+
+
+# ── 排名接口（基于真实用户数据）────────────────────────────────────────────────
+
+@router.get("/leaderboard")
+def get_leaderboard(
+    child_id: int,
+    scope: str = "global",  # "global" | "weekly"
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取真实用户排行榜。
+    - scope=global：按累计星星数排名（全时段）
+    - scope=weekly：按本周获得星星数排名
+    
+    返回：
+    - rankings: 排行榜列表（最多 limit 条）
+    - my_rank: 当前孩子的排名信息
+    """
+    from sqlalchemy import func
+
+    # 验证孩子归属
+    child = db.query(Child).filter(
+        Child.id == child_id,
+        Child.parent_id == current_user.id
+    ).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+
+    limit = max(1, min(limit, 50))
+
+    # 提前计算本周开始时间（两个分支都可能用到）
+    today_date = date.today()
+    week_start = today_date - timedelta(days=today_date.weekday())
+    week_start_dt = datetime.combine(week_start, datetime.min.time())
+
+    if scope == "weekly":
+        star_counts = (
+            db.query(
+                Reward.child_id,
+                func.count(Reward.id).label("star_count")
+            )
+            .filter(
+                Reward.reward_type == "star",
+                Reward.earned_at >= week_start_dt,
+            )
+            .group_by(Reward.child_id)
+            .order_by(func.count(Reward.id).desc())
+            .limit(limit)
+            .all()
+        )
+    else:
+        # 全时段累计星星数
+        star_counts = (
+            db.query(
+                Reward.child_id,
+                func.count(Reward.id).label("star_count")
+            )
+            .filter(Reward.reward_type == "star")
+            .group_by(Reward.child_id)
+            .order_by(func.count(Reward.id).desc())
+            .limit(limit)
+            .all()
+        )
+
+    # 批量查询孩子信息
+    child_ids = [row.child_id for row in star_counts]
+    children_map = {
+        c.id: c for c in db.query(Child).filter(Child.id.in_(child_ids)).all()
+    } if child_ids else {}
+
+    rankings = []
+    for rank, row in enumerate(star_counts, start=1):
+        c = children_map.get(row.child_id)
+        if not c:
+            continue
+        # 隐私保护：只显示名字首字 + * 号（如"张*"）
+        display_name = (c.name[0] + "*") if c.name and len(c.name) > 1 else (c.name or "匿名")
+        rankings.append({
+            "rank": rank,
+            "child_id": row.child_id,
+            "display_name": display_name,
+            "star_count": row.star_count,
+            "is_me": row.child_id == child_id,
+            "avatar_initial": c.name[0] if c.name else "?",
+        })
+
+    # 查询当前孩子的排名（可能不在 top N 内）
+    my_rank_info = None
+    if scope == "weekly":
+        my_star_count_row = (
+            db.query(func.count(Reward.id))
+            .filter(
+                Reward.child_id == child_id,
+                Reward.reward_type == "star",
+                Reward.earned_at >= week_start_dt,
+            )
+            .scalar() or 0
+        )
+    else:
+        my_star_count_row = (
+            db.query(func.count(Reward.id))
+            .filter(
+                Reward.child_id == child_id,
+                Reward.reward_type == "star",
+            )
+            .scalar() or 0
+        )
+
+    # 计算我的排名（用 Python 计算，避免 SQLite 子查询兼容性问题）
+    if scope == "weekly":
+        # 获取本周所有孩子的星星数
+        all_weekly = (
+            db.query(
+                Reward.child_id,
+                func.count(Reward.id).label("cnt")
+            )
+            .filter(
+                Reward.reward_type == "star",
+                Reward.earned_at >= week_start_dt,
+            )
+            .group_by(Reward.child_id)
+            .all()
+        )
+        ahead_count = sum(1 for row in all_weekly if row.cnt > my_star_count_row)
+    else:
+        # 获取全时段所有孩子的星星数
+        all_global = (
+            db.query(
+                Reward.child_id,
+                func.count(Reward.id).label("cnt")
+            )
+            .filter(Reward.reward_type == "star")
+            .group_by(Reward.child_id)
+            .all()
+        )
+        ahead_count = sum(1 for row in all_global if row.cnt > my_star_count_row)
+
+    my_rank_num = ahead_count + 1
+
+    my_rank_info = {
+        "rank": my_rank_num,
+        "child_id": child_id,
+        "display_name": child.name or "我",
+        "star_count": my_star_count_row,
+        "is_me": True,
+    }
+
+    return {
+        "scope": scope,
+        "rankings": rankings,
+        "my_rank": my_rank_info,
+        "total_participants": db.query(func.count(func.distinct(Reward.child_id)))
+            .filter(Reward.reward_type == "star").scalar() or 0,
+    }
+
+
+# ── 关卡系统 API ──────────────────────────────────────────────────────────────
+
+# 合法的游戏类型和难度
+VALID_GAME_TYPES = {
+    "visual", "spelling", "comprehension",
+    "working_memory", "rapid_naming", "motor_coordination",
+    "flip_card", "connect_game", "handwriting"
+}
+VALID_DIFFICULTIES = {"L1", "L2", "L3"}
+
+
+def _get_game_levels_dict(game_type: str) -> dict:
+    """根据游戏类型返回对应的 GAME_LEVELS 字典"""
+    if game_type == "visual":
+        from ..games.visual_game import VISUAL_GAME_LEVELS
+        return VISUAL_GAME_LEVELS
+    elif game_type == "spelling":
+        from ..games.spelling_game import SPELLING_GAME_LEVELS
+        return SPELLING_GAME_LEVELS
+    elif game_type == "comprehension":
+        from ..games.comprehension_game import COMPREHENSION_GAME_LEVELS
+        return COMPREHENSION_GAME_LEVELS
+    elif game_type == "working_memory":
+        from ..games.working_memory_game import WORKING_MEMORY_GAME_LEVELS
+        return WORKING_MEMORY_GAME_LEVELS
+    elif game_type == "rapid_naming":
+        from ..games.rapid_naming_game import RAPID_NAMING_GAME_LEVELS
+        return RAPID_NAMING_GAME_LEVELS
+    elif game_type == "motor_coordination":
+        from ..games.motor_coordination_game import MOTOR_COORDINATION_GAME_LEVELS
+        return MOTOR_COORDINATION_GAME_LEVELS
+    elif game_type == "flip_card":
+        from ..games.flip_card_game import FLIP_CARD_GAME_LEVELS
+        return FLIP_CARD_GAME_LEVELS
+    elif game_type == "connect_game":
+        from ..games.connect_game import CONNECT_GAME_LEVELS
+        return CONNECT_GAME_LEVELS
+    elif game_type == "handwriting":
+        from ..games.handwriting_game import HANDWRITING_GAME_LEVELS
+        return HANDWRITING_GAME_LEVELS
+    return {}
+
+
+def get_level_unlock_status(child_id: int, game_type: str, difficulty: str, db: Session) -> dict:
+    """
+    查询孩子在某游戏某难度下各关卡的解锁和通关状态。
+
+    返回格式：
+    {
+        "visual_L1_lv1": {"unlocked": True, "passed": True, "best_accuracy": 0.85},
+        "visual_L1_lv2": {"unlocked": True, "passed": False, "best_accuracy": 0.60},
+        "visual_L1_lv3": {"unlocked": False, "passed": False, "best_accuracy": None},
+        ...
+    }
+    """
+    import json
+
+    # 查询该孩子所有已完成的训练任务，过滤出对应游戏类型
+    completed_tasks = db.query(TrainingTask).filter(
+        TrainingTask.child_id == child_id,
+        TrainingTask.task_type == game_type,
+        TrainingTask.status == "completed",
+        TrainingTask.extra_data.isnot(None)
+    ).all()
+
+    # 解析 extra_data，提取关卡通关记录
+    level_records = {}
+    for task in completed_tasks:
+        try:
+            data = json.loads(task.extra_data)
+            if data.get("difficulty") == difficulty and data.get("level_id"):
+                level_id = data["level_id"]
+                accuracy = data.get("accuracy", 0)
+                passed = data.get("passed", False)
+                if level_id not in level_records or accuracy > level_records[level_id]["best_accuracy"]:
+                    level_records[level_id] = {
+                        "unlocked": True,
+                        "passed": passed,
+                        "best_accuracy": accuracy
+                    }
+        except (json.JSONDecodeError, KeyError, TypeError):
+            continue
+
+    # 根据通关记录计算解锁状态（lv1 默认解锁，lv{N} 需要 lv{N-1} 通关）
+    result = {}
+    for lv_num in range(1, 6):
+        level_id = f"{game_type}_{difficulty}_lv{lv_num}"
+        if lv_num == 1:
+            result[level_id] = level_records.get(level_id, {
+                "unlocked": True, "passed": False, "best_accuracy": None
+            })
+        else:
+            prev_level_id = f"{game_type}_{difficulty}_lv{lv_num - 1}"
+            prev_passed = result.get(prev_level_id, {}).get("passed", False)
+            if prev_passed:
+                result[level_id] = level_records.get(level_id, {
+                    "unlocked": True, "passed": False, "best_accuracy": None
+                })
+            else:
+                result[level_id] = {"unlocked": False, "passed": False, "best_accuracy": None}
+
+    return result
+
+
+@router.get("/levels")
+def get_game_levels(
+    game_type: str,
+    difficulty: str,
+    child_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取指定游戏类型和难度的5个关卡元数据（不含题目），
+    包含每个关卡的解锁状态（基于该孩子的历史完成记录）。
+    """
+    if game_type not in VALID_GAME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效的游戏类型，合法值为：{', '.join(sorted(VALID_GAME_TYPES))}"
+        )
+    if difficulty not in VALID_DIFFICULTIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效的难度，合法值为：L1, L2, L3"
+        )
+
+    # 验证孩子存在（允许孩子所属的家长或孩子本人访问）
+    # 关卡元数据是公共的，解锁状态按 child_id 计算
+    child = db.query(Child).filter(Child.id == child_id).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    # 仅允许该孩子的家长访问（防止跨用户读取解锁进度）
+    if child.parent_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问该孩子的数据")
+
+    # 获取关卡数据
+    game_levels = _get_game_levels_dict(game_type)
+    levels_for_difficulty = game_levels.get(difficulty, [])
+
+    # 获取解锁状态
+    unlock_status = get_level_unlock_status(child_id, game_type, difficulty, db)
+
+    # 构建返回数据（元数据，不含 questions 字段）
+    result = []
+    for level in levels_for_difficulty:
+        level_id = level["level_id"]
+        status = unlock_status.get(level_id, {"unlocked": False, "passed": False, "best_accuracy": None})
+        result.append({
+            "level_id": level_id,
+            "level_num": level["level_num"],
+            "title": level["title"],
+            "difficulty": level["difficulty"],
+            "game_type": level["game_type"],
+            "question_count": len(level["questions"]),
+            "pass_condition": level["pass_condition"],
+            "question_types": level["question_types"],
+            "unlocked": status["unlocked"],
+            "passed": status["passed"],
+            "best_accuracy": status["best_accuracy"],
+        })
+
+    return {"levels": result}
+
+
+@router.get("/levels/{level_id}")
+def get_level_detail(
+    level_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取指定关卡的完整数据（含所有题目）。
+    level_id 格式：{game_type}_{difficulty}_lv{num}，如 visual_L1_lv1
+    """
+    # 解析 level_id：格式为 {game_type}_{difficulty}_lv{num}
+    # 支持 game_type 含下划线（如 working_memory、rapid_naming、motor_coordination）
+    # 从末尾解析 _lv{num} 和 _{difficulty}
+    try:
+        # 从末尾分割出 lv{num}
+        parts = level_id.rsplit("_lv", 1)
+        if len(parts) != 2:
+            raise ValueError("格式错误")
+        prefix = parts[0]  # e.g. "visual_L1" or "working_memory_L2"
+        lv_num_str = parts[1]  # e.g. "1"
+        if not lv_num_str.isdigit():
+            raise ValueError("关卡编号非数字")
+
+        # 从 prefix 末尾分割出 difficulty
+        prefix_parts = prefix.rsplit("_", 1)
+        if len(prefix_parts) != 2:
+            raise ValueError("无法解析难度")
+        game_type = prefix_parts[0]  # e.g. "visual" or "working_memory"
+        difficulty = prefix_parts[1]  # e.g. "L1"
+
+        if game_type not in VALID_GAME_TYPES:
+            raise ValueError(f"无效游戏类型: {game_type}")
+        if difficulty not in VALID_DIFFICULTIES:
+            raise ValueError(f"无效难度: {difficulty}")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=f"关卡不存在: {e}")
+
+    # 查找关卡数据
+    game_levels = _get_game_levels_dict(game_type)
+    levels_for_difficulty = game_levels.get(difficulty, [])
+
+    target_level = None
+    for level in levels_for_difficulty:
+        if level["level_id"] == level_id:
+            target_level = level
+            break
+
+    if target_level is None:
+        raise HTTPException(status_code=404, detail=f"关卡不存在: {level_id}")
+
+    return target_level

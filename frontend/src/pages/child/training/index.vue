@@ -68,6 +68,25 @@
         </view>
       </view>
 
+      <!-- 关卡挑战入口 -->
+      <view class="section-title">关卡挑战</view>
+      <view class="level-games-grid">
+        <view 
+          v-for="game in levelGames" 
+          :key="game.type"
+          class="level-game-card"
+          @click="goToLevelMode(game.type)"
+        >
+          <view class="level-game-icon" :style="{ background: game.gradient }">
+            <text :class="'ph ' + game.icon"></text>
+          </view>
+          <view class="level-game-name">{{ game.name }}</view>
+          <view class="level-game-stars">
+            <text class="ph ph-star"></text> {{ game.stars }} 星
+          </view>
+        </view>
+      </view>
+
       <!-- 成就系统 -->
       <view class="section-title">我的成就</view>
       <view class="achievements-grid">
@@ -124,6 +143,9 @@ export default {
       if (!this.tasks.length) return 0
       return Math.round((this.completedCount / this.tasks.length) * 100)
     }
+  },
+  onLoad() {
+    // 页面正常加载，不再重定向
   },
   onShow() {
     this.child = getCurrentChild()
@@ -182,6 +204,9 @@ export default {
         working_memory: 'ph-brain',
         rapid_naming: 'ph-lightning',
         motor_coordination: 'ph-hand',
+        handwriting: 'ph-pencil-line',
+        flip_card: 'ph-cards',
+        connect_game: 'ph-link',
       }[type] || 'ph-star'
     },
     taskColor(type) {
@@ -193,6 +218,9 @@ export default {
         working_memory: 'orange',
         rapid_naming: 'blue',
         motor_coordination: 'green',
+        handwriting: 'orange',
+        flip_card: 'blue',
+        connect_game: 'green',
       }[type] || 'blue'
     },
     taskDefaultName(type) {
@@ -204,6 +232,9 @@ export default {
         working_memory: '记忆训练',
         rapid_naming: '快速命名',
         motor_coordination: '精细动作',
+        handwriting: '汉字书写',
+        flip_card: '翻牌记忆',
+        connect_game: '连一连',
       }[type] || '训练任务'
     },
     taskDesc(type) {
@@ -215,10 +246,13 @@ export default {
         working_memory: '记住序列顺序',
         rapid_naming: '快速说出名称',
         motor_coordination: '判断线条方向',
+        handwriting: '练习汉字书写',
+        flip_card: '翻牌找配对',
+        connect_game: '连线找匹配',
       }[type] || ''
     },
     goToChallenge() {
-      uni.redirectTo({ url: '/pages/child/home/index' })
+      uni.navigateTo({ url: '/pages/child/child-training/index' })
     }
   }
 }

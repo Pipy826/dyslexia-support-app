@@ -193,18 +193,18 @@
       <text class="switch-link" @click="toggleRegisterMode">{{ isRegisterMode ? '去登录' : '立即注册' }}</text>
     </view>
 
-    <!-- 游客试玩入口 -->
+    <!-- 游客入口 -->
     <view class="guest-section" v-if="!isRegisterMode">
       <view class="guest-divider">
         <view class="guest-divider-line"></view>
-        <view class="guest-divider-text">或者</view>
+        <text class="guest-divider-text">或者</text>
         <view class="guest-divider-line"></view>
       </view>
-      <view class="guest-btn" @click="goGuestPlay">
-        <text class="ph ph-game-controller"></text>
-        先试玩，不注册
+      <view class="guest-btn" @click="goGuestEnter" :class="{ loading: guestLoading }">
+        <text class="ph guest-btn-icon" :class="guestLoading ? 'ph-circle-notch spin' : 'ph-user-circle-dashed'"></text>
+        <text class="guest-btn-label">{{ guestLoading ? '进入中...' : '游客入口' }}</text>
       </view>
-      <view class="guest-tip">无需账号，直接体验6种趣味游戏</view>
+      <text class="guest-tip">无需注册，直接体验完整功能</text>
     </view>
 
     <!-- 第三方快捷登录 -->
@@ -228,7 +228,7 @@
 </template>
 
 <script>
-import { login, loginByCode, register, handleLoginSuccess, sendVerifyCode, wxLogin } from '../../../api/auth.js'
+import { login, loginByCode, register, handleLoginSuccess, sendVerifyCode, wxLogin, guestLogin } from '../../../api/auth.js'
 
 export default {
   data() {
@@ -240,6 +240,7 @@ export default {
       toastVisible: false,
       toastMessage: '',
       wxLoading: false,
+      guestLoading: false,
       codeCooldown: 0,       // 验证码冷却倒计时（秒）
       _cooldownTimer: null,  // 计时器引用
       formData: {
@@ -279,6 +280,20 @@ export default {
     },
     goGuestPlay() {
       uni.navigateTo({ url: '/pages/guest/play/index' })
+    },
+    async goGuestEnter() {
+      if (this.guestLoading) return
+      this.guestLoading = true
+      try {
+        const res = await guestLogin()
+        handleLoginSuccess(res)
+        // 游客直接进首页，跳过引导流程
+        uni.reLaunch({ url: '/pages/parent/home/index' })
+      } catch (e) {
+        this.showToastMsg('进入失败，请重试')
+      } finally {
+        this.guestLoading = false
+      }
     },
     async handleWxLogin() {
       this.wxLoading = true
@@ -475,6 +490,9 @@ export default {
   background: #FFFFFF;
   padding: 128rpx 64rpx 80rpx;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Logo区域 */
@@ -517,6 +535,7 @@ export default {
 
 /* 标签切换 */
 .tabs-section {
+  width: 100%;
   display: flex;
   gap: 48rpx;
   margin-bottom: 48rpx;
@@ -552,6 +571,7 @@ export default {
 
 /* 表单 */
 .form-section {
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 32rpx;
@@ -629,6 +649,7 @@ export default {
 
 /* 协议 */
 .agreement-section {
+  width: 100%;
   display: flex;
   align-items: flex-start;
   gap: 16rpx;
@@ -683,6 +704,7 @@ export default {
 
 /* 切换入口 */
 .switch-section {
+  width: 100%;
   text-align: center;
   margin-top: 48rpx;
 }
@@ -698,9 +720,12 @@ export default {
   color: #3B82F6;
 }
 
-/* 游客试玩入口 */
+/* 游客入口 */
 .guest-section {
   margin-top: 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .guest-divider {
@@ -708,6 +733,7 @@ export default {
   align-items: center;
   gap: 20rpx;
   margin-bottom: 32rpx;
+  width: 100%;
 }
 
 .guest-divider-line {
@@ -737,6 +763,7 @@ export default {
   gap: 12rpx;
   transition: all 0.2s;
   margin-bottom: 16rpx;
+  box-sizing: border-box;
 }
 
 .guest-btn:active {
@@ -744,11 +771,37 @@ export default {
   transform: scale(0.98);
 }
 
+.guest-btn.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
 .guest-btn .ph {
   font-size: 32rpx;
 }
 
+.guest-btn-icon {
+  font-size: 32rpx;
+}
+
+.guest-btn-label {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #4F9EF8;
+}
+
 .guest-tip {
+  display: block;
   text-align: center;
   font-size: 22rpx;
   color: #9CA3AF;
@@ -795,7 +848,7 @@ export default {
 }
 
 /* 微信登录 */
-.wx-login-section { margin-top: 48rpx; }
+.wx-login-section { margin-top: 48rpx; width: 100%; }
 .divider { display: flex; align-items: center; gap: 24rpx; margin-bottom: 32rpx; }
 .divider-line { flex: 1; height: 2rpx; background: #F3F4F6; }
 .divider-text { font-size: 22rpx; color: #9CA3AF; }

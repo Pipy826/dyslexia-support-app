@@ -817,9 +817,10 @@ class VoiceAnswerRequest(BaseModel):
 async def voice_answer(
     request: VoiceAnswerRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    语音答题识别接口（无需 JWT 认证，供儿童端直接调用）。
+    语音答题识别接口（需要 JWT 认证，防止微信 API 配额被滥用）。
     先尝试调用微信小程序语音识别，失败时返回降级响应。
     """
     import httpx
@@ -877,4 +878,177 @@ async def voice_answer(
         "is_correct": False,
         "confidence": 0.0,
         "error": "语音识别服务暂不可用",
+    }
+
+
+# ── 14. 知识库管理（预留扩展接口）────────────────────────────────────────────
+
+class KnowledgeEntryCreate(BaseModel):
+    """新增知识库条目（供老师上传专业干预建议）"""
+    category: str           # 分类：如 "intervention"（干预建议）、"faq"（常见问题）
+    question: str           # 问题
+    answer: str             # 答案
+    tags: Optional[str] = None   # 标签，逗号分隔
+    is_published: bool = True
+
+
+@router.get("/knowledge-base/summary")
+def get_knowledge_base_summary_api():
+    """
+    获取知识库摘要信息（无需认证）。
+    返回知识库的基本统计信息，供前端展示。
+    """
+    from ..services.knowledge_base import DYSLEXIA_FAQ_KB
+    # 统计问题数量
+    q_count = DYSLEXIA_FAQ_KB.count("\nQ")
+    return {
+        "total_questions": q_count,
+        "categories": [
+            "基础认知", "识别与筛查", "家庭支持与干预",
+            "情绪与心理支持", "学校与教育支持", "专业干预与治疗",
+            "特定症状与问题", "长期发展与未来", "筛查报告解读",
+            "训练游戏与方法", "特殊情况与注意事项", "平台使用与功能"
+        ],
+        "last_updated": "2026-05-03",
+        "description": "包含82个儿童读写障碍常见问题与专业解答，覆盖12个主题领域",
+    }
+
+
+@router.get("/knowledge-base/search")
+def search_knowledge_base(
+    q: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    在知识库中搜索相关问题（需认证）。
+    简单关键词匹配，返回相关的Q&A条目。
+    """
+    from ..services.knowledge_base import DYSLEXIA_FAQ_KB
+
+    if not q or len(q.strip()) < 2:
+        raise HTTPException(status_code=400, detail="搜索关键词至少2个字符")
+
+    q = q.strip()
+    results = []
+
+    # 按行解析知识库，提取Q&A对
+    lines = DYSLEXIA_FAQ_KB.split('\n')
+    current_q = None
+    current_a = None
+    current_qnum = None
+
+    for line in lines:
+        line = line.strip()
+        if line.startswith('Q') and ': ' in line:
+            # 保存上一个Q&A
+            if current_q and current_a and (q in current_q or q in current_a):
+                results.append({
+                    "id": current_qnum,
+                    "question": current_q,
+                    "answer": current_a,
+                })
+            # 开始新的Q&A
+            parts = line.split(': ', 1)
+            current_qnum = parts[0]
+            current_q = parts[1] if len(parts) > 1 else ''
+            current_a = None
+        elif line.startswith('A') and ': ' in line and current_q:
+            parts = line.split(': ', 1)
+            current_a = parts[1] if len(parts) > 1 else ''
+
+    # 处理最后一个Q&A
+    if current_q and current_a and (q in current_q or q in current_a):
+        results.append({
+            "id": current_qnum,
+            "question": current_q,
+            "answer": current_a,
+        })
+
+    return {
+        "query": q,
+        "total": len(results),
+        "results": results[:10],  # 最多返回10条
+    }
+
+
+@router.post("/knowledge-base/entries")
+def create_knowledge_entry(
+    data: KnowledgeEntryCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    新增知识库条目（需认证，供专业老师上传干预建议）。
+    当前版本将条目存储到文章系统中，以 tag="knowledge_base" 标记。
+    后续可扩展为独立的知识库数据库表。
+    """
+    from ..models.article import Article
+
+    # 将知识库条目存储为特殊文章
+    article = Article(
+        content_type="knowledge",
+        title=data.question,
+        summary=data.answer[:200] if len(data.answer) > 200 else data.answer,
+        content=data.answer,
+        tags=f"knowledge_base,{data.category}" + (f",{data.tags}" if data.tags else ""),
+        author=current_user.username,
+        is_published=data.is_published,
+        is_featured=False,
+    )
+    db.add(article)
+    db.commit()
+    db.refresh(article)
+
+    return {
+        "id": article.id,
+        "category": data.category,
+        "question": data.question,
+        "answer": data.answer,
+        "is_published": data.is_published,
+        "created_at": article.created_at.isoformat() if article.created_at else None,
+        "message": "知识库条目已添加，将在下次AI对话中生效",
+    }
+
+
+@router.get("/knowledge-base/entries")
+def list_knowledge_entries(
+    category: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    获取知识库条目列表（需认证）。
+    返回老师上传的专业干预建议条目。
+    """
+    from ..models.article import Article
+    from fastapi import Query as FQuery
+
+    query = db.query(Article).filter(
+        Article.tags.contains("knowledge_base"),
+        Article.is_published == True,
+    )
+
+    if category:
+        query = query.filter(Article.tags.contains(category))
+
+    total = query.count()
+    items = query.order_by(Article.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [
+            {
+                "id": a.id,
+                "question": a.title,
+                "answer": a.content,
+                "tags": a.tags.split(",") if a.tags else [],
+                "author": a.author,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in items
+        ],
     }

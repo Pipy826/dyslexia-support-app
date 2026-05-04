@@ -56,15 +56,32 @@
             <text class="cursor" v-if="msg.streaming">▋</text>
           </view>
           <!-- 专业问题跳转提示 -->
-          <view class="professional-hint" v-if="msg.need_professional && !msg.streaming" @click="contactProfessional">
-            <view class="pro-hint-icon">
-              <text class="ph ph-user-circle-gear"></text>
+          <view class="professional-hint" v-if="msg.need_professional && !msg.streaming">
+            <view class="pro-hint-header">
+              <view class="pro-hint-icon">
+                <text class="ph ph-user-circle-gear"></text>
+              </view>
+              <view class="pro-hint-text">
+                <view class="pro-hint-title">需要专业导师帮助？</view>
+                <view class="pro-hint-sub">以下方式均可联系我们的专业团队</view>
+              </view>
             </view>
-            <view class="pro-hint-text">
-              <view class="pro-hint-title">联系专业导师</view>
-              <view class="pro-hint-sub">{{ contactPhone }}</view>
+            <view class="pro-hint-actions">
+              <view class="pro-action-btn phone" @click="callProfessional" v-if="contactPhone">
+                <text class="ph ph-phone"></text>
+                <view class="pro-action-text">
+                  <view class="pro-action-label">拨打电话</view>
+                  <view class="pro-action-value">{{ contactPhone }}</view>
+                </view>
+              </view>
+              <view class="pro-action-btn wechat" @click="copyWechat" v-if="contactWechat">
+                <text class="ph ph-chat-circle-dots"></text>
+                <view class="pro-action-text">
+                  <view class="pro-action-label">微信咨询</view>
+                  <view class="pro-action-value">{{ contactWechat }}</view>
+                </view>
+              </view>
             </view>
-            <text class="ph ph-arrow-right pro-hint-arrow"></text>
           </view>
           <view class="message-footer" v-if="msg.created_at && !msg.streaming">
             <view class="message-time">{{ formatTime(msg.created_at) }}</view>
@@ -145,6 +162,7 @@ export default {
       scrollTop: 0,
       _abortStream: null,
       contactPhone: '0755-33941800',  // 默认值，会从后端动态加载
+      contactWechat: '',              // 微信客服号，从后端加载
 
       quickQuestions: [
         { text: '什么是视觉加工速度慢？', icon: 'ph ph-eye' },
@@ -176,17 +194,46 @@ export default {
       try {
         const res = await getContactInfo()
         if (res.phone) this.contactPhone = res.phone
+        if (res.wechat) this.contactWechat = res.wechat
       } catch (e) {
         // 静默失败，使用默认值
       }
     },
 
+    callProfessional() {
+      uni.makePhoneCall({
+        phoneNumber: this.contactPhone,
+        fail: () => {
+          uni.setClipboardData({
+            data: this.contactPhone,
+            success: () => uni.showToast({ title: '电话号码已复制', icon: 'success' })
+          })
+        }
+      })
+    },
+
+    copyWechat() {
+      uni.setClipboardData({
+        data: this.contactWechat,
+        success: () => uni.showToast({ title: '微信号已复制，请打开微信添加', icon: 'success', duration: 2500 })
+      })
+    },
+
     contactProfessional() {
       uni.showActionSheet({
-        itemList: [`拨打电话：${this.contactPhone}`, '取消'],
+        itemList: [
+          `拨打电话：${this.contactPhone}`,
+          this.contactWechat ? `复制微信号：${this.contactWechat}` : null,
+          '取消'
+        ].filter(Boolean),
         success: (res) => {
           if (res.tapIndex === 0) {
             uni.makePhoneCall({ phoneNumber: this.contactPhone })
+          } else if (res.tapIndex === 1 && this.contactWechat) {
+            uni.setClipboardData({
+              data: this.contactWechat,
+              success: () => uni.showToast({ title: '微信号已复制', icon: 'success' })
+            })
           }
         }
       })
@@ -630,19 +677,18 @@ export default {
 
 /* 专业问题跳转提示 */
 .professional-hint {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
   background: linear-gradient(135deg, #F5F3FF, #EDE9FE);
   border: 2rpx solid #DDD6FE;
   border-radius: 16rpx;
-  padding: 16rpx 20rpx;
+  padding: 20rpx;
   margin-top: 12rpx;
-  transition: all 0.2s;
 }
 
-.professional-hint:active {
-  transform: scale(0.98);
+.pro-hint-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
 }
 
 .pro-hint-icon {
@@ -664,7 +710,7 @@ export default {
 .pro-hint-text { flex: 1; }
 
 .pro-hint-title {
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 700;
   color: #5B21B6;
 }
@@ -674,6 +720,58 @@ export default {
   color: #7C3AED;
   margin-top: 2rpx;
   font-weight: 500;
+}
+
+.pro-hint-actions {
+  display: flex;
+  gap: 12rpx;
+}
+
+.pro-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 12rpx;
+  transition: all 0.2s;
+}
+
+.pro-action-btn:active { transform: scale(0.96); }
+
+.pro-action-btn.phone {
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border: 1rpx solid #BFDBFE;
+}
+
+.pro-action-btn.wechat {
+  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+  border: 1rpx solid #86EFAC;
+}
+
+.pro-action-btn .ph {
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+.pro-action-btn.phone .ph { color: #3B82F6; }
+.pro-action-btn.wechat .ph { color: #22C55E; }
+
+.pro-action-text { flex: 1; min-width: 0; }
+
+.pro-action-label {
+  font-size: 18rpx;
+  font-weight: 600;
+  color: #718096;
+}
+
+.pro-action-value {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #2D3748;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pro-hint-arrow {

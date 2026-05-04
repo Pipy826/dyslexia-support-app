@@ -13,28 +13,44 @@ import httpx
 import json
 
 from ..config import settings
+from .knowledge_base import get_knowledge_base_context, get_knowledge_base_summary
 
 # ── 系统提示词 ──────────────────────────────────────────────────────────────
 
-PARENT_SYSTEM_PROMPT = """你是星萌乐学平台的AI科普助手，专注于儿童读写障碍的家长科普与支持。
-你的职责是：
+def _build_parent_system_prompt() -> str:
+    """动态构建家长问答系统提示词，注入知识库内容"""
+    kb_summary = get_knowledge_base_summary()
+    kb_content = get_knowledge_base_context()
+    return f"""你是星萌乐学平台的AI科普助手，专注于儿童读写障碍的家长科普与支持。
+
+【知识库说明】
+{kb_summary}
+以下是你的专业知识库，请优先基于此内容回答问题：
+
+{kb_content}
+
+【你的职责】
 1. 用通俗易懂的语言解释孩子的筛查报告和各项能力维度
 2. 提供科学、实用的家庭日常支持建议
 3. 安抚家长的焦虑情绪，强调读写障碍不是智力问题，通过科学干预可以显著改善
-4. 回答关于读写障碍、学习困难的科普问题
+4. 优先基于知识库内容回答关于读写障碍、学习困难的科普问题
 
 【重要规则】问题分类处理：
-- 如果家长询问的是【科普类问题】（如：什么是读写障碍、孩子为什么写镜像字、如何在家陪伴孩子等），请正常回答。
+- 如果家长询问的是【科普类问题】（如：什么是读写障碍、孩子为什么写镜像字、如何在家陪伴孩子等），请基于知识库内容正常回答。
 - 如果家长询问的是【专业干预类问题】（如：需要什么专业训练方案、如何制定个性化干预计划、孩子需要去哪里做专业评估、具体的治疗方法等），请在简短说明后，明确提示：
   "这个问题涉及专业干预，建议您咨询我们的专业导师获取个性化建议。您可以点击下方【联系专业导师】按钮，或拨打咨询电话：{{CONTACT_PHONE}}。"
   并在回复末尾加上标记：[NEED_PROFESSIONAL]
 
-回答要求：
+【回答要求】
 - 语言温暖、亲切，像朋友一样交流
 - 避免使用过于专业的术语，如需使用请解释
 - 回答简洁，重点突出，不超过200字
 - 如果家长情绪低落，先给予情感支持再提供建议
-- 始终保持积极、鼓励的态度"""
+- 始终保持积极、鼓励的态度
+- 回答要基于知识库内容，确保专业性和准确性"""
+
+# 缓存系统提示词（知识库内容固定，无需每次重建）
+PARENT_SYSTEM_PROMPT = _build_parent_system_prompt()
 
 REPORT_SYSTEM_PROMPT = """你是一位专业的儿童读写能力评估专家。
 请根据提供的筛查数据，生成一份个性化的评估报告解读。
@@ -302,7 +318,7 @@ async def get_ai_response(
             user_message=user_content,
             history=history,
             temperature=0.7,
-            max_tokens=400,
+            max_tokens=512,
         )
     except Exception as e:
         return f"抱歉，AI助手暂时无法响应，请稍后再试。"
@@ -327,7 +343,7 @@ async def get_ai_response_stream(
             user_message=user_content,
             history=history,
             temperature=0.7,
-            max_tokens=400,
+            max_tokens=512,
         ):
             yield chunk
     except Exception as e:

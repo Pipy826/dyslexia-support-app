@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 class ReportResponse(BaseModel):
     id: int
     child_id: int
-    screening_id: int
+    screening_id: Optional[int] = None
     overall_score: Optional[int] = None
     risk_level: Optional[str] = None
     summary: Optional[str] = None

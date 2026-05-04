@@ -384,7 +384,18 @@ export default {
     },
 
     goBack() {
-      uni.navigateBack()
+      // #ifdef H5
+      if (typeof window !== 'undefined' && window.history && window.history.length > 1) {
+        window.history.back()
+        return
+      }
+      // #endif
+      const pages = getCurrentPages()
+      if (pages.length > 1) {
+        uni.navigateBack()
+      } else {
+        uni.reLaunch({ url: '/pages/parent/home/index' })
+      }
     },
 
     goToScreening() {

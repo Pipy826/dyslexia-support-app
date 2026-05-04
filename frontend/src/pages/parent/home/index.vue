@@ -39,6 +39,13 @@
     </view>
 
     <view class="page-content">
+      <!-- 游客升级提示条 -->
+      <view class="guest-upgrade-bar" v-if="isGuest" @click="goToRegister">
+        <text class="ph ph-warning-circle"></text>
+        <view class="upgrade-text">您正在以游客身份使用，数据不会永久保存</view>
+        <view class="upgrade-btn">立即注册</view>
+      </view>
+
       <!-- 每日 AI 贴士 -->
       <view class="daily-tip-card" v-if="dailyTip" @click="showAiChat">
         <view class="tip-left">
@@ -73,9 +80,9 @@
       <!-- 有报告时显示最新报告摘要 -->
       <view class="guide-card report-card" v-else @click="goToReport">
         <view class="guide-decoration"></view>
-        <view class="guide-tag">能力地图</view>
-        <view class="guide-title">{{ currentChild ? currentChild.name : '孩子' }}的能力地图</view>
-        <ability-map :dimensions="reportDimensions" class="guide-ability-map"></ability-map>
+        <view class="guide-tag">游戏报告</view>
+        <view class="guide-title">{{ currentChild ? currentChild.name : '孩子' }}的挑战情况</view>
+        <ability-map :child-id="currentChild ? currentChild.id : null" class="guide-ability-map"></ability-map>
         <button class="guide-btn" @click.stop="goToReport">查看完整报告</button>
       </view>
 
@@ -83,9 +90,9 @@
       <view class="grid-section">
         <view class="grid-item" @click="goToReport">
           <view class="grid-icon blue">
-            <text class="ph ph-map-trifold"></text>
+            <text class="ph ph-chart-bar"></text>
           </view>
-          <view class="grid-label">能力地图</view>
+          <view class="grid-label">游戏报告</view>
         </view>
         <view class="grid-item" @click="goToTraining">
           <view class="grid-icon green">
@@ -146,7 +153,7 @@
 </template>
 
 <script>
-import { getCurrentChild, setCurrentChild, getUser } from '../../../utils/auth.js'
+import { getCurrentChild, setCurrentChild, getUser, isGuestUser } from '../../../utils/auth.js'
 import { getChildren } from '../../../api/child.js'
 import { getReports } from '../../../api/report.js'
 import { getDailyTip } from '../../../api/ai.js'
@@ -166,6 +173,7 @@ export default {
       hasUnread: false,
       activities: [],
       dailyTip: '',
+      isGuest: false,
     }
   },
   computed: {
@@ -220,6 +228,7 @@ export default {
   },
   onShow() {
     this.user = getUser()
+    this.isGuest = isGuestUser()
     this.loadData()
     this.checkUnread()
   },
@@ -257,10 +266,13 @@ export default {
     async loadRecentReport() {
       if (!this.currentChild) return
       try {
-        const reports = await getReports(this.currentChild.id)
+        const { getGameActivityReport } = await import('../../../api/report.js')
+        const [reports, activityData] = await Promise.all([
+          getReports(this.currentChild.id),
+          getGameActivityReport(this.currentChild.id, 30).catch(() => null),
+        ])
         this.recentReport = reports[0] || null
-        this.buildActivities(reports)
-        // 无论是否有报告都尝试加载每日贴士（接口有降级处理）
+        this.buildActivities(activityData)
         this.loadDailyTip()
       } catch (e) {
         console.error('加载报告失败', e)
@@ -274,14 +286,26 @@ export default {
         // 静默失败，不影响主流程
       }
     },
-    buildActivities(reports) {
-      this.activities = reports.slice(0, 3).map(r => ({
-        icon: 'ph-file-text',
-        color: 'blue',
-        title: `完成能力探索 · ${this.riskLabel(r.risk_level)}`,
-        time: this.formatDate(r.created_at),
-        status: r.risk_level === 'low' ? '表现良好' : r.risk_level === 'medium' ? '可加强' : '需关注'
-      }))
+    buildActivities(activityData) {
+      if (!activityData || !activityData.recent_records?.length) {
+        this.activities = []
+        return
+      }
+      const GAME_NAMES = {
+        visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
+        working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
+        handwriting: '汉字书写', flip_card: '翻牌记忆', connect_game: '连一连',
+      }
+      this.activities = activityData.recent_records.slice(0, 3).map(r => {
+        const accText = r.accuracy != null ? `正确率 ${r.accuracy}%` : (r.correct_count != null ? `${r.correct_count}/${r.total_count}` : '已完成')
+        return {
+          icon: r.icon || 'ph-game-controller',
+          color: 'blue',
+          title: `完成${GAME_NAMES[r.game_type] || r.game_name}挑战`,
+          time: this.formatDate(r.completed_at),
+          status: accText,
+        }
+      })
     },
     getAge(birthDate) {
       if (!birthDate) return '?'
@@ -316,11 +340,8 @@ export default {
       uni.navigateTo({ url: '/pages/parent/screening/index' })
     },
     goToReport() {
-      if (this.recentReport?.id) {
-        uni.navigateTo({ url: `/pages/parent/report/detail?id=${this.recentReport.id}` })
-      } else {
-        uni.navigateTo({ url: '/pages/parent/report/index' })
-      }
+      // 始终跳转到综合游戏报告页，展示全部挑战情况
+      uni.navigateTo({ url: '/pages/parent/report/index' })
     },
     goToReportList() {
       if (this.currentChild) {
@@ -342,6 +363,9 @@ export default {
     },
     goToNotifications() {
       uni.navigateTo({ url: '/pages/parent/notifications/index' })
+    },
+    goToRegister() {
+      uni.navigateTo({ url: '/pages/parent/auth/login' })
     },
     async checkUnread() {
       try {
@@ -454,6 +478,47 @@ export default {
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+}
+
+/* 游客升级提示条 */
+.guest-upgrade-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+  border: 2rpx solid #FDE68A;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 20rpx;
+  transition: all 0.2s;
+}
+
+.guest-upgrade-bar:active {
+  transform: scale(0.98);
+}
+
+.guest-upgrade-bar .ph {
+  font-size: 28rpx;
+  color: #D97706;
+  flex-shrink: 0;
+}
+
+.upgrade-text {
+  flex: 1;
+  font-size: 22rpx;
+  color: #92400E;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.upgrade-btn {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  background: #D97706;
+  padding: 8rpx 20rpx;
+  border-radius: 9999rpx;
+  flex-shrink: 0;
 }
 
 /* 每日 AI 贴士 - 横幅卡片 */

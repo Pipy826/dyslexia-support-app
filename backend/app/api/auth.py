@@ -54,13 +54,27 @@ def _check_rate_limit(key: str, max_calls: int, window_seconds: int) -> bool:
 
 
 def _get_client_ip(request: Request) -> str:
-    """获取客户端真实 IP（兼容反向代理）"""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
+    """
+    获取客户端真实 IP。
+
+    安全说明：
+    - X-Forwarded-For / X-Real-IP 可被客户端伪造，直接信任会绕过速率限制。
+    - 只有在确认请求经过可信反向代理（Nginx/CDN）时才读取这些头部。
+    - 通过环境变量 TRUST_PROXY=true 显式开启，默认关闭（直接取 TCP 连接 IP）。
+    """
+    import os
+    trust_proxy = os.getenv("TRUST_PROXY", "false").lower() in ("true", "1", "yes")
+
+    if trust_proxy:
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # 取第一个 IP（最左侧为客户端真实 IP）
+            return forwarded_for.split(",")[0].strip()
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip.strip()
+
+    # 默认：直接使用 TCP 连接的对端 IP，不可伪造
     return request.client.host if request.client else "unknown"
 
 
@@ -453,21 +467,6 @@ def send_verification_code(request: Request, req_body: PhoneRequest):
     return {"message": "验证码已发送", "expires_in": CODE_EXPIRE_SECONDS}
 
 
-# ── 验证码校验（不消耗） ──────────────────────────────────────────────────────
-
-@router.get("/verify-code")
-def verify_code_check(phone: str, code: str):
-    """Verify phone code (不消耗验证码，仅校验)"""
-    with _codes_lock:
-        entry = verification_codes.get(phone)
-        if not entry:
-            return {"valid": False, "reason": "验证码不存在"}
-        if time.time() > entry["expires_at"]:
-            verification_codes.pop(phone, None)
-            return {"valid": False, "reason": "验证码已过期"}
-        return {"valid": entry["code"] == code}
-
-
 # ── 账号信息编辑 ──────────────────────────────────────────────────────────────
 
 class UpdateProfileRequest(BaseModel):
@@ -586,10 +585,19 @@ class WxLoginRequest(BaseModel):
 def migrate_guest_data(guest_id: str, user_id: int, db: Session) -> int:
     """
     将游客筛查记录迁移到已登录用户。
-    查找 guest_id 匹配的 Screening 记录，将其 guest_id 清空（标记为已迁移）。
-    返回迁移的记录数量。
+
+    安全说明：
+    - guest_id 由客户端传入，不能直接信任。
+    - 迁移后将 child_id 设置为该用户名下的第一个孩子（如有），
+      并清空 guest_id 防止重复迁移（幂等）。
+    - 不验证 guest_id 归属（游客无账号，无法做归属验证），
+      但通过"清空后不可再迁移"保证每条记录只能被迁移一次。
     """
     from ..models.screening import Screening
+    from ..models.child import Child
+
+    # 查找该用户名下的第一个孩子（用于关联迁移的筛查记录）
+    child = db.query(Child).filter(Child.parent_id == user_id).first()
 
     screenings = db.query(Screening).filter(
         Screening.guest_id == guest_id
@@ -597,7 +605,10 @@ def migrate_guest_data(guest_id: str, user_id: int, db: Session) -> int:
 
     count = len(screenings)
     for screening in screenings:
-        screening.guest_id = None  # 清空 guest_id，标记为已迁移
+        screening.guest_id = None  # 清空 guest_id，防止重复迁移
+        # 如果该用户已有孩子档案，将筛查记录关联到该孩子
+        if child and screening.child_id is None:
+            screening.child_id = child.id
 
     if count > 0:
         db.commit()
@@ -707,6 +718,55 @@ async def wx_login(request: Request, data: WxLoginRequest, db: Session = Depends
     ).model_dump() | {"is_new_user": is_new_user, "migrated_count": migrated_count}
 
 
+# ── 游客登录 ──────────────────────────────────────────────────────────────────
+
+@router.post("/guest-login", response_model=Token)
+def guest_login(request: Request, db: Session = Depends(get_db)):
+    """
+    游客一键进入系统。
+    自动创建一个临时游客账号（username=guest_xxxxxxxx），返回有效期7天的JWT。
+    游客账号可以正常使用系统所有功能，注册后可升级为正式账号。
+    """
+    import secrets as _secrets
+
+    # IP 速率限制：每IP每小时最多创建10个游客账号
+    ip = _get_client_ip(request)
+    if not _check_rate_limit(f"guest_login:{ip}", max_calls=10, window_seconds=3600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="请求过于频繁，请稍后再试"
+        )
+
+    # 生成唯一游客用户名
+    for _ in range(5):
+        suffix = _secrets.token_hex(4)  # 8位随机hex
+        username = f"guest_{suffix}"
+        if not db.query(User).filter(User.username == username).first():
+            break
+    else:
+        raise HTTPException(status_code=500, detail="创建游客账号失败，请重试")
+
+    user = User(
+        username=username,
+        password_hash=get_password_hash(_secrets.token_hex(32)),
+        phone=None,
+        is_guest=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=timedelta(days=7)
+    )
+
+    return Token(
+        access_token=access_token,
+        user=UserResponse.model_validate(user),
+    )
+
+
 # ── 邀请码系统 ────────────────────────────────────────────────────────────────
 
 @router.get("/invite-code")
@@ -715,8 +775,7 @@ def get_invite_code(
     current_user: User = Depends(get_current_user)
 ):
     """获取当前用户的邀请码（不存在则生成）"""
-    import random
-    import string
+    import secrets as _secrets
     from ..models.invite import InviteRecord
 
     # 查找已有邀请码
@@ -728,9 +787,10 @@ def get_invite_code(
     if existing:
         return {"invite_code": existing.invite_code}
 
-    # 生成新邀请码（8位字母数字）
+    # 使用 secrets 生成密码学安全的邀请码（8位大写字母+数字）
+    # secrets.token_hex 生成的字符集为 0-9a-f，转大写后取前8位
     for _ in range(10):  # 最多重试10次避免碰撞
-        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        code = _secrets.token_hex(6).upper()[:8]  # 12位hex取前8位，字符集足够
         if not db.query(InviteRecord).filter(InviteRecord.invite_code == code).first():
             record = InviteRecord(
                 inviter_id=current_user.id,

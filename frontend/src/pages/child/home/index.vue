@@ -63,9 +63,14 @@
         </view>
       </view>
 
-      <button class="start-btn" @click="startChallenge">
-        <text class="ph ph-play"></text> 开始游戏
-      </button>
+      <view class="action-row">
+        <button class="start-btn" @click="startChallenge">
+          <text class="ph ph-play"></text> 开始游戏
+        </button>
+        <button class="level-btn" @click="goToLevelSelect">
+          <text class="ph ph-trophy"></text> 关卡挑战
+        </button>
+      </view>
 
       <view class="parent-tip">
         <text class="ph ph-info"></text> 请在安静环境下独立完成
@@ -93,6 +98,10 @@
         <text class="ph-fill ph-game-controller"></text>
         <view class="child-tab-label">游戏</view>
       </view>
+      <view class="child-tab-item" @click="goToLevelSelect">
+        <text class="ph-fill ph-trophy"></text>
+        <view class="child-tab-label">关卡挑战</view>
+      </view>
       <view class="child-tab-item" @click="goToTraining">
         <text class="ph-fill ph-tree"></text>
         <view class="child-tab-label">训练乐园</view>
@@ -103,12 +112,13 @@
     <view class="modal-overlay" v-if="showExitModal" @click.self="cancelExit">
       <view class="exit-modal">
         <view class="exit-modal-icon">
-          <text class="ph ph-lock"></text>
+          <text :class="isGuest ? 'ph ph-sign-out' : 'ph ph-lock'"></text>
         </view>
         <view class="exit-modal-title">退出儿童模式</view>
-        <view class="exit-modal-desc">请输入家长登录密码以退出</view>
+        <view class="exit-modal-desc" v-if="isGuest">确认退出儿童模式？</view>
+        <view class="exit-modal-desc" v-else>请输入家长登录密码以退出</view>
 
-        <view class="pwd-input-wrap">
+        <view class="pwd-input-wrap" v-if="!isGuest">
           <text class="ph ph-lock-key pwd-icon"></text>
           <input
             class="pwd-input"
@@ -143,11 +153,11 @@
 </template>
 
 <script>
-import { getCurrentChild, getUser } from '../../../utils/auth.js'
+import { getCurrentChild, getUser, isGuestUser } from '../../../utils/auth.js'
 import { getTotalStars } from '../../../api/training.js'
 import { verifyPassword } from '../../../api/auth.js'
 import BadgeGrid from '../../../components/game/BadgeGrid.vue'
-import { get } from '../../../api/index.js'
+import { get, getBaseUrl } from '../../../api/index.js'
 
 // 获取徽章列表（过滤 reward_type=badge）
 async function fetchBadges(childId) {
@@ -207,6 +217,30 @@ const ALL_GAME_TYPES = [
     color: '#EC4899',
     bg: 'linear-gradient(135deg, #FDF2F8, #FCE7F3)',
   },
+  {
+    type: 'flip_card',
+    name: '翻牌记忆',
+    desc: '翻牌配对，练记忆',
+    icon: 'ph-cards',
+    color: '#7C3AED',
+    bg: 'linear-gradient(135deg, #F5F3FF, #EDE9FE)',
+  },
+  {
+    type: 'connect_game',
+    name: '连一连',
+    desc: '连线配对，找关系',
+    icon: 'ph-link',
+    color: '#16A34A',
+    bg: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)',
+  },
+  {
+    type: 'handwriting',
+    name: '手写汉字',
+    desc: '描摹汉字，练笔画',
+    icon: 'ph-pencil-line',
+    color: '#F57F17',
+    bg: 'linear-gradient(135deg, #FFF8F0, #FFF3E0)',
+  },
 ]
 
 export default {
@@ -225,6 +259,7 @@ export default {
       exitError: '',
       exitLoading: false,
       showPwd: false,
+      isGuest: false,
     }
   },
   computed: {
@@ -241,8 +276,12 @@ export default {
       return getBaseUrl() + url
     },
   },
+  onLoad() {
+    // 页面正常加载，不再重定向
+  },
   onShow() {
     this.child = getCurrentChild()
+    this.isGuest = isGuestUser()
     if (!this.child) {
       uni.showToast({ title: '请先在家长端添加档案', icon: 'none' })
       return
@@ -254,7 +293,6 @@ export default {
     this.loadStars()
     this.loadBadges()
   },
-  // 拦截手势/物理返回键，必须输入密码才能退出儿童模式
   onBackPress(options) {
     // H5 手势返回和小程序物理返回键都拦截
     this.showExitModal = true
@@ -283,8 +321,11 @@ export default {
     goToHome() {
       // 已在首页，不跳转
     },
+    goToLevelSelect() {
+      uni.navigateTo({ url: '/pages/child/level-select/index' })
+    },
     goToTraining() {
-      uni.redirectTo({ url: '/pages/child/training/index' })
+      uni.navigateTo({ url: '/pages/child/training/index' })
     },
     startChallenge() {
       if (!this.child) {
@@ -328,12 +369,19 @@ export default {
     },
 
     // ── 退出逻辑 ──────────────────────────────────────────────────────────────
-    cancelExit() {      this.showExitModal = false
+    cancelExit() {
+      this.showExitModal = false
       this.exitPassword = ''
       this.exitError = ''
       this.showPwd = false
     },
     async confirmExit() {
+      // 游客账号无密码，直接退出
+      if (this.isGuest) {
+        uni.reLaunch({ url: '/pages/parent/home/index' })
+        return
+      }
+
       if (!this.exitPassword) {
         this.exitError = '请输入密码'
         return
@@ -532,20 +580,36 @@ export default {
 .game-card-check .ph { font-size: 28rpx; color: var(--c); }
 
 /* ── 开始按钮 ── */
+.action-row {
+  display: flex; flex-direction: row; gap: 16rpx;
+  margin-bottom: 12rpx;
+}
 .start-btn {
-  width: 100%;
+  flex: 1;
   background: linear-gradient(135deg, #4F9EF8, #3B82F6);
   color: #FFFFFF;
   border-radius: 18rpx;
   padding: 24rpx;
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 800;
   box-shadow: 0 4rpx 16rpx rgba(59, 130, 246, 0.3);
   display: flex; flex-direction: row; align-items: center; justify-content: center;
   box-sizing: border-box;
-  margin-bottom: 12rpx;
 }
-.start-btn .ph { font-size: 30rpx; margin-right: 10rpx; }
+.start-btn .ph { font-size: 28rpx; margin-right: 8rpx; }
+.level-btn {
+  flex: 1;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: #FFFFFF;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  font-size: 28rpx;
+  font-weight: 800;
+  box-shadow: 0 4rpx 16rpx rgba(245, 158, 11, 0.3);
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  box-sizing: border-box;
+}
+.level-btn .ph { font-size: 28rpx; margin-right: 8rpx; }
 
 .parent-tip {
   font-size: 20rpx; color: #CBD5E0;

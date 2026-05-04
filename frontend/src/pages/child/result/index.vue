@@ -260,7 +260,7 @@ export default {
       uni.navigateTo({ url: '/pages/parent/auth/login' })
     },
     goHome() {
-      uni.reLaunch({ url: '/pages/child/home/index' })
+      uni.reLaunch({ url: '/pages/child/child-training/index' })
     },
     getGameName() {
       const names = {

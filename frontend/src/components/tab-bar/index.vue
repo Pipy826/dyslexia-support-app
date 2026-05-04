@@ -53,7 +53,7 @@ export default {
         { pagePath: '/pages/parent/profile/index', text: '我的', icon: 'ph ph-user', activeIcon: 'ph-fill ph-user' }
       ],
       childTabs: [
-        { pagePath: '/pages/child/home/index', text: '挑战', icon: 'ph-fill ph-game-controller', activeIcon: 'ph-fill ph-game-controller' },
+        { pagePath: '/pages/child/child-training/index', text: '挑战', icon: 'ph-fill ph-game-controller', activeIcon: 'ph-fill ph-game-controller' },
         { pagePath: '/pages/child/training/index', text: '训练乐园', icon: 'ph-fill ph-tree', activeIcon: 'ph-fill ph-tree' }
       ]
     }

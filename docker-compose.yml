@@ -1,42 +1,26 @@
-version: "3.9"
+version: '3.8'
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    build: ./backend
     container_name: dyslexia-backend
-    restart: unless-stopped
-    env_file:
-      - ./backend/.env
-    environment:
-      - DEBUG=False
-      - DATABASE_URL=sqlite:////app/data/dyslexia.db
-      - UPLOAD_DIR=/app/uploads
-    volumes:
-      - uploads_data:/app/uploads
-      - sqlite_data:/app/data
+    restart: always
     ports:
       - "8000:8000"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/dyslexia.db:/app/dyslexia.db
+    env_file:
+      - ./backend/.env
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: dyslexia-frontend
-    restart: unless-stopped
+  nginx:
+    image: nginx:alpine
+    container_name: dyslexia-nginx
+    restart: always
     ports:
       - "80:80"
+    volumes:
+      - ./frontend/dist/build/h5:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      backend:
-        condition: service_healthy
-
-volumes:
-  uploads_data:
-  sqlite_data:
+      - backend

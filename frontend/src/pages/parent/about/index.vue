@@ -35,7 +35,7 @@
           </view>
           <view class="feature-info">
             <view class="feature-label">游戏化筛查</view>
-            <view class="feature-desc">6大维度能力评估，轻松完成</view>
+            <view class="feature-desc">9大维度能力评估，轻松完成</view>
           </view>
         </view>
         <view class="feature-item">
@@ -103,7 +103,7 @@
 
       <!-- 版权信息 -->
       <view class="copyright">
-        © 2024 悦读小灯塔 All Rights Reserved
+      © 2026 悦读小灯塔 All Rights Reserved
       </view>
 
       <view style="height: 80rpx;"></view>

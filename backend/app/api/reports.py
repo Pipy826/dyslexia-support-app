@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from ..database import get_db
 from ..models.screening import Report
@@ -11,6 +11,206 @@ from .deps import get_current_user
 from ..models.user import User
 
 router = APIRouter(prefix="/api/reports", tags=["报告"])
+
+
+@router.get("/game-activity/{child_id}")
+def get_game_activity_report(
+    child_id: int,
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取孩子的游戏活动情况报告（家长端使用）。
+    包含：
+    - 总体游戏统计（总次数、总时长、平均正确率）
+    - 各游戏类型的详细统计
+    - 近期游戏记录（最近20条）
+    - 进步趋势（近7天 vs 前7天正确率对比）
+    - 连续打卡天数
+    """
+    import json
+    from ..models.training import TrainingTask, CheckInRecord
+    from sqlalchemy import func
+
+    # 验证孩子归属
+    child = db.query(Child).filter(
+        Child.id == child_id,
+        Child.parent_id == current_user.id
+    ).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="孩子档案不存在")
+
+    days = max(7, min(days, 90))
+    since_date = datetime.utcnow() - timedelta(days=days)
+
+    # 查询该时间段内已完成的训练任务
+    tasks = db.query(TrainingTask).filter(
+        TrainingTask.child_id == child_id,
+        TrainingTask.status == "completed",
+        TrainingTask.completed_at >= since_date
+    ).order_by(TrainingTask.completed_at.desc()).all()
+
+    # 游戏类型中文名
+    GAME_TYPE_NAMES = {
+        "visual": "视觉辨识", "spelling": "拼字识别", "comprehension": "文字理解",
+        "working_memory": "工作记忆", "rapid_naming": "快速命名",
+        "motor_coordination": "精细动作", "handwriting": "汉字书写",
+        "flip_card": "翻牌记忆", "connect_game": "连一连",
+    }
+    GAME_TYPE_ICONS = {
+        "visual": "ph-eye", "spelling": "ph-text-aa", "comprehension": "ph-book-open",
+        "working_memory": "ph-brain", "rapid_naming": "ph-lightning",
+        "motor_coordination": "ph-hand", "handwriting": "ph-pencil-line",
+        "flip_card": "ph-cards", "connect_game": "ph-link",
+    }
+    GAME_TYPE_COLORS = {
+        "visual": "#4F9EF8", "spelling": "#A78BFA", "comprehension": "#22C55E",
+        "working_memory": "#F97316", "rapid_naming": "#EAB308",
+        "motor_coordination": "#EC4899", "handwriting": "#F57F17",
+        "flip_card": "#7C3AED", "connect_game": "#16A34A",
+    }
+
+    # 按游戏类型分组统计
+    game_stats: dict = {}
+    for task in tasks:
+        gt = task.task_type
+        if gt not in game_stats:
+            game_stats[gt] = {
+                "game_type": gt,
+                "game_name": GAME_TYPE_NAMES.get(gt, gt),
+                "icon": GAME_TYPE_ICONS.get(gt, "ph-star"),
+                "color": GAME_TYPE_COLORS.get(gt, "#4F9EF8"),
+                "play_count": 0,
+                "total_correct": 0,
+                "total_questions": 0,
+                "accuracy_sum": 0,
+                "accuracy_count": 0,
+                "last_played": None,
+            }
+        s = game_stats[gt]
+        s["play_count"] += 1
+        if task.correct_count is not None:
+            s["total_correct"] += task.correct_count
+        if task.total_count is not None:
+            s["total_questions"] += task.total_count
+        if task.accuracy is not None:
+            s["accuracy_sum"] += task.accuracy
+            s["accuracy_count"] += 1
+        if task.completed_at:
+            if s["last_played"] is None or task.completed_at > s["last_played"]:
+                s["last_played"] = task.completed_at
+
+    # 计算各游戏类型平均正确率
+    game_stats_list = []
+    for gt, s in game_stats.items():
+        avg_accuracy = round(s["accuracy_sum"] / s["accuracy_count"]) if s["accuracy_count"] > 0 else None
+        game_stats_list.append({
+            "game_type": s["game_type"],
+            "game_name": s["game_name"],
+            "icon": s["icon"],
+            "color": s["color"],
+            "play_count": s["play_count"],
+            "total_correct": s["total_correct"],
+            "total_questions": s["total_questions"],
+            "avg_accuracy": avg_accuracy,
+            "last_played": s["last_played"].isoformat() if s["last_played"] else None,
+        })
+    # 按游戏次数降序排列
+    game_stats_list.sort(key=lambda x: x["play_count"], reverse=True)
+
+    # 总体统计
+    total_plays = len(tasks)
+    all_accuracies = [t.accuracy for t in tasks if t.accuracy is not None]
+    overall_accuracy = round(sum(all_accuracies) / len(all_accuracies)) if all_accuracies else None
+    total_correct = sum(t.correct_count or 0 for t in tasks)
+    total_questions = sum(t.total_count or 0 for t in tasks)
+
+    # 近期游戏记录（最近20条）
+    recent_records = []
+    for task in tasks[:20]:
+        extra = {}
+        if task.extra_data:
+            try:
+                extra = json.loads(task.extra_data)
+            except Exception:
+                pass
+        recent_records.append({
+            "id": task.id,
+            "game_type": task.task_type,
+            "game_name": GAME_TYPE_NAMES.get(task.task_type, task.task_type),
+            "icon": GAME_TYPE_ICONS.get(task.task_type, "ph-star"),
+            "color": GAME_TYPE_COLORS.get(task.task_type, "#4F9EF8"),
+            "correct_count": task.correct_count,
+            "total_count": task.total_count,
+            "accuracy": task.accuracy,
+            "stars": extra.get("stars_earned", extra.get("stars", None)),
+            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        })
+
+    # 进步趋势：近7天 vs 前7天正确率对比
+    now = datetime.utcnow()
+    week1_start = now - timedelta(days=7)
+    week2_start = now - timedelta(days=14)
+
+    recent_7_tasks = [t for t in tasks if t.completed_at and t.completed_at >= week1_start]
+    prev_7_tasks = [t for t in tasks if t.completed_at and week2_start <= t.completed_at < week1_start]
+
+    recent_7_acc = [t.accuracy for t in recent_7_tasks if t.accuracy is not None]
+    prev_7_acc = [t.accuracy for t in prev_7_tasks if t.accuracy is not None]
+
+    recent_avg = round(sum(recent_7_acc) / len(recent_7_acc)) if recent_7_acc else None
+    prev_avg = round(sum(prev_7_acc) / len(prev_7_acc)) if prev_7_acc else None
+
+    trend = None
+    trend_delta = None
+    if recent_avg is not None and prev_avg is not None:
+        trend_delta = recent_avg - prev_avg
+        trend = "up" if trend_delta > 2 else ("down" if trend_delta < -2 else "flat")
+    elif recent_avg is not None:
+        trend = "new"
+
+    # 连续打卡天数
+    today = date.today()
+    latest_checkin = db.query(CheckInRecord).filter(
+        CheckInRecord.child_id == child_id
+    ).order_by(CheckInRecord.check_in_date.desc()).first()
+    current_streak = latest_checkin.streak_count if latest_checkin else 0
+
+    # 近30天每日游戏次数（用于日历热力图）
+    daily_counts: dict = {}
+    all_tasks_30d = db.query(TrainingTask).filter(
+        TrainingTask.child_id == child_id,
+        TrainingTask.status == "completed",
+        TrainingTask.completed_at >= now - timedelta(days=30)
+    ).all()
+    for task in all_tasks_30d:
+        if task.completed_at:
+            day_str = task.completed_at.strftime("%Y-%m-%d")
+            daily_counts[day_str] = daily_counts.get(day_str, 0) + 1
+
+    return {
+        "child_id": child_id,
+        "child_name": child.name,
+        "period_days": days,
+        "summary": {
+            "total_plays": total_plays,
+            "overall_accuracy": overall_accuracy,
+            "total_correct": total_correct,
+            "total_questions": total_questions,
+            "current_streak": current_streak,
+            "games_played_types": len(game_stats),
+        },
+        "trend": {
+            "direction": trend,
+            "delta": trend_delta,
+            "recent_7_avg": recent_avg,
+            "prev_7_avg": prev_avg,
+        },
+        "game_stats": game_stats_list,
+        "recent_records": recent_records,
+        "daily_counts": daily_counts,
+    }
 
 
 @router.get("/", response_model=List[ReportResponse])

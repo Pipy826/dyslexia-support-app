@@ -21,6 +21,20 @@
         <text class="ph ph-arrow-right ai-plan-arrow"></text>
       </view>
 
+      <!-- 手动添加任务入口 -->
+      <view class="add-task-banner" @click="showAddTaskModal = true">
+        <view class="add-task-left">
+          <view class="add-task-icon">
+            <text class="ph ph-plus-circle"></text>
+          </view>
+          <view class="add-task-text">
+            <view class="add-task-title">手动添加训练任务</view>
+            <view class="add-task-sub">为孩子指定今日训练游戏</view>
+          </view>
+        </view>
+        <text class="ph ph-arrow-right add-task-arrow"></text>
+      </view>
+
       <!-- 今日进度概览 -->
       <view class="today-card">
         <view class="today-decoration"></view>
@@ -165,6 +179,57 @@
     <!-- 底部导航栏 -->
     <tab-bar type="parent" current="/pages/parent/training/index"></tab-bar>
 
+    <!-- 手动添加任务弹窗 -->
+    <view class="modal-overlay" v-if="showAddTaskModal" @click="showAddTaskModal = false">
+      <view class="modal-content" @click.stop>
+        <view class="modal-header">
+          <view class="modal-avatar" style="background: linear-gradient(135deg, #22C55E, #16A34A);">
+            <text class="ph ph-plus-circle"></text>
+          </view>
+          <view class="modal-title">添加训练任务</view>
+          <view class="modal-close" @click="showAddTaskModal = false">
+            <text class="ph ph-x"></text>
+          </view>
+        </view>
+
+        <!-- 游戏类型选择 -->
+        <view class="add-task-section-title">选择游戏类型</view>
+        <view class="add-task-type-grid">
+          <view
+            v-for="t in allTaskTypes"
+            :key="t.type"
+            :class="['add-task-type-item', { active: addTaskType === t.type }]"
+            @click="addTaskType = t.type"
+          >
+            <text :class="'ph ' + t.icon + ' add-task-type-icon'"></text>
+            <view class="add-task-type-name">{{ t.name }}</view>
+            <view class="add-task-type-desc">{{ t.desc }}</view>
+          </view>
+        </view>
+
+        <!-- 任务名称（可选） -->
+        <view class="add-task-section-title">任务名称（可选）</view>
+        <view class="add-task-input-wrap">
+          <input
+            class="add-task-input"
+            v-model="addTaskName"
+            :placeholder="'默认：' + (allTaskTypes.find(t => t.type === addTaskType) || {}).name"
+            maxlength="20"
+          />
+        </view>
+
+        <button
+          class="apply-plan-btn"
+          :class="{ loading: addTaskLoading }"
+          @click="doAddTask"
+          :disabled="addTaskLoading"
+        >
+          <text class="ph ph-check-circle"></text>
+          {{ addTaskLoading ? '添加中...' : '添加到今日任务' }}
+        </button>
+      </view>
+    </view>
+
     <!-- AI 训练计划弹窗 -->
     <view class="modal-overlay" v-if="showAiModal" @click="showAiModal = false">
       <view class="modal-content" @click.stop>
@@ -187,7 +252,6 @@
         <!-- 计划内容 -->
         <view class="modal-plan" v-else-if="aiPlan">
           <view class="plan-summary">{{ aiPlan.plan_summary }}</view>
-          <view class="plan-duration">计划周期：{{ aiPlan.duration_weeks }} 周</view>
 
           <view class="plan-tasks">
             <view
@@ -201,18 +265,21 @@
                 </view>
                 <view class="plan-task-info">
                   <view class="plan-task-name">{{ task.task_name }}</view>
-                  <view class="plan-task-meta">{{ task.frequency }} · {{ task.duration_minutes }}分钟</view>
+                  <view class="plan-task-meta">
+                    <text v-if="task.difficulty" class="level-tag">{{ difficultyLabel(task.difficulty) }} · 关卡挑战</text>
+                    <text v-else>{{ task.frequency }}</text>
+                  </view>
                 </view>
               </view>
               <view class="plan-task-desc">{{ task.description }}</view>
-              <view class="plan-task-tip" v-if="task.tips">
-                <text class="ph ph-lightbulb"></text> {{ task.tips }}
-              </view>
+              <button class="go-level-btn" v-if="task.task_type" @click="goToLevelFromPlan(task)">
+                <text class="ph ph-play-circle"></text> 去挑战关卡
+              </button>
             </view>
           </view>
 
           <button class="apply-plan-btn" @click="applyAiPlan">
-            <text class="ph ph-check-circle"></text> 应用此计划
+            <text class="ph ph-check-circle"></text> 添加到训练任务
           </button>
         </view>
 
@@ -268,6 +335,22 @@ export default {
           { text: '完成一次复评', done: false },
         ],
       },
+      // 手动添加任务
+      showAddTaskModal: false,
+      addTaskType: 'visual',
+      addTaskName: '',
+      addTaskLoading: false,
+      allTaskTypes: [
+        { type: 'visual',            name: '火眼金睛',   desc: '视觉辨识训练',   icon: 'ph-eye' },
+        { type: 'spelling',          name: '拼字识别',   desc: '汉字结构记忆',   icon: 'ph-puzzle-piece' },
+        { type: 'comprehension',     name: '故事大王',   desc: '阅读理解训练',   icon: 'ph-book-open' },
+        { type: 'working_memory',    name: '记忆训练',   desc: '工作记忆提升',   icon: 'ph-brain' },
+        { type: 'rapid_naming',      name: '快速命名',   desc: '命名速度训练',   icon: 'ph-lightning' },
+        { type: 'motor_coordination',name: '精细动作',   desc: '手眼协调训练',   icon: 'ph-hand' },
+        { type: 'handwriting',       name: '汉字书写',   desc: '笔顺书写练习',   icon: 'ph-pencil-line' },
+        { type: 'flip_card',         name: '翻牌记忆',   desc: '词汇记忆配对',   icon: 'ph-cards' },
+        { type: 'connect_game',      name: '连一连',     desc: '语义理解连线',   icon: 'ph-link' },
+      ],
     }
   },
   onShow() {
@@ -411,8 +494,10 @@ export default {
       if (task.status === 'completed') return
       if (task.id) uni.setStorageSync('pending_task_id', task.id)
       // 将所有可能的 task_type 映射到后端支持的 game_type
-      // 后端支持：visual / spelling / comprehension / working_memory / rapid_naming / motor_coordination
-      const VALID_GAME_TYPES = new Set(['visual', 'spelling', 'comprehension', 'working_memory', 'rapid_naming', 'motor_coordination'])
+      const VALID_GAME_TYPES = new Set([
+        'visual', 'spelling', 'comprehension', 'working_memory', 'rapid_naming', 'motor_coordination',
+        'handwriting', 'flip_card', 'connect_game',
+      ])
       const typeMap = {
         reading:              'comprehension',
         reading_comprehension:'comprehension',
@@ -431,19 +516,47 @@ export default {
       const gameType = VALID_GAME_TYPES.has(rawType) ? rawType : (typeMap[rawType] || 'visual')
       const gradeParam = this.currentChild?.grade ? `&grade=${encodeURIComponent(this.currentChild.grade)}` : ''
       const taskIdParam = task.id ? `&task_id=${task.id}` : ''
-      // 跳转到儿童端训练游戏页（独立训练模式，不走筛查流程）
-      uni.navigateTo({
-        url: `/pages/child/training-game/index?game_type=${gameType}${gradeParam}${taskIdParam}`
-      })
+
+      // 三种新游戏跳转到各自的游戏页面
+      const newGameRoutes = {
+        handwriting: '/pages/child/handwriting-game/index',
+        flip_card: '/pages/child/flip-card-game/index',
+        connect_game: '/pages/child/connect-game/index',
+      }
+      if (newGameRoutes[gameType]) {
+        uni.navigateTo({ url: `${newGameRoutes[gameType]}?difficulty=L1${taskIdParam}` })
+      } else {
+        // 前6种游戏跳转到训练游戏页
+        uni.navigateTo({
+          url: `/pages/child/training-game/index?game_type=${gameType}${gradeParam}${taskIdParam}`
+        })
+      }
     },
     taskIcon(type) {
-      return { visual: 'ph-eye', spelling: 'ph-puzzle-piece', comprehension: 'ph-book-open', reading: 'ph-book-open', working_memory: 'ph-brain', rapid_naming: 'ph-lightning', motor_coordination: 'ph-hand' }[type] || 'ph-star'
+      return {
+        visual: 'ph-eye', spelling: 'ph-puzzle-piece', comprehension: 'ph-book-open',
+        reading: 'ph-book-open', working_memory: 'ph-brain', rapid_naming: 'ph-lightning',
+        motor_coordination: 'ph-hand',
+        handwriting: 'ph-pencil-line', flip_card: 'ph-cards', connect_game: 'ph-link',
+      }[type] || 'ph-star'
     },
     taskColor(type) {
-      return { visual: 'orange', spelling: 'blue', comprehension: 'green', reading: 'green', working_memory: 'orange', rapid_naming: 'blue', motor_coordination: 'green' }[type] || 'blue'
+      return {
+        visual: 'orange', spelling: 'blue', comprehension: 'green',
+        reading: 'green', working_memory: 'orange', rapid_naming: 'blue',
+        motor_coordination: 'green',
+        handwriting: 'orange', flip_card: 'blue', connect_game: 'green',
+      }[type] || 'blue'
     },
     taskDesc(type) {
-      return { visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆', comprehension: '培养语感与阅读兴趣', reading: '培养语感与阅读兴趣', working_memory: '提升工作记忆容量', rapid_naming: '提高命名速度与音韵意识', motor_coordination: '训练精细动作协调能力' }[type] || ''
+      return {
+        visual: '提升形近字辨识能力', spelling: '强化汉字结构记忆',
+        comprehension: '培养语感与阅读兴趣', reading: '培养语感与阅读兴趣',
+        working_memory: '提升工作记忆容量', rapid_naming: '提高命名速度与音韵意识',
+        motor_coordination: '训练精细动作协调能力',
+        handwriting: '练习汉字笔顺与书写', flip_card: '翻牌配对练习词汇记忆',
+        connect_game: '连线匹配练习语义理解',
+      }[type] || ''
     },
     goToScreening() {
       uni.navigateTo({ url: '/pages/parent/screening/index' })
@@ -473,9 +586,46 @@ export default {
       uni.navigateTo({ url: `/pages/parent/professional-guide/index?child_id=${this.currentChild.id}` })
     },
 
+    // ── 手动添加任务 ─────────────────────────────────────────────────────────
+    async doAddTask() {
+      if (!this.currentChild) {
+        uni.showToast({ title: '请先选择孩子', icon: 'none' })
+        return
+      }
+      this.addTaskLoading = true
+      try {
+        const today = new Date().toISOString().split('T')[0]
+        const typeInfo = this.allTaskTypes.find(t => t.type === this.addTaskType)
+        await createTask({
+          child_id: this.currentChild.id,
+          task_type: this.addTaskType,
+          task_name: this.addTaskName || (typeInfo ? typeInfo.name : this.addTaskType),
+          scheduled_date: today,
+        })
+        this.showAddTaskModal = false
+        this.addTaskName = ''
+        uni.showToast({ title: '任务已添加 ✅', icon: 'none' })
+        await this.loadTasks()
+      } catch (e) {
+        uni.showToast({ title: '添加失败，请重试', icon: 'none' })
+      } finally {
+        this.addTaskLoading = false
+      }
+    },
+
     // ── AI 训练计划 ──────────────────────────────────────────────────────────
     showAiPlanModal() {
       this.showAiModal = true
+    },
+    difficultyLabel(diff) {
+      return { L1: '初级', L2: '中级', L3: '高级' }[diff] || diff
+    },
+    goToLevelFromPlan(task) {
+      // 直接跳转到关卡选择页，选中对应游戏和难度
+      const diff = task.difficulty || 'L1'
+      uni.navigateTo({
+        url: `/pages/child/level-select/index?game_type=${task.task_type}&difficulty=${diff}`
+      })
     },
     async generateAiPlan() {
       if (!this.currentChild) {
@@ -485,12 +635,40 @@ export default {
       this.aiPlanLoading = true
       this.aiPlan = null
       try {
+        // 先尝试从后端获取AI计划
         const res = await generateTrainingPlan(this.currentChild.id)
-        this.aiPlan = res.plan
+        const plan = res.plan
+        // 将AI计划的任务映射为关卡推荐格式
+        if (plan && plan.tasks) {
+          plan.tasks = plan.tasks.map(task => ({
+            ...task,
+            difficulty: task.difficulty || 'L1',
+            description: task.description || `推荐完成 ${this.difficultyLabel(task.difficulty || 'L1')} 难度的关卡挑战`,
+          }))
+        }
+        this.aiPlan = plan
       } catch (e) {
-        uni.showToast({ title: 'AI生成失败，请先完成能力探索', icon: 'none' })
+        // 后端AI失败时，根据游戏报告数据本地生成推荐
+        this.aiPlan = this._buildLocalPlan()
       } finally {
         this.aiPlanLoading = false
+      }
+    },
+    _buildLocalPlan() {
+      // 根据孩子的游戏历史，推荐需要加强的游戏关卡
+      const GAME_NAMES = {
+        visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
+        working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
+        handwriting: '汉字书写', flip_card: '翻牌记忆', connect_game: '连一连',
+      }
+      const recommended = [
+        { task_type: 'visual', task_name: '视觉辨识关卡', difficulty: 'L1', description: '通过找不同和圈错字训练视觉辨识能力' },
+        { task_type: 'spelling', task_name: '拼字识别关卡', difficulty: 'L1', description: '通过拼音选字和拼音拼写训练文字识别' },
+        { task_type: 'comprehension', task_name: '文字理解关卡', difficulty: 'L1', description: '通过阅读理解和判断对错训练语言理解' },
+      ]
+      return {
+        plan_summary: `根据 ${this.currentChild?.name || '孩子'} 的游戏情况，推荐以下关卡挑战，每天完成1-2个关卡即可。`,
+        tasks: recommended,
       }
     },
     async applyAiPlan() {
@@ -612,6 +790,61 @@ export default {
   font-size: 32rpx;
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* 手动添加任务入口 Banner */
+.add-task-banner {
+  background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+  border: 2rpx solid #BBF7D0;
+  border-radius: 20rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+}
+.add-task-banner:active { transform: scale(0.98); }
+.add-task-left { display: flex; align-items: center; gap: 20rpx; }
+.add-task-icon {
+  width: 68rpx; height: 68rpx; border-radius: 16rpx;
+  background: rgba(34, 197, 94, 0.15);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.add-task-icon .ph { font-size: 36rpx; color: #22C55E; }
+.add-task-title { font-size: 28rpx; font-weight: 700; color: #15803D; }
+.add-task-sub { font-size: 20rpx; color: #4ADE80; margin-top: 3rpx; }
+.add-task-arrow { font-size: 32rpx; color: #22C55E; }
+
+/* 手动添加任务弹窗内容 */
+.add-task-section-title {
+  font-size: 24rpx; font-weight: 700; color: #2D3748;
+  margin-bottom: 16rpx; margin-top: 8rpx;
+}
+.add-task-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+}
+.add-task-type-item {
+  background: #F8FAFF; border-radius: 16rpx; padding: 16rpx 10rpx;
+  display: flex; flex-direction: column; align-items: center; gap: 6rpx;
+  border: 2rpx solid transparent; transition: all 0.2s; cursor: pointer;
+}
+.add-task-type-item:active { transform: scale(0.96); }
+.add-task-type-item.active {
+  background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+  border-color: #22C55E;
+}
+.add-task-type-icon { font-size: 36rpx; color: #A0AEC0; }
+.add-task-type-item.active .add-task-type-icon { color: #22C55E; }
+.add-task-type-name { font-size: 22rpx; font-weight: 700; color: #2D3748; text-align: center; }
+.add-task-type-desc { font-size: 18rpx; color: #A0AEC0; text-align: center; }
+.add-task-input-wrap {
+  background: #F9FAFB; border: 2rpx solid #E5E7EB; border-radius: 16rpx;
+  padding: 20rpx 24rpx; margin-bottom: 24rpx;
+}
+.add-task-input { font-size: 28rpx; color: #2D3748; width: 100%; background: transparent; }
 
 /* AI 计划弹窗 */
 .modal-overlay {
@@ -789,6 +1022,21 @@ export default {
 }
 
 .plan-task-tip .ph { font-size: 22rpx; }
+
+.level-tag {
+  font-size: 20rpx; color: #7C3AED; font-weight: 600;
+  background: rgba(124,58,237,0.08); padding: 4rpx 12rpx; border-radius: 8rpx;
+}
+
+.go-level-btn {
+  width: 100%; margin-top: 12rpx;
+  background: linear-gradient(135deg, #7C3AED, #6D28D9); color: #FFFFFF;
+  border-radius: 14rpx; padding: 16rpx; font-size: 24rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8rpx;
+  box-shadow: 0 4rpx 12rpx rgba(124,58,237,0.25);
+}
+.go-level-btn .ph { font-size: 24rpx; }
+.go-level-btn:active { transform: scale(0.97); }
 
 .apply-plan-btn {
   width: 100%;

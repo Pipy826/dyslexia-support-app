@@ -1,5 +1,27 @@
 ﻿<template>
   <view class="page-container" :style="{ '--game-primary': gameTheme.primary, '--game-gradient': gameTheme.gradient }">
+    <!-- 关卡模式 -->
+    <view v-if="isLevelMode">
+      <LevelSelector
+        v-if="!selectedLevelId"
+        :game-type="gameType"
+        :difficulty="levelDifficulty"
+        :child-id="childId"
+        @select-level="handleSelectLevel"
+        @back="handleLevelSelectorBack"
+      />
+      <LevelGameEngine
+        v-else
+        ref="levelEngine"
+        :level-id="selectedLevelId"
+        @level-complete="handleLevelComplete"
+        @retry="handleLevelRetry"
+        @back-to-levels="handleBackToLevels"
+      />
+    </view>
+
+    <!-- 训练模式 -->
+    <view v-else>
     <!-- 顶部：渐变主题色背景 + 进度 + 退出 -->
     <view class="game-header" :style="{ background: gameTheme.gradient }">
       <button class="exit-btn" @click="exitGame">
@@ -94,18 +116,21 @@
         <button class="modal-btn primary" @click="hideModal">继续训练</button>
       </view>
     </view>
+    </view>
   </view>
 </template>
 
 <script>
 import { getQuestions } from '../../../api/screening.js'
-import { completeTask, updateTaskProgress } from '../../../api/training.js'
+import { createTask, completeTask, updateTaskProgress } from '../../../api/training.js'
 import { getCurrentChild } from '../../../utils/auth.js'
 import { getGameTheme } from '../../../utils/gameThemes.js'
 import CircleTimer from '../../../components/game/CircleTimer.vue'
+import LevelSelector from '../../../components/game/LevelSelector.vue'
+import LevelGameEngine from '../../../components/game/LevelGameEngine.vue'
 
 export default {
-  components: { CircleTimer },
+  components: { CircleTimer, LevelSelector, LevelGameEngine },
   data() {
     return {
       taskId: null,
@@ -129,9 +154,16 @@ export default {
       selectedAnswer: null,
       shakeOptions: false,
       showParticles: false,
+      // 关卡模式相关
+      isLevelMode: false,
+      selectedLevelId: null,
+      levelDifficulty: 'L1',
     }
   },
   computed: {
+    childId() {
+      return this.child?.id || parseInt(uni.getStorageSync('currentChildId')) || 0
+    },
     currentQuestion() { return this.questions[this.currentIndex] || null },
     progressPercent() {
       if (!this.questions.length) return 0
@@ -141,6 +173,7 @@ export default {
       const map = {
         visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
         working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
+        flip_card: '翻牌记忆', connect_game: '连一连', handwriting: '手写汉字',
       }
       return map[this.gameType] || this.gameType
     },
@@ -165,14 +198,127 @@ export default {
     if (options.game_type) this.gameType = options.game_type
     if (options.grade) this.grade = options.grade
     else if (this.child?.grade) this.grade = this.child.grade
+    
+    // 检查是否是关卡模式
+    if (options.level_mode === 'true' || options.level_mode === true) {
+      this.isLevelMode = true
+      this.levelDifficulty = options.difficulty || 'L1'
+      // 如果直接传入了 level_id，直接进入该关卡
+      if (options.level_id) {
+        this.selectedLevelId = options.level_id
+      }
+      // 关卡模式不需要加载常规题目
+      return
+    }
+    
     this.loadQuestions()
   },
   onUnload() { this.clearTimer() },
   onBackPress() {
+    if (this.isLevelMode) {
+      if (this.selectedLevelId) {
+        // 关卡游戏中：返回到关卡选择器
+        this.handleBackToLevels()
+      }
+      // 关卡选择器中：不拦截，让系统默认返回行为生效
+      return this.selectedLevelId ? true : false
+    }
     this.showExitModal = true
     return true
   },
   methods: {
+    // 关卡模式方法
+    handleSelectLevel(levelId) {
+      this.selectedLevelId = levelId
+    },
+    handleLevelSelectorBack() {
+      // H5 下 uni.navigateBack() 会触发 onBackPress 造成递归
+      // 用 history.back() 绕过这个问题
+      // #ifdef H5
+      if (typeof window !== 'undefined' && window.history) {
+        window.history.back()
+        return
+      }
+      // #endif
+      uni.navigateBack()
+    },
+    async handleLevelComplete(result) {
+      // 构建完整的 extra_data（后端解锁逻辑依赖这些字段）
+      const accuracyInt = Math.round((result.accuracy || 0) * 100)
+      const extraData = {
+        game_type:        result.game_type,
+        difficulty:       result.difficulty,
+        level_id:         result.level_id,
+        level_num:        result.level_num,
+        passed:           result.passed,
+        accuracy:         result.accuracy,
+        correct_count:    result.correct_count,
+        total_count:      result.total_count,
+        duration_seconds: result.duration_seconds,
+        stars_earned:     result.stars_earned,
+      }
+
+      // 提交关卡结果到后端（解锁下一关依赖此记录）
+      try {
+        let taskId = this.taskId
+
+        // 关卡模式从 level-select 进入时没有 task_id，需要先创建任务
+        if (!taskId && this.childId) {
+          const gameName = this.gameTypeName || result.game_type
+          const newTask = await createTask({
+            child_id: this.childId,
+            task_type: result.game_type,
+            task_name: `${gameName} 关卡${result.level_num}`,
+            scheduled_date: new Date().toISOString().split('T')[0],
+          })
+          taskId = newTask.id
+        }
+
+        if (taskId) {
+          await completeTask(taskId, {
+            correct_count: result.correct_count,
+            total_count:   result.total_count,
+            accuracy:      accuracyInt,
+            extra_data:    JSON.stringify(extraData),
+          })
+        }
+      } catch (e) {
+        // 提交失败，存入本地缓存队列，下次网络恢复时重试
+        const pending = uni.getStorageSync('pending_level_records') || []
+        pending.push({ gameType: result.game_type, result, retryCount: 0 })
+        uni.setStorageSync('pending_level_records', pending)
+      }
+      
+      // 保存到本地存储供奖励页使用
+      uni.setStorageSync('last_training_result', {
+        game_type: result.game_type,
+        difficulty: result.difficulty,
+        level_id: result.level_id,
+        level_num: result.level_num,
+        correct_count: result.correct_count,
+        total_count: result.total_count,
+        accuracy: result.accuracy,
+        stars: result.stars_earned,
+        passed: result.passed,
+        mode: 'level',
+      })
+    },
+    handleLevelRetry() {
+      // 重新加载当前关卡
+      const currentLevel = this.$refs.levelEngine?.levelId || this.selectedLevelId
+      this.selectedLevelId = null
+      // 使用 nextTick 确保组件卸载后重新挂载
+      this.$nextTick(() => {
+        setTimeout(() => {
+          this.selectedLevelId = currentLevel
+        }, 50)
+      })
+    },
+    handleBackToLevels() {
+      this.selectedLevelId = null
+    },
+    
+    // 训练模式方法
     async loadQuestions() {
       this.loading = true
       try {
@@ -180,7 +326,7 @@ export default {
         if (!VALID_TYPES.includes(this.gameType)) {
           this.gameType = 'visual'
         }
-        const res = await getQuestions(this.gameType, { grade: this.grade, count: 8 })
+        const res = await getQuestions(this.gameType, { grade: this.grade, count: 10 })
         this.questions = res.questions || []
         this.correctAnswerMap = {}
         this.questions.forEach(q => {
@@ -358,7 +504,7 @@ export default {
     confirmExit() {
       this.clearTimer()
       this.showExitModal = false
-      uni.redirectTo({ url: '/pages/child/training/index' })
+      uni.redirectTo({ url: '/pages/child/child-training/index' })
     },
   },
 }

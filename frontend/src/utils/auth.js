@@ -93,3 +93,11 @@ export const clearAuth = () => {
   removeUser();
   removeCurrentChild();
 };
+
+/**
+ * 判断当前登录用户是否为游客账号
+ */
+export const isGuestUser = () => {
+  const user = getUser();
+  return user?.is_guest === true;
+};

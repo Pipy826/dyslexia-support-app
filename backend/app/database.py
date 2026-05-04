@@ -52,6 +52,7 @@ def init_db():
         ("training_tasks", "correct_count", "INTEGER"),
         ("training_tasks", "total_count",   "INTEGER"),
         ("training_tasks", "accuracy",      "INTEGER"),
+        ("training_tasks", "extra_data",    "TEXT"),
         # children 连续打卡字段（后续版本新增）
         ("children", "current_streak",    "INTEGER NOT NULL DEFAULT 0"),
         ("children", "longest_streak",    "INTEGER NOT NULL DEFAULT 0"),

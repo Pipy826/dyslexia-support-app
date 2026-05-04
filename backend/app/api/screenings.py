@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, date
@@ -299,6 +299,11 @@ def get_questions(
     if excluded_question_types:
         level_questions = [q for q in level_questions if q.get("type") not in excluded_question_types]
 
+    # 随机打乱题目顺序，确保每次进入游戏题型不重复
+    import random as _random
+    level_questions = list(level_questions)  # 浅拷贝，不修改原始题库
+    _random.shuffle(level_questions)
+
     # 取指定数量，包含 correct_index 供前端即时反馈
     # 学龄前补偿：time_limit 乘以系数并取整
     available_count = len(level_questions)
@@ -307,6 +312,23 @@ def get_questions(
         if time_multiplier != 1.0:
             q = dict(q)  # 浅拷贝，不修改原始题库
             q["time_limit"] = round(q.get("time_limit", 10) * time_multiplier)
+        # 随机打乱选项顺序（仅对有 options + correct_index 的选择题）
+        if "options" in q and "correct_index" in q and isinstance(q.get("options"), list):
+            q = dict(q)  # 确保是浅拷贝
+            options = list(q["options"])
+            correct_idx = q["correct_index"]
+            # 边界检查：确保 correct_index 在有效范围内
+            if 0 <= correct_idx < len(options):
+                correct_answer = options[correct_idx]
+                _random.shuffle(options)
+                try:
+                    q["options"] = options
+                    q["correct_index"] = options.index(correct_answer)
+                except ValueError:
+                    # 如果找不到正确答案（数据异常），保持原始顺序
+                    q["options"] = list(q["options"])
+            else:
+                q["options"] = options
         questions_for_client.append(q)
 
     response = {
@@ -470,9 +492,12 @@ async def submit_screening(
 
     # 计算孩子年龄（统一使用 UTC 日期，与数据库保持一致）
     today_date = datetime.utcnow().date()
-    age = today_date.year - child.birth_date.year - (
-        (today_date.month, today_date.day) < (child.birth_date.month, child.birth_date.day)
-    )
+    if child.birth_date:
+        age = today_date.year - child.birth_date.year - (
+            (today_date.month, today_date.day) < (child.birth_date.month, child.birth_date.day)
+        )
+    else:
+        age = 0
 
     # 后台用 AI 更新 summary（BackgroundTasks 比 asyncio.create_task 更安全可靠）
     async def _update_summary_async(
@@ -545,6 +570,7 @@ async def submit_screening(
 
 @router.post("/guest-submit")
 def guest_submit_screening(
+    request: Request,
     data: dict,
     db: Session = Depends(get_db),
 ):
@@ -554,6 +580,15 @@ def guest_submit_screening(
     """
     import random
     import string
+    from ..api.auth import _check_rate_limit, _get_client_ip
+
+    # IP 速率限制：每IP每分钟最多20次，防止刷分污染排行榜
+    ip = _get_client_ip(request)
+    if not _check_rate_limit(f"guest_submit:{ip}", max_calls=20, window_seconds=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="提交过于频繁，请稍后再试"
+        )
 
     guest_id = data.get("guest_id", "")
     game_type = data.get("game_type", "visual")
@@ -712,11 +747,16 @@ def get_game_ranking(
 
     scores_list = [s[0] for s in scores]
 
-    if len(scores_list) < 10:
-        # 数据不足时用预设基准数据，保证功能可用
-        import random
-        random.seed(42)
-        scores_list = [random.randint(45, 95) for _ in range(100)]
+    if not scores_list:
+        # 完全没有数据时返回默认值
+        return {
+            "game_type": game_type,
+            "score": score,
+            "percentile": 50.0,
+            "total_players": 0,
+            "avg_score": score,
+            "suggest_screening": False,
+        }
 
     total = len(scores_list)
     avg_score = round(sum(scores_list) / total, 1)

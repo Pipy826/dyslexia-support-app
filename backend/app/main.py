@@ -89,12 +89,25 @@ app = FastAPI(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 
-# CORS：开发环境允许所有来源，生产环境通过 ALLOWED_ORIGINS 配置
-_origins = settings.allowed_origins_list if settings.allowed_origins_list else (["*"] if settings.DEBUG else [])
+# CORS 配置说明：
+# - allow_credentials=True 与 allow_origins=["*"] 不能同时使用（浏览器会拒绝）
+# - 开发环境（DEBUG=True）：允许所有来源，但禁用 credentials，避免浏览器报错
+# - 生产环境：通过 ALLOWED_ORIGINS 配置具体域名，启用 credentials
+_origins = settings.allowed_origins_list
+if not _origins:
+    if settings.DEBUG:
+        # 开发环境：允许所有来源，不带 credentials（兼容浏览器规范）
+        _origins = ["*"]
+    else:
+        # 生产环境未配置 ALLOWED_ORIGINS：拒绝所有跨域（安全默认值）
+        _origins = []
+
+_allow_credentials = bool(_origins) and "*" not in _origins  # 只有明确列出域名时才启用 credentials
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -103,9 +116,21 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error on {request.method} {request.url}: {exc}", exc_info=True)
+    # 手动添加 CORS 头，避免 FastAPI 异常处理器绕过 CORS 中间件
+    origin = request.headers.get("origin", "")
+    allowed = settings.allowed_origins_list
+    headers = {}
+    if origin in allowed:
+        # 明确列出的域名：允许并带 credentials
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    elif not allowed and settings.DEBUG:
+        # 开发环境通配：不带 credentials（与中间件配置保持一致）
+        headers["Access-Control-Allow-Origin"] = "*"
     return JSONResponse(
         status_code=500,
-        content={"detail": "服务器内部错误，请稍后重试"}
+        content={"detail": "服务器内部错误，请稍后重试"},
+        headers=headers,
     )
 
 # Register routers

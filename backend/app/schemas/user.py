@@ -81,6 +81,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     phone: Optional[str] = None
+    is_guest: bool = False
     created_at: datetime
 
     class Config:

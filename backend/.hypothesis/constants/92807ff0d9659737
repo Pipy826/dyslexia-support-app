@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\api\notifications.py
+# hypothesis_version: 6.151.12
+
+[100, 404, '/api/notifications', '/list', '/mark-read', '/read-all', '/token', '/unread-count', '/{notif_id}', '/{notif_id}/read', 'Token 已注册', 'answers_detail', 'change_count', 'comprehension', 'content', 'count', 'created_at', 'game_type', 'h5', 'id', 'is_read', 'message', 'motor_coordination', 'notifications', 'ph-bell', 'push_tokens', 'rapid_naming', 'spelling', 'success', 'system', 'total', 'unread_count', 'users.id', 'visual', 'working_memory', '工作记忆能力', '快速命名游戏', '快速命名能力', '找不同游戏', '文字游戏', '文字识别能力', '精细动作游戏', '精细动作能力', '视觉辨别能力', '认字游戏', '记忆力游戏', '读写能力', '通知', '通知不存在', '阅读理解游戏', '阅读理解能力']

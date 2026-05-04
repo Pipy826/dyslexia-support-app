@@ -271,12 +271,12 @@ export default {
 
     continueChallenge() {
       uni.removeStorageSync('last_game_result')
-      uni.redirectTo({ url: '/pages/child/home/index' })
+      uni.redirectTo({ url: '/pages/child/child-training/index' })
     },
 
     returnHome() {
       uni.removeStorageSync('last_game_result')
-      uni.redirectTo({ url: '/pages/child/home/index' })
+      uni.redirectTo({ url: '/pages/child/child-training/index' })
     },
 
     getBadgeIcon(key) {

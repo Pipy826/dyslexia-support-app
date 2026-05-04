@@ -1,0 +1,4 @@
+# file: E:\chat\飞书\比赛\ccf公益赛事\系统\vscode\V2\dyslexia-support-app2\dyslexia-support-app\backend\app\database.py
+# hypothesis_version: 6.151.12
+
+[1800, 'DATE', 'INTEGER', 'TEXT', 'VARCHAR(200)', 'VARCHAR(300)', 'VARCHAR(500)', 'VARCHAR(64)', 'accuracy', 'articles', 'author', 'charset', 'check_same_thread', 'children', 'content', 'content_type', 'correct_count', 'cover_image', 'current_streak', 'extra_data', 'guest_id', 'is_featured', 'is_published', 'last_activity_date', 'longest_streak', 'max_overflow', 'mysql', 'name', 'pool_recycle', 'pool_size', 'pool_timeout', 'screenings', 'sqlite', 'summary', 'tags', 'title', 'total_count', 'training_tasks', 'users', 'utf8mb4', 'video_url', 'view_count', 'wechat_openid']

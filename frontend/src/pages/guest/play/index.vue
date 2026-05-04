@@ -69,6 +69,48 @@
       <text class="ph ph-info"></text>
       本游戏仅供家庭参考，结果不代表医学诊断
     </view>
+
+    <!-- 专业筛查引导区 -->
+    <view class="screening-section">
+      <view class="screening-divider">
+        <view class="divider-line"></view>
+        <view class="divider-text">想更深入了解？</view>
+        <view class="divider-line"></view>
+      </view>
+      <view class="screening-card">
+        <view class="screening-card-header">
+          <view class="screening-badge">专业筛查</view>
+          <view class="screening-title">读写能力风险筛查</view>
+          <view class="screening-desc">由专业团队提供，扫码即可完成，结果由专业老师解读</view>
+        </view>
+        <view class="screening-qr-wrap">
+          <image
+            class="screening-qr"
+            src="/static/images/screening_qr.png"
+            mode="aspectFit"
+            @error="qrError = true"
+          />
+          <view class="screening-qr-placeholder" v-if="qrError">
+            <text class="ph ph-qr-code"></text>
+            <text>筛查二维码</text>
+          </view>
+        </view>
+        <view class="screening-tips">
+          <view class="screening-tip">
+            <text class="ph ph-check-circle"></text>
+            <text>专业团队设计，科学可靠</text>
+          </view>
+          <view class="screening-tip">
+            <text class="ph ph-check-circle"></text>
+            <text>筛查数据由专业老师查看</text>
+          </view>
+          <view class="screening-tip">
+            <text class="ph ph-check-circle"></text>
+            <text>高风险可联系专业导师</text>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -137,6 +179,7 @@ export default {
     return {
       selectedType: 'visual',
       gameTypes: GAME_TYPES,
+      qrError: false,
     }
   },
   onLoad(options) {
@@ -150,7 +193,7 @@ export default {
     try {
       const token = uni.getStorageSync('token')
       if (token) {
-        uni.reLaunch({ url: '/pages/child/home/index' })
+        uni.reLaunch({ url: '/pages/child/child-training/index' })
       }
     } catch (e) {}
   },
@@ -439,9 +482,126 @@ export default {
   color: #CBD5E0;
   font-weight: 500;
   padding: 0 32rpx;
+  margin-bottom: 40rpx;
 }
 
 .footer-note .ph {
   font-size: 20rpx;
+}
+
+/* 专业筛查引导区 */
+.screening-section {
+  padding: 0 32rpx 60rpx;
+}
+
+.screening-divider {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.divider-line {
+  flex: 1;
+  height: 2rpx;
+  background: #E5E7EB;
+}
+
+.divider-text {
+  font-size: 22rpx;
+  color: #A0AEC0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.screening-card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.05);
+  border: 2rpx solid #EDE9FE;
+}
+
+.screening-card-header {
+  margin-bottom: 20rpx;
+}
+
+.screening-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  color: #FFFFFF;
+  font-size: 18rpx;
+  font-weight: 700;
+  padding: 4rpx 16rpx;
+  border-radius: 9999rpx;
+  margin-bottom: 10rpx;
+}
+
+.screening-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #2D3748;
+  margin-bottom: 8rpx;
+}
+
+.screening-desc {
+  font-size: 22rpx;
+  color: #718096;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.screening-qr-wrap {
+  width: 200rpx;
+  height: 200rpx;
+  margin: 0 auto 20rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background: #F5F7FA;
+  border: 2rpx solid #E5E7EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.screening-qr {
+  width: 100%;
+  height: 100%;
+}
+
+.screening-qr-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  color: #A0AEC0;
+  font-size: 18rpx;
+}
+
+.screening-qr-placeholder .ph {
+  font-size: 60rpx;
+  color: #A78BFA;
+}
+
+.screening-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.screening-tip {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 22rpx;
+  color: #4A5568;
+  font-weight: 500;
+}
+
+.screening-tip .ph {
+  font-size: 24rpx;
+  color: #7C3AED;
+  flex-shrink: 0;
 }
 </style>

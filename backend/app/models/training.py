@@ -19,6 +19,7 @@ class TrainingTask(Base):
     correct_count = Column(Integer, nullable=True)
     total_count = Column(Integer, nullable=True)
     accuracy = Column(Integer, nullable=True)
+    extra_data = Column(Text, nullable=True)  # JSON 字符串，存储游戏特有数据
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

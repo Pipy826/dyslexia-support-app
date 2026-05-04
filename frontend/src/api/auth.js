@@ -1,5 +1,5 @@
 import { post, get } from './index.js';
-import { setToken, setUser } from '../utils/auth.js';
+import { setToken, setUser, removeCurrentChild } from '../utils/auth.js';
 
 export const register = (data) => post('/api/auth/register', data);
 
@@ -12,11 +12,14 @@ export const getCurrentUser = () => get('/api/auth/me', {}, {}, true);
 
 /**
  * 登录成功后统一处理：保存 token 和用户信息
+ * 同时清除上一个用户的孩子缓存，避免跨账号数据污染
  * 同时异步刷新用户信息，确保本地缓存与服务端一致
  */
 export const handleLoginSuccess = (res) => {
   setToken(res.access_token);
   setUser(res.user);
+  // 清除上一个用户的 current_child，防止跨账号 404
+  removeCurrentChild();
   // 后台静默刷新用户信息，不 await、不抛异常、不弹 toast
   getCurrentUser()
     .then(freshUser => setUser(freshUser))
@@ -24,6 +27,12 @@ export const handleLoginSuccess = (res) => {
 };
 
 export const sendVerifyCode = (phone) => post('/api/auth/send-code', { phone });
+
+/**
+ * 游客一键进入系统
+ * 自动创建临时游客账号，返回有效期7天的JWT
+ */
+export const guestLogin = () => post('/api/auth/guest-login', {});
 
 /**
  * 实时校验验证码（不消耗验证码）

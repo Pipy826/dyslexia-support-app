@@ -219,11 +219,22 @@ export default {
       }
       // 确保当前孩子信息已持久化，儿童端可以读取
       setCurrentChild(this.currentChild)
-      uni.navigateTo({ url: '/pages/child/home/index' })
+      uni.navigateTo({ url: '/pages/child/child-training/index' })
     },
     getAge(birthDate) {
       if (!birthDate) return '?'
-      return new Date().getFullYear() - new Date(birthDate).getFullYear()
+      const birth = new Date(birthDate)
+      if (isNaN(birth.getTime())) return '?'
+      const today = new Date()
+      let age = today.getFullYear() - birth.getFullYear()
+      // 如果今年还没过生日，减1
+      if (
+        today.getMonth() < birth.getMonth() ||
+        (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
+      ) {
+        age--
+      }
+      return age < 0 ? '?' : age
     },
     formatDate(dateStr) {
       if (!dateStr) return ''
@@ -231,9 +242,11 @@ export default {
       return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
     },
     gameTypeName(type) {
+      if (!type) return '未知'
       const map = {
         visual: '视觉辨识', spelling: '拼字识别', comprehension: '文字理解',
         working_memory: '工作记忆', rapid_naming: '快速命名', motor_coordination: '精细动作',
+        handwriting: '手写汉字', flip_card: '翻牌记忆', connect_game: '连一连',
       }
       return map[type] || type
     },

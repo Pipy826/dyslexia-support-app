@@ -86,7 +86,7 @@
           <view class="menu-icon gray">
             <text class="ph ph-info"></text>
           </view>
-          <view class="menu-label">关于系统 (v1.0)</view>
+          <view class="menu-label">关于系统 (v1.0.0)</view>
           <text class="menu-arrow">›</text>
         </view>
       </view>
