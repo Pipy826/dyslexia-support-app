@@ -2,7 +2,7 @@ name: Build & Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [dev2]
   workflow_dispatch:
 
 jobs:
@@ -48,6 +48,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ── 上传前端构建产物到服务器 ────────────────────────────────────────
+      - name: Upload frontend dist to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "frontend/dist/build/h5/"
+          target: "/opt/dyslexia-app/"
+          strip_components: 0
+
       # ── 部署到服务器 ────────────────────────────────────────────────────
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
@@ -56,9 +67,17 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e
             cd /opt/dyslexia-app
-            git pull origin main
+
+            # 拉取最新代码（dev2 分支）
+            git fetch github dev2
+            git checkout dev2
+            git pull github dev2
+
+            # 拉取最新后端镜像并重启
             docker compose -f docker-compose.prod.yml pull backend
             docker compose -f docker-compose.prod.yml up -d --no-build backend nginx
             docker image prune -f
-            echo "✅ 部署完成"
+
+            echo "✅ 部署完成 - $(date)"
