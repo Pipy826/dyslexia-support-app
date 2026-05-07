@@ -7,12 +7,12 @@
       <view class="header-title">用户服务协议</view>
     </view>
     <scroll-view class="page-content" scroll-y>
-      <view class="doc-title">悦读小灯塔用户服务协议</view>
+      <view class="doc-title">悦读灯塔用户服务协议</view>
       <view class="doc-date">更新日期：2024年1月1日</view>
 
       <view class="section">
         <view class="section-title">一、服务说明</view>
-        <view class="section-body">本产品（"悦读小灯塔"）是一款面向家庭场景的儿童读写能力发展游戏平台。本产品不是医疗诊断工具，游戏评估结果仅供家庭参考，不构成任何医学诊断意见。</view>
+        <view class="section-body">本产品（"悦读灯塔"）是一款面向家庭场景的儿童读写能力科普互动平台。本产品不是医疗诊断工具，游戏评估结果仅供家庭参考，不构成任何医学诊断意见。</view>
       </view>
 
       <view class="section">

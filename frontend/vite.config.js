@@ -4,6 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [uni()],
+  publicDir: resolve(__dirname, 'public'),
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

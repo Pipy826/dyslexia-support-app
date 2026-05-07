@@ -73,8 +73,8 @@ const request = (options) => {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
       success: (res) => {
-        if (res.statusCode === 401) {
-          // 401：清除认证信息并跳转登录
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          // 401/403：清除认证信息并跳转登录
           clearAuth();
           if (!silent) {
             uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' });

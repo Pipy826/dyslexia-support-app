@@ -9,8 +9,11 @@
       <view class="placeholder"></view>
     </view>
 
+
+    <!-- 全部内容上下滚动 -->
     <scroll-view class="content-scroll" scroll-y>
-      <!-- 难度选择 -->
+
+      <!-- 难度选择（三列横排） -->
       <view class="section">
         <view class="section-label">选择难度</view>
         <view class="difficulty-row">
@@ -26,7 +29,7 @@
         </view>
       </view>
 
-      <!-- 游戏类型选择 -->
+      <!-- 游戏类型选择（三列网格） -->
       <view class="section">
         <view class="section-label">选择游戏</view>
         <view class="game-grid">
@@ -46,9 +49,11 @@
       </view>
 
       <!-- 关卡列表 -->
-      <view class="section" v-if="selectedGame && selectedDifficulty">
-        <view class="section-label">选择关卡</view>
+      <view class="section-label" style="padding: 24rpx 32rpx 12rpx;" v-if="selectedGame && selectedDifficulty">
+        {{ currentGameName }} · {{ currentDiffLabel }} 关卡
+      </view>
 
+      <view class="levels-wrap" v-if="selectedGame && selectedDifficulty">
         <view class="loading-row" v-if="levelsLoading">
           <text class="ph ph-circle-notch spin"></text>
           <text>加载中...</text>
@@ -132,6 +137,16 @@ export default {
       levelsError: null,
       _authFailed: false,
     }
+  },
+  computed: {
+    currentGameName() {
+      const game = this.levelGames.find(g => g.type === this.selectedGame)
+      return game ? game.name : ''
+    },
+    currentDiffLabel() {
+      const diff = this.difficulties.find(d => d.value === this.selectedDifficulty)
+      return diff ? diff.label : ''
+    },
   },
   watch: {
     selectedGame()      { if (!this._authFailed) this.loadLevels() },
@@ -254,7 +269,7 @@ export default {
 .diff-label { font-size: 22rpx; color: #718096; font-weight: 600; }
 .difficulty-btn.active .diff-label { color: #4F9EF8; }
 
-/* 游戏网格 */
+/* 游戏网格（三列） */
 .game-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

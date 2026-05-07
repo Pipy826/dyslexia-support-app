@@ -51,6 +51,7 @@
 
 <script>
 import HandwritingCanvas from '@/components/game/HandwritingCanvas.vue'
+import { post } from '@/api/index.js'
 
 export default {
   name: 'HandwritingQuestion',
@@ -92,24 +93,38 @@ export default {
       }
       this._submit()
     },
-    _submit() {
+    async _submit() {
       if (this.submitted) return
       this.submitted = true
       if (this.timeoutTimer) { clearTimeout(this.timeoutTimer); this.timeoutTimer = null }
 
-      // 获取笔迹数据
       const strokes = this.$refs.hwCanvas ? this.$refs.hwCanvas.getStrokeData() : []
 
-      // 评分：基于笔画数量与目标笔画数的比较（简化评分）
-      const targetStrokes = this.question.stroke_count || 1
-      const writtenStrokes = strokes.length
+      // 调用后端真实识别接口
       let score = 0
-      if (writtenStrokes > 0) {
-        // 笔画数接近目标则得高分，差距越大分越低
-        const ratio = Math.min(writtenStrokes, targetStrokes) / Math.max(writtenStrokes, targetStrokes)
-        score = Math.max(0.3, ratio)  // 只要写了就至少给0.3分
+      let isCorrect = false
+      try {
+        const imageBase64 = this.$refs.hwCanvas ? await this.$refs.hwCanvas.toBase64() : ''
+        const res = await post('/api/training/recognize-handwriting', {
+          target_character: this.question.character,
+          stroke_count: this.question.stroke_count || 0,
+          strokes,
+          image_base64: imageBase64,
+          difficulty: this.question.difficulty || 'L1',
+        })
+        // 后端返回 0-100 分，转换为 0-1 供 LevelGameEngine 使用
+        score = (res.score || 0) / 100
+        isCorrect = res.is_correct || score >= 0.6
+      } catch (e) {
+        // 降级：笔画数比较
+        const targetStrokes = this.question.stroke_count || 1
+        const writtenStrokes = strokes.length
+        if (writtenStrokes > 0) {
+          const ratio = Math.min(writtenStrokes, targetStrokes) / Math.max(writtenStrokes, targetStrokes)
+          score = Math.max(0.3, ratio)
+        }
+        isCorrect = score >= 0.7
       }
-      const isCorrect = score >= 0.7
 
       this.$emit('answer-submitted', { score, isCorrect, strokes })
     },

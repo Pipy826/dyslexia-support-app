@@ -22,7 +22,7 @@
             <view class="illus-dot" v-for="i in 5" :key="i"></view>
           </view>
         </view>
-        <view class="step-title">欢迎来到悦读小灯塔！</view>
+        <view class="step-title">欢迎来到悦读灯塔！</view>
         <view class="step-desc">
           我们帮助家长了解孩子的<text class="highlight">阅读和书写学习特点</text>，通过有趣的小游戏发现孩子的学习优势和成长空间。
         </view>
@@ -64,7 +64,7 @@
             <text class="ph ph-star illus-icon"></text>
           </view>
         </view>
-        <view class="step-title">如何使用悦读小灯塔？</view>
+        <view class="step-title">如何使用悦读灯塔？</view>
         <view class="step-desc">只需三步，轻松了解孩子的学习特点</view>
 
         <view class="steps-list">

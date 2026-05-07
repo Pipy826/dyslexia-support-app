@@ -13,7 +13,7 @@
         <view class="cs-avatar">
           <text class="ph ph-headset"></text>
         </view>
-        <view class="cs-name">悦读小灯塔客服</view>
+        <view class="cs-name">悦读灯塔客服</view>
         <view class="cs-status">
           <view class="status-dot" :class="isOnline ? 'online' : 'offline'"></view>
           {{ isOnline ? '在线中' : '当前离线（工作日 9:00-18:00）' }}

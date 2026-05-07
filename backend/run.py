@@ -8,6 +8,6 @@ if __name__ == "__main__":
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=debug,          # 生产环境设 DEBUG=false 关闭热重载
-        workers=1 if debug else None,  # reload 模式不支持多 worker
+        reload=False,          # 关闭热重载，避免文件变化导致意外退出
+        workers=1,
     )

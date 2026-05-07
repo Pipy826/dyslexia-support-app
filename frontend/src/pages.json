@@ -265,6 +265,14 @@
       }
     },
     {
+      "path": "pages/parent/all-tasks/index",
+      "style": {
+        "navigationBarTitleText": "全部任务",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
+      }
+    },
+    {
       "path": "pages/parent/articles/index",
       "style": {
         "navigationBarTitleText": "读写科普",
@@ -283,7 +291,7 @@
     {
       "path": "pages/guest/play/index",
       "style": {
-        "navigationBarTitleText": "悦读小灯塔",
+        "navigationBarTitleText": "悦读灯塔",
         "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#4F9EF8"
       }
@@ -328,6 +336,14 @@
       "path": "pages/child/ranking/index",
       "style": {
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/child/all-tasks/index",
+      "style": {
+        "navigationBarTitleText": "全部任务",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#FFFFFF"
       }
     }
   ],

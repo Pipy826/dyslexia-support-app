@@ -91,7 +91,7 @@ def _send_sms(phone: str, code: str) -> bool:
       SMS_PROVIDER=aliyun
       SMS_ACCESS_KEY=your_access_key_id
       SMS_SECRET_KEY=your_access_key_secret
-      SMS_SIGN_NAME=悦读小灯塔
+      SMS_SIGN_NAME=悦读灯塔
       SMS_TEMPLATE_CODE=SMS_xxxxxxxxx
 
       # 腾讯云
@@ -99,13 +99,13 @@ def _send_sms(phone: str, code: str) -> bool:
       SMS_ACCESS_KEY=your_secret_id
       SMS_SECRET_KEY=your_secret_key
       SMS_APP_ID=your_sms_app_id
-      SMS_SIGN_NAME=悦读小灯塔
+      SMS_SIGN_NAME=悦读灯塔
       SMS_TEMPLATE_CODE=your_template_id
     """
     provider = getattr(settings, 'SMS_PROVIDER', '') or ''
     access_key = getattr(settings, 'SMS_ACCESS_KEY', '') or ''
     secret_key = getattr(settings, 'SMS_SECRET_KEY', '') or ''
-    sign_name = getattr(settings, 'SMS_SIGN_NAME', '悦读小灯塔') or '悦读小灯塔'
+    sign_name = getattr(settings, 'SMS_SIGN_NAME', '悦读灯塔') or '悦读灯塔'
     template_code = getattr(settings, 'SMS_TEMPLATE_CODE', '') or ''
 
     if not provider or not access_key or not secret_key:
@@ -755,6 +755,21 @@ def guest_login(request: Request, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # 自动为游客创建默认孩子档案，避免进首页后弹窗要求手动创建
+    from ..models.child import Child
+    from datetime import date as _date
+    default_child = Child(
+        parent_id=user.id,
+        name="小朋友",
+        gender=None,
+        birth_date=_date(2018, 1, 1),  # 默认约6岁，可在档案页修改
+        grade=None,
+        has_difficulty=False,
+        has_professional_eval=False,
+    )
+    db.add(default_child)
+    db.commit()
 
     access_token = create_access_token(
         data={"sub": str(user.id)},

@@ -224,9 +224,10 @@ export default {
   display: flex; align-items: flex-start; gap: 16rpx;
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04); position: relative;
   transition: all 0.2s;
+  border: 2rpx solid transparent;
 }
 .notif-item:active { transform: scale(0.98); }
-.notif-item.unread { background: linear-gradient(135deg, #FAFEFF, #F0F7FF); border-left: 4rpx solid #4F9EF8; }
+.notif-item.unread { background: linear-gradient(135deg, #FAFEFF, #F0F7FF); border-color: #DBEAFE; }
 
 .notif-icon { width: 64rpx; height: 64rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .notif-icon .ph { font-size: 30rpx; }

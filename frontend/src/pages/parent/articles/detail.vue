@@ -62,8 +62,13 @@
 
         <!-- 正文 -->
         <view class="article-body" v-if="article.content">
-          <!-- H5 用 rich-text 渲染，小程序也支持 -->
-          <rich-text :nodes="article.content"></rich-text>
+          <!-- H5 用 v-html 渲染 Markdown，小程序用 rich-text -->
+          <!-- #ifdef H5 -->
+          <view v-html="renderedContent" class="md-body"></view>
+          <!-- #endif -->
+          <!-- #ifndef H5 -->
+          <rich-text :nodes="renderedContent"></rich-text>
+          <!-- #endif -->
         </view>
 
         <!-- 无内容提示 -->
@@ -114,6 +119,29 @@ export default {
       relatedArticles: [],
       loading: true,
     }
+  },
+  computed: {
+    // 将 Markdown 内容转为简单 HTML，供 rich-text 渲染
+    renderedContent() {
+      if (!this.article?.content) return ''
+      let html = this.article.content
+        // 标题
+        .replace(/^### (.+)$/gm, '<h3 style="font-size:28rpx;font-weight:700;color:#2D3748;margin:24rpx 0 12rpx;">$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2 style="font-size:32rpx;font-weight:800;color:#2D3748;margin:28rpx 0 14rpx;">$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1 style="font-size:36rpx;font-weight:900;color:#2D3748;margin:32rpx 0 16rpx;">$1</h1>')
+        // 粗体
+        .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:700;color:#2D3748;">$1</strong>')
+        // 列表项
+        .replace(/^[-•□✅❗✓] (.+)$/gm, '<p style="margin:6rpx 0;padding-left:24rpx;color:#4A5568;font-size:26rpx;line-height:1.7;">• $1</p>')
+        .replace(/^\d+\. (.+)$/gm, '<p style="margin:6rpx 0;padding-left:24rpx;color:#4A5568;font-size:26rpx;line-height:1.7;">$1</p>')
+        // 分隔线
+        .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #E5E7EB;margin:20rpx 0;"/>')
+        // 普通段落（非空行）
+        .replace(/^(?!<[h|p|hr])(.+)$/gm, '<p style="margin:8rpx 0;color:#4A5568;font-size:26rpx;line-height:1.8;">$1</p>')
+        // 空行
+        .replace(/^\s*$/gm, '<br/>')
+      return html
+    },
   },
   onLoad(options) {
     this.articleId = parseInt(options.id)
@@ -303,6 +331,13 @@ export default {
   color: #2D3748;
   line-height: 1.9;
   font-weight: 400;
+}
+
+.md-body {
+  font-size: 28rpx;
+  color: #4A5568;
+  line-height: 1.8;
+  word-break: break-all;
 }
 
 .no-content {

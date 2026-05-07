@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="儿童读写障碍智能筛查与干预系统 API",
+    description="面向家庭场景的儿童读写能力科普互动平台 API",
     version="1.0.0",
     docs_url="/docs" if settings.DEBUG else None,   # 生产环境关闭 Swagger
     redoc_url="/redoc" if settings.DEBUG else None,
@@ -89,20 +89,15 @@ app = FastAPI(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 
-# CORS 配置说明：
-# - allow_credentials=True 与 allow_origins=["*"] 不能同时使用（浏览器会拒绝）
-# - 开发环境（DEBUG=True）：允许所有来源，但禁用 credentials，避免浏览器报错
-# - 生产环境：通过 ALLOWED_ORIGINS 配置具体域名，启用 credentials
-_origins = settings.allowed_origins_list
-if not _origins:
-    if settings.DEBUG:
-        # 开发环境：允许所有来源，不带 credentials（兼容浏览器规范）
-        _origins = ["*"]
-    else:
-        # 生产环境未配置 ALLOWED_ORIGINS：拒绝所有跨域（安全默认值）
-        _origins = []
-
-_allow_credentials = bool(_origins) and "*" not in _origins  # 只有明确列出域名时才启用 credentials
+# CORS 配置
+# 开发环境（DEBUG=True）：允许所有来源，不带 credentials
+# 生产环境：通过 ALLOWED_ORIGINS 配置具体域名，启用 credentials
+if settings.DEBUG:
+    _origins = ["*"]
+    _allow_credentials = False
+else:
+    _origins = settings.allowed_origins_list or []
+    _allow_credentials = bool(_origins)
 
 app.add_middleware(
     CORSMiddleware,
@@ -153,7 +148,7 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="static_u
 
 @app.get("/")
 def root():
-    return {"message": "儿童读写障碍筛查系统 API", "version": "1.0.0"}
+    return {"message": "悦读灯塔 API", "version": "1.0.0"}
 
 
 @app.get("/health")

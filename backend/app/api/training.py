@@ -800,6 +800,36 @@ def get_leaderboard(
     }
 
 
+# ── 游戏题目 API ──────────────────────────────────────────────────────────────
+
+@router.get("/games/handwriting")
+def get_handwriting_questions(
+    difficulty: str = "L1",
+    count: int = 5,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    获取手写汉字游戏题目。
+    随机返回指定难度的题目列表，供前端游戏使用。
+    """
+    from ..games.handwriting_game import get_questions
+    import random
+
+    valid_difficulties = {"L1", "L2", "L3"}
+    if difficulty not in valid_difficulties:
+        difficulty = "L1"
+
+    all_questions = get_questions(difficulty)
+    if not all_questions:
+        return {"questions": [], "difficulty": difficulty}
+
+    # 随机抽取，不超过题库总数
+    sample_count = min(count, len(all_questions))
+    questions = random.sample(all_questions, sample_count)
+
+    return {"questions": questions, "difficulty": difficulty, "total": len(all_questions)}
+
+
 # ── 关卡系统 API ──────────────────────────────────────────────────────────────
 
 # 合法的游戏类型和难度
@@ -1016,3 +1046,257 @@ def get_level_detail(
         raise HTTPException(status_code=404, detail=f"关卡不存在: {level_id}")
 
     return target_level
+
+
+# ── 手写识别 API ──────────────────────────────────────────────────────────────
+
+class HandwritingRecognizeRequest(PydanticBase):
+    """手写识别请求体"""
+    target_character: str          # 目标汉字
+    stroke_count: int              # 目标笔画数
+    strokes: list                  # 笔迹数据 [[{x,y,t},...],...]
+    image_base64: str = ""         # 可选：Canvas 导出的 base64 图片（含 data:image/png;base64, 前缀）
+    difficulty: str = "L1"
+
+
+class HandwritingRecognizeResponse(PydanticBase):
+    """手写识别响应"""
+    score: int                     # 0-100 综合得分
+    recognized_char: str = ""      # 识别出的汉字（OCR 模式）
+    is_correct: bool               # 是否与目标汉字匹配
+    stroke_score: int              # 笔画数得分 0-100
+    shape_score: int               # 形态得分 0-100
+    method: str                    # 识别方式：'ocr_baidu' | 'feature'
+    feedback: str                  # 反馈文字
+
+
+def _recognize_by_feature(strokes: list, target_char: str, target_stroke_count: int) -> dict:
+    """
+    基于笔迹特征的本地识别算法（无需外部 API）。
+    
+    评分维度：
+    1. 笔画数匹配度（40%）：用户笔画数 vs 目标笔画数
+    2. 书写覆盖度（30%）：笔迹是否覆盖了合理的书写区域
+    3. 笔画方向多样性（30%）：笔画方向是否符合汉字书写规律
+    """
+    import math
+
+    if not strokes:
+        return {"stroke_score": 0, "shape_score": 0, "score": 0}
+
+    # 过滤有效笔画（至少2个点）
+    valid_strokes = [s for s in strokes if isinstance(s, list) and len(s) >= 2]
+    if not valid_strokes:
+        return {"stroke_score": 0, "shape_score": 0, "score": 0}
+
+    user_stroke_count = len(valid_strokes)
+
+    # ── 1. 笔画数匹配度 ──────────────────────────────────────────────────────
+    if target_stroke_count > 0:
+        ratio = min(user_stroke_count, target_stroke_count) / max(user_stroke_count, target_stroke_count)
+        # 允许 ±1 笔的容差
+        diff = abs(user_stroke_count - target_stroke_count)
+        if diff == 0:
+            stroke_score = 100
+        elif diff == 1:
+            stroke_score = int(ratio * 100 * 0.9)  # 差1笔扣10%
+        elif diff == 2:
+            stroke_score = int(ratio * 100 * 0.7)
+        else:
+            stroke_score = int(ratio * 100 * 0.5)
+    else:
+        stroke_score = 70  # 无参考笔画数时给基础分
+
+    # ── 2. 书写覆盖度 ────────────────────────────────────────────────────────
+    all_points = [pt for stroke in valid_strokes for pt in stroke if isinstance(pt, dict)]
+    if len(all_points) < 2:
+        coverage_score = 0
+    else:
+        xs = [pt.get('x', 0) for pt in all_points]
+        ys = [pt.get('y', 0) for pt in all_points]
+        x_range = max(xs) - min(xs)
+        y_range = max(ys) - min(ys)
+        # 书写区域应该有一定的宽高比（汉字接近正方形）
+        if x_range > 0 and y_range > 0:
+            aspect = min(x_range, y_range) / max(x_range, y_range)
+            # 宽高比在 0.3-1.0 之间认为合理
+            if aspect >= 0.3:
+                coverage_score = min(100, int(aspect * 120))
+            else:
+                coverage_score = int(aspect * 100)
+        else:
+            coverage_score = 20  # 只有一个方向的笔迹
+
+    # ── 3. 笔画方向多样性 ────────────────────────────────────────────────────
+    directions = set()
+    for stroke in valid_strokes:
+        if len(stroke) < 2:
+            continue
+        pts = [pt for pt in stroke if isinstance(pt, dict)]
+        if len(pts) < 2:
+            continue
+        dx = pts[-1].get('x', 0) - pts[0].get('x', 0)
+        dy = pts[-1].get('y', 0) - pts[0].get('y', 0)
+        angle = math.atan2(dy, dx) * 180 / math.pi
+        # 量化为8个方向
+        direction = round(angle / 45) % 8
+        directions.add(direction)
+
+    # 笔画数越多，期望方向越多样
+    expected_diversity = min(4, max(1, target_stroke_count // 2))
+    diversity_score = min(100, int(len(directions) / expected_diversity * 100))
+
+    # ── 综合得分 ─────────────────────────────────────────────────────────────
+    shape_score = int(coverage_score * 0.5 + diversity_score * 0.5)
+    final_score = int(stroke_score * 0.4 + shape_score * 0.6)
+    final_score = max(0, min(100, final_score))
+
+    return {
+        "stroke_score": stroke_score,
+        "shape_score": shape_score,
+        "score": final_score,
+    }
+
+
+def _recognize_by_baidu_ocr(image_base64: str, target_char: str) -> dict | None:
+    """
+    调用百度 OCR 手写文字识别接口。
+    需要在 .env 中配置：
+      BAIDU_OCR_API_KEY=xxx
+      BAIDU_OCR_SECRET_KEY=xxx
+    
+    返回 None 表示未配置或调用失败。
+    """
+    from ..config import settings
+    api_key = getattr(settings, 'BAIDU_OCR_API_KEY', '') or ''
+    secret_key = getattr(settings, 'BAIDU_OCR_SECRET_KEY', '') or ''
+    if not api_key or not secret_key:
+        return None
+
+    try:
+        import urllib.request
+        import urllib.parse
+        import json
+        import base64
+
+        # 获取 access_token
+        token_url = (
+            f"https://aip.baidubce.com/oauth/2.0/token"
+            f"?grant_type=client_credentials&client_id={api_key}&client_secret={secret_key}"
+        )
+        with urllib.request.urlopen(token_url, timeout=5) as resp:
+            token_data = json.loads(resp.read())
+        access_token = token_data.get("access_token", "")
+        if not access_token:
+            return None
+
+        # 处理 base64（去掉 data:image/xxx;base64, 前缀）
+        img_b64 = image_base64
+        if ',' in img_b64:
+            img_b64 = img_b64.split(',', 1)[1]
+
+        # 调用手写文字识别
+        ocr_url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/handwriting?access_token={access_token}"
+        params = urllib.parse.urlencode({"image": img_b64}).encode("utf-8")
+        req = urllib.request.Request(ocr_url, data=params, method="POST")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            result = json.loads(resp.read())
+
+        # 提取识别结果
+        words_result = result.get("words_result", [])
+        if not words_result:
+            return {"recognized_char": "", "is_correct": False}
+
+        # 合并所有识别到的文字
+        recognized_text = "".join(w.get("words", "") for w in words_result).strip()
+        # 去除空格和标点，只保留汉字
+        import re
+        recognized_chars = re.sub(r'[^\u4e00-\u9fff]', '', recognized_text)
+
+        is_correct = target_char in recognized_chars if recognized_chars else False
+        return {
+            "recognized_char": recognized_chars[:5] if recognized_chars else "",
+            "is_correct": is_correct,
+        }
+    except Exception:
+        return None
+
+
+@router.post("/recognize-handwriting", response_model=HandwritingRecognizeResponse)
+def recognize_handwriting(
+    req: HandwritingRecognizeRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    手写汉字识别接口。
+    
+    优先使用百度 OCR（需配置 BAIDU_OCR_API_KEY / BAIDU_OCR_SECRET_KEY），
+    未配置时使用本地笔迹特征算法。
+    
+    返回：
+    - score: 0-100 综合得分（≥60 视为通过）
+    - is_correct: 是否识别为目标汉字
+    - recognized_char: OCR 识别出的汉字（特征模式为空）
+    - method: 使用的识别方式
+    - feedback: 反馈文字
+    """
+    target = req.target_character.strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="目标汉字不能为空")
+
+    # ── 优先尝试百度 OCR ──────────────────────────────────────────────────────
+    ocr_result = None
+    if req.image_base64:
+        ocr_result = _recognize_by_baidu_ocr(req.image_base64, target)
+
+    if ocr_result is not None:
+        # OCR 识别成功
+        is_correct = ocr_result.get("is_correct", False)
+        recognized_char = ocr_result.get("recognized_char", "")
+        score = 90 if is_correct else 30
+        # 即使 OCR 认为不对，也用特征算法给一个形态分作为参考
+        feat = _recognize_by_feature(req.strokes, target, req.stroke_count)
+        score = int(score * 0.7 + feat["score"] * 0.3) if is_correct else int(feat["score"] * 0.6)
+        score = max(0, min(100, score))
+
+        if is_correct:
+            feedback = f"写得很好！识别为「{recognized_char}」✓"
+        else:
+            feedback = f"再试试看，识别为「{recognized_char or '?'}」，目标是「{target}」"
+
+        return HandwritingRecognizeResponse(
+            score=score,
+            recognized_char=recognized_char,
+            is_correct=is_correct,
+            stroke_score=feat["stroke_score"],
+            shape_score=feat["shape_score"],
+            method="ocr_baidu",
+            feedback=feedback,
+        )
+
+    # ── 本地特征算法 ──────────────────────────────────────────────────────────
+    feat = _recognize_by_feature(req.strokes, target, req.stroke_count)
+    score = feat["score"]
+    is_correct = score >= 60
+
+    if score >= 85:
+        feedback = "写得非常棒！笔画准确，结构工整！"
+    elif score >= 70:
+        feedback = "写得不错！继续保持！"
+    elif score >= 60:
+        feedback = "基本正确，再练练会更好！"
+    elif score >= 40:
+        feedback = f"注意「{target}」共 {req.stroke_count} 画，再仔细写一遍！"
+    else:
+        feedback = f"「{target}」共 {req.stroke_count} 画，参考笔顺再试试！"
+
+    return HandwritingRecognizeResponse(
+        score=score,
+        recognized_char="",
+        is_correct=is_correct,
+        stroke_score=feat["stroke_score"],
+        shape_score=feat["shape_score"],
+        method="feature",
+        feedback=feedback,
+    )

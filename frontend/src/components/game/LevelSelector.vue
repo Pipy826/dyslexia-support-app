@@ -32,48 +32,45 @@
     <!-- 关卡列表 -->
     <view class="levels-section" v-else>
       <view class="section-hint">点击已解锁的关卡开始挑战</view>
-      <scroll-view scroll-x class="levels-scroll">
-        <view class="levels-row">
+      <scroll-view scroll-y class="levels-scroll">
+        <view class="levels-col">
           <view
             v-for="level in levels"
             :key="level.level_id"
-            :class="['level-card', {
-              'card-passed': level.passed,
-              'card-unlocked': level.unlocked && !level.passed,
-              'card-locked': !level.unlocked,
+            :class="['level-row', {
+              'row-passed': level.passed,
+              'row-unlocked': level.unlocked && !level.passed,
+              'row-locked': !level.unlocked,
             }]"
             @click="handleLevelClick(level)"
           >
-            <!-- 关卡编号 -->
-            <view class="card-num-row">
-              <view :class="['card-num-badge', {
-                'badge-passed': level.passed,
-                'badge-unlocked': level.unlocked && !level.passed,
-                'badge-locked': !level.unlocked,
-              }]">
-                <text v-if="level.passed" class="ph ph-check-bold badge-icon"></text>
-                <text v-else-if="!level.unlocked" class="ph ph-lock badge-icon"></text>
-                <text v-else class="badge-num">{{ level.level_num }}</text>
+            <!-- 编号徽章 -->
+            <view :class="['row-badge', {
+              'badge-passed': level.passed,
+              'badge-unlocked': level.unlocked && !level.passed,
+              'badge-locked': !level.unlocked,
+            }]">
+              <text v-if="level.passed" class="ph ph-check-bold badge-icon"></text>
+              <text v-else-if="!level.unlocked" class="ph ph-lock badge-icon"></text>
+              <text v-else class="badge-num">{{ level.level_num }}</text>
+            </view>
+
+            <!-- 关卡信息 -->
+            <view class="row-info">
+              <view class="row-title">{{ level.title }}</view>
+              <view class="row-meta">
+                <text v-if="level.question_count" class="meta-count">{{ level.question_count }} 题</text>
+                <text class="meta-dot" v-if="level.question_count">·</text>
+                <text v-if="level.passed" class="status-passed">已通关 {{ Math.round((level.best_accuracy || 0) * 100) }}%</text>
+                <text v-else-if="level.unlocked" class="status-unlocked">可挑战</text>
+                <text v-else class="status-locked">未解锁</text>
               </view>
             </view>
 
-            <!-- 关卡标题 -->
-            <view class="card-title">{{ level.title }}</view>
-
-            <!-- 状态信息 -->
-            <view class="card-status">
-              <text v-if="level.passed" class="status-passed">
-                ✓ {{ Math.round((level.best_accuracy || 0) * 100) }}%
-              </text>
-              <text v-else-if="level.unlocked" class="status-unlocked">可挑战</text>
-              <text v-else class="status-locked">🔒 未解锁</text>
-            </view>
-
-            <!-- 题目数 -->
-            <view class="card-meta" v-if="level.question_count">
-              <text class="ph ph-list-bullets meta-icon"></text>
-              <text class="meta-text">{{ level.question_count }} 题</text>
-            </view>
+            <!-- 右侧图标 -->
+            <text v-if="level.passed" class="ph ph-star row-star"></text>
+            <text v-else-if="level.unlocked" class="ph ph-caret-right row-arrow"></text>
+            <text v-else class="ph ph-lock row-lock"></text>
           </view>
         </view>
       </scroll-view>
@@ -226,6 +223,9 @@ export default {
 .levels-section {
   flex: 1;
   padding: 28rpx 0 40rpx;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .section-hint {
   font-size: 24rpx;
@@ -235,51 +235,47 @@ export default {
   margin-bottom: 20rpx;
 }
 
-.levels-scroll { width: 100%; }
-.levels-row {
-  display: flex;
-  flex-direction: row;
-  padding: 8rpx 32rpx 16rpx;
-  gap: 20rpx;
-}
-
-/* ── 关卡卡片 ── */
-.level-card {
-  width: 200rpx;
-  min-height: 260rpx;
-  border-radius: 28rpx;
-  padding: 28rpx 20rpx;
+.levels-scroll { flex: 1; }
+.levels-col {
   display: flex;
   flex-direction: column;
+  gap: 14rpx;
+  padding: 0 32rpx 16rpx;
+}
+
+/* ── 关卡行 ── */
+.level-row {
+  display: flex;
   align-items: center;
-  gap: 12rpx;
-  flex-shrink: 0;
+  gap: 20rpx;
+  border-radius: 24rpx;
+  padding: 24rpx 24rpx;
   transition: all 0.2s;
 }
-.level-card:active { transform: scale(0.96); }
+.level-row:active { transform: scale(0.98); }
 
-.card-passed {
+.row-passed {
   background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
-  border: 3rpx solid #22C55E;
-  box-shadow: 0 4rpx 16rpx rgba(34,197,94,0.15);
+  border: 2rpx solid #22C55E;
+  box-shadow: 0 2rpx 12rpx rgba(34,197,94,0.12);
 }
-.card-unlocked {
+.row-unlocked {
   background: #FFFFFF;
-  border: 3rpx solid #E5E7EB;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.08);
+  border: 2rpx solid #E5E7EB;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
 }
-.card-locked {
+.row-locked {
   background: #F9FAFB;
-  border: 3rpx solid #E5E7EB;
+  border: 2rpx solid #E5E7EB;
   opacity: 0.6;
 }
 
 /* 编号徽章 */
-.card-num-row { width: 100%; display: flex; justify-content: center; }
-.card-num-badge {
+.row-badge {
   width: 72rpx; height: 72rpx;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 .badge-passed {
   background: linear-gradient(135deg, #22C55E, #16A34A);
@@ -289,30 +285,23 @@ export default {
   background: linear-gradient(135deg, #4F9EF8, #3B82F6);
   box-shadow: 0 4rpx 12rpx rgba(59,130,246,0.3);
 }
-.badge-locked {
-  background: #E5E7EB;
-}
+.badge-locked { background: #E5E7EB; }
 .badge-icon { font-size: 32rpx; color: #FFFFFF; }
 .badge-num { font-size: 30rpx; font-weight: 800; color: #FFFFFF; }
 
-/* 卡片内容 */
-.card-title {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #2D3748;
-  text-align: center;
-}
-.card-locked .card-title { color: #9CA3AF; }
-
-.card-status { text-align: center; }
-.status-passed { font-size: 24rpx; font-weight: 700; color: #22C55E; }
+/* 行内容 */
+.row-info { flex: 1; min-width: 0; }
+.row-title { font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 6rpx; }
+.row-locked .row-title { color: #9CA3AF; }
+.row-meta { display: flex; align-items: center; gap: 8rpx; }
+.meta-count { font-size: 22rpx; color: #A0AEC0; font-weight: 500; }
+.meta-dot { font-size: 22rpx; color: #CBD5E0; }
+.status-passed { font-size: 22rpx; font-weight: 700; color: #22C55E; }
 .status-unlocked { font-size: 22rpx; color: #4F9EF8; font-weight: 600; }
-.status-locked { font-size: 22rpx; color: #9CA3AF; }
+.status-locked { font-size: 22rpx; color: #CBD5E0; }
 
-.card-meta {
-  display: flex; align-items: center; gap: 6rpx;
-  margin-top: 4rpx;
-}
-.meta-icon { font-size: 22rpx; color: #A0AEC0; }
-.meta-text { font-size: 20rpx; color: #A0AEC0; font-weight: 500; }
+/* 右侧图标 */
+.row-star { font-size: 36rpx; color: #F59E0B; flex-shrink: 0; }
+.row-arrow { font-size: 32rpx; color: #CBD5E0; flex-shrink: 0; }
+.row-lock { font-size: 28rpx; color: #CBD5E0; flex-shrink: 0; }
 </style>

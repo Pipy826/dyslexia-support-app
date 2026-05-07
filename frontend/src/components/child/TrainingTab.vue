@@ -17,7 +17,13 @@
     </view>
 
     <!-- 任务列表 -->
-    <view class="section-title">我的任务</view>
+    <view class="section-header">
+      <view class="section-title">我的任务</view>
+      <view class="see-all-btn" @click="goToAllTasks" v-if="tasks.length > 3">
+        <text>查看全部</text>
+        <text class="ph ph-caret-right"></text>
+      </view>
+    </view>
 
     <view class="loading-row" v-if="loading">
       <text class="ph ph-circle-notch spin"></text> 加载中...
@@ -25,7 +31,7 @@
 
     <view class="task-list" v-else>
       <view
-        v-for="task in tasks"
+        v-for="task in previewTasks"
         :key="task.id || task.task_type"
         :class="['task-card', { completed: task.status === 'completed' }]"
       >
@@ -44,6 +50,13 @@
         >
           {{ task.status === 'completed' ? '已完成 ✓' : '去完成' }}
         </button>
+      </view>
+
+      <!-- 更多任务提示 -->
+      <view class="more-tasks-hint" v-if="tasks.length > 3" @click="goToAllTasks">
+        <text class="ph ph-list-bullets"></text>
+        <text>还有 {{ tasks.length - 3 }} 个任务 · 查看全部</text>
+        <text class="ph ph-caret-right"></text>
       </view>
 
       <view class="empty-hint" v-if="tasks.length === 0 && !loading">
@@ -81,6 +94,9 @@ import { getTasks } from '../../api/training.js'
 import { getCurrentChild } from '../../utils/auth.js'
 import { GAME_TASK_ICONS, GAME_TASK_DEFAULT_NAMES, GAME_TASK_DESCS, GAME_CARD_COLORS } from '../../utils/constants.js'
 
+// 关卡训练类型（训练 tab 显示）
+const LEVEL_GAME_TYPES = new Set(['visual', 'spelling', 'comprehension', 'working_memory', 'rapid_naming', 'motor_coordination'])
+
 export default {
   name: 'TrainingTab',
   props: {
@@ -99,6 +115,9 @@ export default {
       if (!this.tasks.length) return 0
       return Math.round((this.completedCount / this.tasks.length) * 100)
     },
+    previewTasks() {
+      return this.tasks.slice(0, 3)
+    },
   },
   watch: {
     childId: { immediate: true, handler(val) { if (val) this.loadTasks() } },
@@ -109,15 +128,17 @@ export default {
       this.loading = true
       try {
         const allTasks = await getTasks(this.childId)
-        // 训练tab只显示家长在训练计划页手动创建的任务（有scheduled_date）
-        // 按日期降序，只取最近7天内的未完成任务 + 今日已完成任务
         const today = new Date().toISOString().split('T')[0]
-        const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+        // 训练 tab = 关卡训练类型（6种），有 scheduled_date 的家长创建任务
+        // 未完成：显示所有待完成的关卡训练任务
+        // 已完成：只显示今日完成的
         this.tasks = allTasks.filter(t => {
-          const d = (t.scheduled_date || '').split('T')[0]
-          if (!d) return false  // 没有scheduled_date的是游戏自动创建的，不显示
-          if (t.status === 'completed' && d !== today) return false  // 非今日已完成的不显示
-          return d >= sevenDaysAgo  // 只显示最近7天的
+          if (!LEVEL_GAME_TYPES.has(t.task_type)) return false
+          if (t.status === 'completed') {
+            const completed = (t.completed_at || '').split('T')[0]
+            return completed === today
+          }
+          return true
         }).slice(0, 10)
       } catch (e) {
         console.warn('加载任务失败', e)
@@ -151,18 +172,28 @@ export default {
       if (task.status === 'completed') return
       const typeMap = { reading: 'comprehension' }
       const gameType = typeMap[task.task_type] || task.task_type || 'visual'
-      const child = getCurrentChild()
-      const gradeParam = child?.grade ? `&grade=${encodeURIComponent(child.grade)}` : ''
       const taskIdParam = task.id ? `&task_id=${task.id}` : ''
 
-      const newGames = ['handwriting', 'flip_card', 'connect_game']
-      if (newGames.includes(gameType)) {
-        // 新三种游戏也经过引导页，引导页会透传 task_id 和 difficulty
-        const diffParam = `&difficulty=L1`
-        uni.navigateTo({ url: `/pages/child/prep/index?game_type=${gameType}${taskIdParam}${diffParam}` })
-      } else {
-        uni.navigateTo({ url: `/pages/child/training-game/index?game_type=${gameType}${gradeParam}${taskIdParam}` })
+      // 挑战游戏（新三种）：直接跳对应游戏页，跳过引导页
+      const challengeRoutes = {
+        handwriting: '/pages/child/handwriting-game/index',
+        flip_card:   '/pages/child/flip-card-game/index',
+        connect_game: '/pages/child/connect-game/index',
       }
+      if (challengeRoutes[gameType]) {
+        uni.navigateTo({
+          url: `${challengeRoutes[gameType]}?difficulty=L1${taskIdParam}`
+        })
+        return
+      }
+
+      // 训练关卡（其余6种）：直接进关卡选择器（level_mode）
+      uni.navigateTo({
+        url: `/pages/child/training-game/index?game_type=${gameType}&level_mode=true&difficulty=L1${taskIdParam}`
+      })
+    },
+    goToAllTasks() {
+      uni.navigateTo({ url: '/pages/child/all-tasks/index?type=training' })
     },
   },
 }
@@ -197,6 +228,26 @@ export default {
   font-size: 28rpx; font-weight: 700; color: #2D3748; margin-bottom: 16rpx;
   text-align: center;
 }
+
+.section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16rpx;
+}
+.section-header .section-title { margin-bottom: 0; text-align: left; }
+.see-all-btn {
+  display: flex; align-items: center; gap: 4rpx;
+  font-size: 24rpx; color: #4F9EF8; font-weight: 600;
+}
+.see-all-btn .ph { font-size: 22rpx; }
+
+.more-tasks-hint {
+  display: flex; align-items: center; justify-content: center; gap: 10rpx;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border-radius: 20rpx; padding: 20rpx;
+  font-size: 24rpx; color: #4F9EF8; font-weight: 600;
+  border: 2rpx dashed #BFDBFE;
+}
+.more-tasks-hint .ph { font-size: 26rpx; }
 
 .loading-row { display: flex; align-items: center; justify-content: center; gap: 12rpx; color: #A0AEC0; font-size: 26rpx; padding: 24rpx 0; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

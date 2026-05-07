@@ -5,7 +5,7 @@
       <view class="logo-icon">
         <text class="ph ph-plant"></text>
       </view>
-      <view class="logo-title">悦读小灯塔</view>
+      <view class="logo-title">悦读灯塔</view>
       <view class="logo-subtitle">早发现 · 可解释 · 可干预</view>
     </view>
 

@@ -91,6 +91,8 @@ export default {
   name: 'ChallengeTab',
   props: {
     childGrade: { type: String, default: '' },
+    initialGameType: { type: String, default: '' },
+    initialLevelMode: { type: Boolean, default: false },
   },
   data() {
     return {
@@ -103,9 +105,35 @@ export default {
         bg: (GAME_CARD_COLORS[type] || {}).bg || '#EFF6FF',
         animal: (GAME_THEME_ANIMALS[type] || {}).emoji || '🎮',
       })),
+      _autoStarted: false,
+    }
+  },
+  mounted() {
+    // 从家长端任务跳转过来时，自动选中游戏类型并直接开始
+    if (this.initialGameType && !this._autoStarted) {
+      this._autoStarted = true
+      this.selectedType = this.initialGameType
+      this.$nextTick(() => {
+        if (this.initialLevelMode) {
+          // 关卡训练：直接跳关卡选择页（不播音效，避免 NotAllowedError）
+          uni.navigateTo({
+            url: `/pages/child/level-select/index?game_type=${this.initialGameType}&difficulty=L1`
+          })
+        } else {
+          // 挑战游戏：直接开始（不播音效，避免 NotAllowedError）
+          this._startGameSilent()
+        }
+      })
     }
   },
   methods: {
+    /** 静默开始游戏（无音效，用于自动跳转场景） */
+    _startGameSilent() {
+      const route = GAME_ROUTES[this.selectedType]
+      if (!route) return
+      const gradeParam = this.childGrade ? `&grade=${encodeURIComponent(this.childGrade)}` : ''
+      uni.navigateTo({ url: `${route}?game_type=${this.selectedType}${gradeParam}` })
+    },
     startGame() {
       AudioManager.playSFX('click')
       const route = GAME_ROUTES[this.selectedType]

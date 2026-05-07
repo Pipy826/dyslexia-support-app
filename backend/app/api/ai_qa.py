@@ -469,7 +469,16 @@ async def growth_analysis(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """根据孩子多次筛查历史，AI 生成成长趋势分析"""
+    """
+    根据孩子的游戏/训练历史，AI 生成成长趋势分析。
+    数据来源（优先级从高到低）：
+    1. 筛查报告（Report 表）
+    2. 训练任务完成记录（TrainingTask 表，按日聚合）
+    """
+    from ..models.training import TrainingTask
+    import json as _json
+    from collections import defaultdict
+
     child = db.query(Child).filter(
         Child.id == child_id,
         Child.parent_id == current_user.id
@@ -477,20 +486,82 @@ async def growth_analysis(
     if not child:
         raise HTTPException(status_code=404, detail="孩子档案不存在")
 
+    age = _calc_age(child.birth_date)
+
+    # ── 1. 筛查报告数据 ──────────────────────────────────────────────────────
     reports = db.query(Report).filter(
         Report.child_id == child_id
     ).order_by(Report.created_at.asc()).all()
 
-    age = _calc_age(child.birth_date)
-
-    reports_data = [
+    report_scores = [
         {
-            "overall_score": r.overall_score,
-            "risk_level": r.risk_level,
-            "dimensions": r.dimensions,
-            "created_at": r.created_at.isoformat() if r.created_at else "",
+            "date": r.created_at.isoformat()[:10],
+            "score": r.overall_score or 0,
+            "risk_level": r.risk_level or "medium",
+            "dimensions": _safe_json_loads(r.dimensions),
+            "source": "screening",
         }
         for r in reports
+        if r.overall_score is not None
+    ]
+
+    # ── 2. 训练任务完成记录（按日聚合）──────────────────────────────────────
+    completed_tasks = db.query(TrainingTask).filter(
+        TrainingTask.child_id == child_id,
+        TrainingTask.status == "completed",
+        TrainingTask.accuracy.isnot(None),
+    ).order_by(TrainingTask.completed_at.asc()).all()
+
+    # 按日期分组，计算每日平均正确率和各游戏类型得分
+    daily_tasks: dict = defaultdict(list)
+    for t in completed_tasks:
+        day = (t.completed_at or t.created_at)
+        if day:
+            daily_tasks[day.isoformat()[:10]].append(t)
+
+    task_scores = []
+    for day_str in sorted(daily_tasks.keys()):
+        day_list = daily_tasks[day_str]
+        accuracies = [t.accuracy for t in day_list if t.accuracy is not None]
+        if not accuracies:
+            continue
+        avg_acc = round(sum(accuracies) / len(accuracies))
+        # 按游戏类型聚合维度得分
+        dims: dict = {}
+        for t in day_list:
+            if t.task_type and t.accuracy is not None:
+                if t.task_type not in dims:
+                    dims[t.task_type] = []
+                dims[t.task_type].append(t.accuracy)
+        dims_avg = {k: round(sum(v) / len(v)) for k, v in dims.items()}
+        # 风险等级：正确率 >= 75 → low，>= 55 → medium，< 55 → high
+        risk = "low" if avg_acc >= 75 else ("medium" if avg_acc >= 55 else "high")
+        task_scores.append({
+            "date": day_str,
+            "score": avg_acc,
+            "risk_level": risk,
+            "dimensions": dims_avg,
+            "source": "training",
+        })
+
+    # ── 3. 合并两类数据，按日期去重（筛查报告优先）────────────────────────
+    all_scores_map: dict = {}
+    for s in task_scores:
+        all_scores_map[s["date"]] = s
+    for s in report_scores:
+        all_scores_map[s["date"]] = s  # 筛查报告覆盖同日训练数据
+
+    all_scores = sorted(all_scores_map.values(), key=lambda x: x["date"])
+
+    # ── 4. 构建 AI 分析用的 reports_data ────────────────────────────────────
+    reports_data = [
+        {
+            "overall_score": s["score"],
+            "risk_level": s["risk_level"],
+            "dimensions": _json.dumps(s["dimensions"], ensure_ascii=False) if s["dimensions"] else None,
+            "created_at": s["date"],
+        }
+        for s in all_scores
     ]
 
     analysis = await generate_growth_analysis(
@@ -499,20 +570,23 @@ async def growth_analysis(
         reports=reports_data,
     )
 
+    total_count = len(all_scores)
+    # 如果没有任何数据，返回友好提示
+    if total_count == 0:
+        return {
+            "child_id": child_id,
+            "child_name": child.name,
+            "report_count": 0,
+            "analysis": f"还没有{child.name}的游戏记录，完成几次游戏后这里将显示成长分析。",
+            "scores": [],
+        }
+
     return {
         "child_id": child_id,
         "child_name": child.name,
-        "report_count": len(reports),
+        "report_count": total_count,
         "analysis": analysis,
-        "scores": [
-            {
-                "date": r.created_at.isoformat()[:10],
-                "score": r.overall_score,
-                "risk_level": r.risk_level,
-                "dimensions": _safe_json_loads(r.dimensions),
-            }
-            for r in reports
-        ],
+        "scores": all_scores,
     }
 
 

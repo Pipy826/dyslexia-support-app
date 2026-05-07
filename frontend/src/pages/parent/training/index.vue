@@ -56,11 +56,17 @@
       </view>
 
       <!-- 任务列表 -->
-      <view class="section-title">待完成的任务</view>
+      <view class="section-header">
+        <view class="section-title">待完成的任务</view>
+        <view class="see-all-link" @click="goToAllTasks" v-if="pendingTasks.length > 3">
+          <text>查看全部</text>
+          <text class="ph ph-caret-right"></text>
+        </view>
+      </view>
       <view class="task-list" v-if="pendingTasks.length > 0">
         <view
           class="task-card"
-          v-for="task in pendingTasks"
+          v-for="task in previewTasks"
           :key="task.id"
           :class="{ completed: task.status === 'completed' }"
         >
@@ -84,6 +90,13 @@
             @click="startTask(task)"
             :disabled="task.status === 'completed'"
           >{{ task.status === 'completed' ? '已完成' : '去完成' }}</button>
+        </view>
+
+        <!-- 更多任务提示 -->
+        <view class="more-tasks-row" v-if="pendingTasks.length > 3" @click="goToAllTasks">
+          <text class="ph ph-list-bullets"></text>
+          <text>还有 {{ pendingTasks.length - 3 }} 个任务</text>
+          <text class="ph ph-caret-right"></text>
         </view>
       </view>
       <view class="task-list" v-else>
@@ -353,6 +366,11 @@ export default {
       ],
     }
   },
+  computed: {
+    previewTasks() {
+      return this.pendingTasks.slice(0, 3)
+    },
+  },
   onShow() {
     this.loadData()
   },
@@ -490,6 +508,9 @@ export default {
         console.error('完成任务失败', e)
       }
     },
+    goToAllTasks() {
+      uni.navigateTo({ url: '/pages/parent/all-tasks/index' })
+    },
     startTask(task) {
       if (task.status === 'completed') return
       if (task.id) uni.setStorageSync('pending_task_id', task.id)
@@ -514,23 +535,15 @@ export default {
       }
       const rawType = task.task_type || 'visual'
       const gameType = VALID_GAME_TYPES.has(rawType) ? rawType : (typeMap[rawType] || 'visual')
-      const gradeParam = this.currentChild?.grade ? `&grade=${encodeURIComponent(this.currentChild.grade)}` : ''
-      const taskIdParam = task.id ? `&task_id=${task.id}` : ''
 
-      // 三种新游戏跳转到各自的游戏页面
-      const newGameRoutes = {
-        handwriting: '/pages/child/handwriting-game/index',
-        flip_card: '/pages/child/flip-card-game/index',
-        connect_game: '/pages/child/connect-game/index',
-      }
-      if (newGameRoutes[gameType]) {
-        uni.navigateTo({ url: `${newGameRoutes[gameType]}?difficulty=L1${taskIdParam}` })
-      } else {
-        // 前6种游戏跳转到训练游戏页
-        uni.navigateTo({
-          url: `/pages/child/training-game/index?game_type=${gameType}${gradeParam}${taskIdParam}`
-        })
-      }
+      // 挑战游戏（新三种）：跳儿童端挑战 tab，直接开始对应游戏
+      // 训练关卡（前六种）：跳儿童端挑战 tab，直接进关卡选择
+      const isLevelGame = !['handwriting', 'flip_card', 'connect_game'].includes(gameType)
+      const levelParam = isLevelGame ? '&level_mode=true' : ''
+
+      uni.reLaunch({
+        url: `/pages/child/child-training/index?tab=challenge&game_type=${gameType}${levelParam}`
+      })
     },
     taskIcon(type) {
       return {
@@ -1185,6 +1198,31 @@ export default {
   color: #2D3748;
   margin-bottom: 16rpx;
 }
+
+/* 标题行（含查看全部） */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.section-header .section-title { margin-bottom: 0; }
+.see-all-link {
+  display: flex; align-items: center; gap: 4rpx;
+  font-size: 24rpx; color: #4F9EF8; font-weight: 600;
+}
+.see-all-link .ph { font-size: 22rpx; }
+
+/* 更多任务提示行 */
+.more-tasks-row {
+  display: flex; align-items: center; justify-content: center; gap: 10rpx;
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border-radius: 16rpx; padding: 18rpx;
+  font-size: 24rpx; color: #4F9EF8; font-weight: 600;
+  border: 2rpx dashed #BFDBFE;
+}
+.more-tasks-row .ph { font-size: 24rpx; }
+.more-tasks-row:active { opacity: 0.8; }
 
 /* 任务列表 */
 .task-list {

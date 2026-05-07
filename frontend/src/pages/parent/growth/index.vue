@@ -226,7 +226,6 @@ export default {
         const reports = await getReports(this.childId)
         if (reports && reports.length > 0) {
           this.reportCount = reports.length
-          // 取最新报告的孩子名（报告里没有，用已有的 childName）
           this.scores = reports.map(r => ({
             date: r.created_at ? r.created_at.slice(0, 10) : '',
             score: r.overall_score || 0,
@@ -314,6 +313,7 @@ export default {
         return
       }
       const dimNames = {
+        // 筛查子维度
         visual_discrimination:    '视觉辨识',
         phonological:             '音形映射',
         character_order:          '字序组织',
@@ -328,6 +328,15 @@ export default {
         phonological_awareness:   '音韵意识',
         fine_motor_control:       '精细动作',
         visual_motor_integration: '视动整合',
+        // 训练游戏类型（直接用游戏名）
+        visual:             '视觉辨识',
+        comprehension:      '阅读理解',
+        working_memory:     '工作记忆',
+        rapid_naming:       '快速命名',
+        motor_coordination: '精细动作',
+        handwriting:        '汉字书写',
+        flip_card:          '翻牌记忆',
+        connect_game:       '连一连',
       }
       // 收集所有出现过的维度
       const allDims = new Set()

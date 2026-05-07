@@ -13,8 +13,8 @@
         <view class="app-logo">
           <text class="ph ph-book-open"></text>
         </view>
-        <view class="app-name">悦读小灯塔</view>
-        <view class="app-slogan">儿童读写障碍智能筛查与干预系统</view>
+        <view class="app-name">悦读灯塔</view>
+        <view class="app-slogan">面向家庭场景的儿童读写能力科普互动平台</view>
         <view class="app-version">版本 v1.0.0</view>
       </view>
 
@@ -22,7 +22,7 @@
       <view class="section-title">系统介绍</view>
       <view class="info-card">
         <view class="info-text">
-          悦读小灯塔是一款专注于儿童读写障碍早期筛查与干预的智能系统。通过游戏化的评估方式和科学的训练方案，帮助家长及时发现孩子的读写困难，并提供针对性的支持与指导。
+          悦读灯塔是一款面向家庭场景的儿童读写能力科普互动平台。通过游戏化的评估方式和科学的训练方案，帮助家长了解孩子的读写能力发展，并提供针对性的支持与指导。
         </view>
       </view>
 
@@ -103,7 +103,7 @@
 
       <!-- 版权信息 -->
       <view class="copyright">
-      © 2026 悦读小灯塔 All Rights Reserved
+      © 2026 悦读灯塔 All Rights Reserved
       </view>
 
       <view style="height: 80rpx;"></view>

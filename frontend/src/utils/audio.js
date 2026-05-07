@@ -79,19 +79,8 @@ const AudioManager = {
   playBGM(trackIndex = 0) {
     if (!this.bgmEnabled) return;
 
-    // H5 环境下，若音频文件不存在则静默跳过，避免 NotSupportedError
-    // #ifdef H5
-    if (typeof window !== 'undefined') {
-      const src = BGM_TRACKS[Math.max(0, Math.min(trackIndex, BGM_TRACKS.length - 1))];
-      // 用 fetch HEAD 检测文件是否存在（异步，不阻塞）
-      fetch(src, { method: 'HEAD' }).then(r => {
-        if (r.ok) this._doPlayBGM(trackIndex);
-        // 文件不存在时静默跳过
-      }).catch(() => { /* 网络错误或文件不存在，静默跳过 */ });
-      return;
-    }
-    // #endif
-
+    // H5 环境：直接尝试播放，play() 的 Promise 会捕获 NotAllowedError
+    // 不做 fetch 检测（异步回调会丢失用户交互上下文，导致 NotAllowedError）
     this._doPlayBGM(trackIndex);
   },
 
@@ -193,16 +182,7 @@ const AudioManager = {
     const src = SFX_MAP[eventType];
     if (!src) return;
 
-    // H5 环境下先检测文件是否存在，避免 NotSupportedError
-    // #ifdef H5
-    if (typeof window !== 'undefined') {
-      fetch(src, { method: 'HEAD' }).then(r => {
-        if (r.ok) this._doPlaySFX(src);
-      }).catch(() => { /* 文件不存在，静默跳过 */ });
-      return;
-    }
-    // #endif
-
+    // 直接播放，play() 的 Promise 会静默捕获所有错误
     this._doPlaySFX(src);
   },
 

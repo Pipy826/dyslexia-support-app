@@ -1,10 +1,10 @@
 {
   "name": "dyslexia-screening-frontend",
   "version": "1.0.0",
-  "description": "儿童读写障碍筛查系统 - UniApp前端",
+  "description": "悦读灯塔——面向家庭场景的儿童读写能力科普互动平台",
   "scripts": {
     "dev:h5": "uni --platform h5",
-    "build:h5": "uni build --platform h5",
+    "build:h5": "uni build --platform h5 && node sync-dist.js",
     "dev": "uni",
     "build": "uni build"
   },

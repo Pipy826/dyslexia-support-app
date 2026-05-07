@@ -6,7 +6,7 @@ import secrets
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "儿童读写障碍筛查系统"
+    APP_NAME: str = "悦读灯塔"
     DEBUG: bool = True
 
     # 数据库
@@ -77,9 +77,15 @@ class Settings(BaseSettings):
     SMS_PROVIDER: str = ""
     SMS_ACCESS_KEY: str = ""
     SMS_SECRET_KEY: str = ""
-    SMS_SIGN_NAME: str = "悦读小灯塔"
+    SMS_SIGN_NAME: str = "悦读灯塔"
     SMS_TEMPLATE_CODE: str = ""
     SMS_APP_ID: str = ""  # 腾讯云专用
+
+    # 百度 OCR 手写识别（可选，不配置则使用本地特征算法）
+    # 申请地址：https://ai.baidu.com/tech/ocr/handwriting
+    # 免费额度：每天 50000 次
+    BAIDU_OCR_API_KEY: str = ""
+    BAIDU_OCR_SECRET_KEY: str = ""
 
     @field_validator("SECRET_KEY")
     @classmethod

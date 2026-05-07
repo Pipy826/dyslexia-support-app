@@ -187,12 +187,24 @@ export default {
       if (task.status === 'completed') return
       const typeMap = { reading: 'comprehension' }
       const gameType = typeMap[task.task_type] || task.task_type || 'visual'
-      const child = getCurrentChild()
-      const gradeParam = child?.grade ? `&grade=${encodeURIComponent(child.grade)}` : ''
       const taskIdParam = task.id ? `&task_id=${task.id}` : ''
-      // 训练模式：跳转到独立训练游戏页，不走筛查流程
+
+      // 挑战游戏（新三种）：直接跳对应游戏页，跳过引导页
+      const challengeRoutes = {
+        handwriting: '/pages/child/handwriting-game/index',
+        flip_card:   '/pages/child/flip-card-game/index',
+        connect_game: '/pages/child/connect-game/index',
+      }
+      if (challengeRoutes[gameType]) {
+        uni.navigateTo({
+          url: `${challengeRoutes[gameType]}?difficulty=L1${taskIdParam}`
+        })
+        return
+      }
+
+      // 训练关卡（其余6种）：直接进关卡选择器（level_mode）
       uni.navigateTo({
-        url: `/pages/child/training-game/index?game_type=${gameType}${gradeParam}${taskIdParam}`
+        url: `/pages/child/training-game/index?game_type=${gameType}&level_mode=true&difficulty=L1${taskIdParam}`
       })
     },
     taskIcon(type) {

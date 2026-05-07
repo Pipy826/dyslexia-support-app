@@ -73,7 +73,7 @@
         </view>
         <view class="guide-tag">今日推荐</view>
         <view class="guide-title">今天玩什么游戏？</view>
-        <view class="guide-desc">6种趣味小游戏，发现{{ currentChild ? currentChild.name : '孩子' }}的读写小秘密，轻松有趣不枯燥。</view>
+        <view class="guide-desc">9种趣味小游戏，发现{{ currentChild ? currentChild.name : '孩子' }}的读写小秘密，轻松有趣不枯燥。</view>
         <button class="guide-btn" @click="goToScreening">带孩子去玩</button>
       </view>
 
@@ -153,7 +153,7 @@
 </template>
 
 <script>
-import { getCurrentChild, setCurrentChild, getUser, isGuestUser } from '../../../utils/auth.js'
+import { getCurrentChild, setCurrentChild, getUser, isGuestUser, getToken, isTokenExpired, clearAuth } from '../../../utils/auth.js'
 import { getChildren } from '../../../api/child.js'
 import { getReports } from '../../../api/report.js'
 import { getDailyTip } from '../../../api/ai.js'
@@ -227,6 +227,12 @@ export default {
     },
   },
   onShow() {
+    // 未登录时跳转登录页
+    if (!getToken() || isTokenExpired()) {
+      clearAuth()
+      uni.reLaunch({ url: '/pages/parent/auth/login' })
+      return
+    }
     this.user = getUser()
     this.isGuest = isGuestUser()
     this.loadData()
@@ -248,7 +254,12 @@ export default {
           setCurrentChild(this.currentChild)
           await this.loadRecentReport()
         } else {
-          // 没有孩子档案，引导创建
+          // 没有孩子档案
+          if (this.isGuest) {
+            // 游客用户：后端应已自动创建默认档案，此处静默跳过，不打扰用户
+            return
+          }
+          // 正式用户：引导创建档案
           uni.showModal({
             title: '欢迎使用',
             content: '请先创建孩子的档案，以便开始游戏和探索。',

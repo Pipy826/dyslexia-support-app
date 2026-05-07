@@ -201,7 +201,7 @@ export default {
     _exportLocal() {
       const lines = []
       lines.push('═══════════════════════════════')
-      lines.push('  悦读小灯塔 · 成长评估报告')
+      lines.push('  悦读灯塔 · 成长评估报告')
       lines.push('═══════════════════════════════')
       lines.push(`游戏类型：${this.gameTypeName(this.report.game_type)}`)
       lines.push(`评估日期：${this.formatDate(this.report.created_at)}`)

@@ -5,7 +5,7 @@
       <view class="hero-bg"></view>
       <view class="hero-content">
         <view class="brand-icon">🌟</view>
-        <view class="brand-name">悦读小灯塔</view>
+        <view class="brand-name">悦读灯塔</view>
         <view class="brand-tagline">趣味文字游戏 · 亲子互动 · 每日打卡</view>
         <view class="brand-sub">随便玩玩，顺便了解孩子的读写小秘密</view>
         <view class="hero-badge">

@@ -45,7 +45,12 @@
     <!-- Tab 内容区（v-show 切换，不销毁组件，保持 BGM） -->
     <view class="tab-content">
       <view v-show="activeTab === 'challenge'" class="tab-pane">
-        <challenge-tab :child-grade="childGrade" style="height: 100%;"></challenge-tab>
+        <challenge-tab
+          :child-grade="childGrade"
+          :initial-game-type="initialGameType"
+          :initial-level-mode="initialLevelMode"
+          style="height: 100%;"
+        ></challenge-tab>
       </view>
       <view v-show="activeTab === 'training'" class="tab-pane">
         <training-tab :child-id="childId" :total-stars="totalStars" style="height: 100%;"></training-tab>
@@ -59,11 +64,12 @@
     <view class="modal-overlay" v-if="showExitModal" @click.self="cancelExit">
       <view class="exit-modal">
         <view class="exit-modal-icon">
-          <text class="ph ph-lock"></text>
+          <text :class="isGuest ? 'ph ph-sign-out' : 'ph ph-lock'"></text>
         </view>
         <view class="exit-modal-title">退出儿童模式</view>
-        <view class="exit-modal-desc">请输入家长登录密码以退出</view>
-        <view class="pwd-input-wrap">
+        <view class="exit-modal-desc" v-if="isGuest">确认退出儿童模式？</view>
+        <view class="exit-modal-desc" v-else>请输入家长登录密码以退出</view>
+        <view class="pwd-input-wrap" v-if="!isGuest">
           <text class="ph ph-lock-key pwd-icon"></text>
           <input
             class="pwd-input"
@@ -91,7 +97,7 @@
 </template>
 
 <script>
-import { getCurrentChild } from '../../../utils/auth.js'
+import { getCurrentChild, isGuestUser } from '../../../utils/auth.js'
 import { getTotalStars } from '../../../api/training.js'
 import { verifyPassword } from '../../../api/auth.js'
 import { getBaseUrl } from '../../../api/index.js'
@@ -115,11 +121,16 @@ export default {
       child: null,
       totalStars: 0,
       bgmEnabled: true,
+      // 从家长端任务跳转时传入的参数
+      initialGameType: '',
+      initialLevelMode: false,
       // 退出弹窗
       showExitModal: false,
       exitPassword: '',
       exitError: '',
       exitLoading: false,
+      showPwd: false,
+      isGuest: false,
       showPwd: false,
     }
   },
@@ -141,10 +152,17 @@ export default {
     if (options.tab && ['challenge', 'training', 'today'].includes(options.tab)) {
       this.activeTab = options.tab
     }
+    if (options.game_type) {
+      this.initialGameType = options.game_type
+    }
+    if (options.level_mode === 'true' || options.level_mode === true) {
+      this.initialLevelMode = true
+    }
   },
 
   onShow() {
     this.child = getCurrentChild()
+    this.isGuest = isGuestUser()
     if (!this.child) {
       uni.showToast({ title: '请先在家长端添加档案', icon: 'none' })
       return
@@ -250,6 +268,12 @@ export default {
     },
 
     async confirmExit() {
+      // 游客账号无密码，直接退出
+      if (this.isGuest) {
+        AudioManager.stopBGM()
+        uni.reLaunch({ url: '/pages/parent/home/index' })
+        return
+      }
       if (!this.exitPassword) { this.exitError = '请输入密码'; return }
       this.exitLoading = true
       this.exitError = ''

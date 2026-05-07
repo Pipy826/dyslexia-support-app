@@ -172,7 +172,7 @@ class TestReports:
         res = client.get(f"/api/reports/{report_id}/export-text", headers=auth_headers)
         assert res.status_code == 200
         content = res.json()["content"]
-        assert "悦读小灯塔" in content
+        assert "悦读灯塔" in content
         assert "综合得分" in content
 
 

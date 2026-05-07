@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
+.hypothesis/
 *$py.class
 *.pyc
 *.pyo

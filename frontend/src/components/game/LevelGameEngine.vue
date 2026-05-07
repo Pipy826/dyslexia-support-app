@@ -597,8 +597,8 @@ export default {
 }
 .loading-header, .error-header {
   padding: 56rpx 32rpx 24rpx;
-  background: linear-gradient(135deg, #4F9EF8, #3B82F6);
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.12);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1rpx 0 rgba(0,0,0,0.04);
 }
 .loading-body, .error-body {
   flex: 1; display: flex; flex-direction: column;
@@ -618,8 +618,9 @@ export default {
 
 /* ── 顶部进度 ── */
 .level-header {
-  padding: 56rpx 32rpx 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.12);
+  padding: 56rpx 32rpx 20rpx;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1rpx 0 rgba(0,0,0,0.04);
 }
 .level-info-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -627,25 +628,25 @@ export default {
 }
 .back-btn {
   width: 72rpx; height: 72rpx; border-radius: 50%;
-  background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; border: 2rpx solid rgba(255,255,255,0.4);
+  background: #F5F7FA; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
-.back-btn:active { background: rgba(255,255,255,0.4); transform: scale(0.95); }
-.back-btn .ph { font-size: 36rpx; color: #FFFFFF; }
+.back-btn:active { background: #EFF6FF; transform: scale(0.95); }
+.back-btn .ph { font-size: 36rpx; color: #2D3748; }
 .level-title-area {
   display: flex; align-items: center; gap: 10rpx;
   flex: 1; justify-content: center;
 }
-.level-game-icon { font-size: 28rpx; color: rgba(255,255,255,0.9); }
-.level-tag { font-size: 28rpx; font-weight: 800; color: #FFFFFF; text-align: center; }
+.level-game-icon { font-size: 28rpx; color: #4F9EF8; }
+.level-tag { font-size: 28rpx; font-weight: 800; color: #2D3748; text-align: center; }
 .header-placeholder { width: 72rpx; flex-shrink: 0; }
-.progress-text { font-size: 22rpx; font-weight: 700; color: rgba(255,255,255,0.85); flex-shrink: 0; }
+.progress-text { font-size: 22rpx; font-weight: 700; color: #718096; flex-shrink: 0; }
 .progress-track {
-  height: 10rpx; background: rgba(255,255,255,0.3);
+  height: 10rpx; background: #E5E7EB;
   border-radius: 5rpx; overflow: hidden;
 }
 .progress-fill {
-  height: 100%; background: rgba(255,255,255,0.9);
+  height: 100%; background: var(--primary, #4F9EF8);
   border-radius: 5rpx; transition: width 0.4s;
 }
 
@@ -681,12 +682,13 @@ export default {
 }
 
 /* ── 视觉辨识 2×2 ── */
-.options-grid { display: flex; flex-wrap: wrap; gap: 20rpx; }
+.options-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .option-char {
-  width: calc(50% - 10rpx); aspect-ratio: 1;
-  background: #FFFFFF; border: 3rpx solid #E5E7EB; border-radius: 24rpx;
+  width: calc(50% - 8rpx);
+  height: 160rpx;
+  background: #FFFFFF; border: 3rpx solid #E5E7EB; border-radius: 20rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 96rpx; font-weight: 800; color: #2D3748; transition: all 0.2s;
+  font-size: 64rpx; font-weight: 800; color: #2D3748; transition: all 0.2s;
 }
 .option-char:active { transform: scale(0.95); }
 .option-char.selected { border-color: var(--primary, #4F9EF8); background: #EFF6FF; color: var(--primary, #4F9EF8); }

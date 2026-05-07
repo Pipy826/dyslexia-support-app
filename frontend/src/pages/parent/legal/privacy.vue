@@ -7,7 +7,7 @@
       <view class="header-title">隐私政策</view>
     </view>
     <scroll-view class="page-content" scroll-y>
-      <view class="doc-title">悦读小灯塔隐私政策</view>
+      <view class="doc-title">悦读灯塔隐私政策</view>
       <view class="doc-date">更新日期：2024年1月1日</view>
 
       <view class="section">

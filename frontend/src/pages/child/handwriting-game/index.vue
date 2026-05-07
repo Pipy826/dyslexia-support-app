@@ -200,7 +200,7 @@ import { evaluateHandwriting, calcHandwritingStars } from '../../../utils/gameSc
 import { buildHandwritingPayload, enqueueRecord, shouldRetry } from '../../../utils/gameDataBuilder.js'
 import { completeTask, createTask } from '../../../api/training.js'
 import { getCurrentChild } from '../../../utils/auth.js'
-import { get } from '../../../api/index.js'
+import { get, post } from '../../../api/index.js'
 
 // ── 本地题库 ──────────────────────────────────────────────────────────────────
 const LOCAL_QUESTIONS = {
@@ -432,7 +432,7 @@ export default {
 
     // ── 提交与评分 ────────────────────────────────────────────────────────────
 
-    submit() {
+    async submit() {
       if (this.phase !== 'writing') return
       if (!this.hasStrokes) {
         uni.showToast({ title: '请先书写汉字', icon: 'none' })
@@ -443,8 +443,29 @@ export default {
       this.phase = 'feedback'
 
       const strokeData = this.$refs.canvas ? this.$refs.canvas.getStrokeData() : []
-      // 无参考笔迹时传空数组，evaluateHandwriting 会给基础分
-      const score = evaluateHandwriting(strokeData, [])
+      const q = this.currentQuestion
+
+      // 尝试调用后端真实识别接口
+      let score = 0
+      let feedbackText = ''
+      try {
+        // 导出画布图片（H5 用 toDataURL，小程序用 canvasToTempFilePath）
+        const imageBase64 = this.$refs.canvas ? await this.$refs.canvas.toBase64() : ''
+
+        const res = await post('/api/training/recognize-handwriting', {
+          target_character: q.character,
+          stroke_count: q.stroke_count || 0,
+          strokes: strokeData,
+          image_base64: imageBase64,
+          difficulty: this.difficulty,
+        })
+        score = res.score || 0
+        feedbackText = res.feedback || ''
+      } catch (e) {
+        // 后端识别失败，降级到本地算法
+        score = evaluateHandwriting(strokeData, [])
+        feedbackText = ''
+      }
 
       if (score >= 60) {
         // 答对
@@ -453,7 +474,7 @@ export default {
         AudioManager.playSFX('correct')
         this.feedbackType = 'correct'
         this.feedbackTitle = '写得不错！'
-        this.feedbackDesc = `得分：${score} 分，获得 1 颗星！`
+        this.feedbackDesc = feedbackText || `得分：${score} 分，获得 1 颗星！`
         this.showFeedback = true
       } else {
         // 答错
@@ -463,10 +484,10 @@ export default {
 
         if (this.retryCount < 2) {
           this.feedbackTitle = '再试一次！'
-          this.feedbackDesc = `得分：${score} 分，参考笔顺如下，加油！`
+          this.feedbackDesc = feedbackText || `得分：${score} 分，参考笔顺如下，加油！`
         } else {
           this.feedbackTitle = '没关系！'
-          this.feedbackDesc = `得分：${score} 分，继续下一题吧！`
+          this.feedbackDesc = feedbackText || `得分：${score} 分，继续下一题吧！`
         }
         this.showFeedback = true
       }

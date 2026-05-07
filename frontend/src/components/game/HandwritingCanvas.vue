@@ -297,6 +297,56 @@ export default {
     getStrokeData() {
       return this.strokes.map((stroke) => stroke.map((pt) => ({ ...pt })))
     },
+
+    /**
+     * 将画布导出为 base64 图片（PNG 格式）
+     * H5 环境直接用 DOM canvas.toDataURL()
+     * 小程序环境使用 uni.canvasToTempFilePath
+     * @returns {Promise<string>} base64 字符串（含 data:image/png;base64, 前缀），失败返回空字符串
+     */
+    toBase64() {
+      return new Promise((resolve) => {
+        // H5 环境：直接通过 DOM 导出，最可靠
+        if (typeof document !== 'undefined') {
+          try {
+            const canvasEl = document.getElementById(this.canvasId)
+            if (canvasEl && typeof canvasEl.toDataURL === 'function') {
+              resolve(canvasEl.toDataURL('image/png'))
+              return
+            }
+          } catch (e) {
+            // ignore
+          }
+          resolve('')
+          return
+        }
+
+        // 小程序环境：canvasToTempFilePath → readFile base64
+        try {
+          uni.canvasToTempFilePath({
+            canvasId: this.canvasId,
+            fileType: 'png',
+            quality: 0.8,
+            success: (res) => {
+              try {
+                const fs = uni.getFileSystemManager()
+                fs.readFile({
+                  filePath: res.tempFilePath,
+                  encoding: 'base64',
+                  success: (fileRes) => resolve('data:image/png;base64,' + fileRes.data),
+                  fail: () => resolve(''),
+                })
+              } catch (e) {
+                resolve('')
+              }
+            },
+            fail: () => resolve(''),
+          }, this)
+        } catch (e) {
+          resolve('')
+        }
+      })
+    },
   },
 }
 </script>

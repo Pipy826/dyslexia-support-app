@@ -113,7 +113,7 @@
             :style="{ '--gc': gs.color }"
           >
             <view class="gs-left">
-              <view class="gs-icon">
+              <view class="gs-icon" :style="{ background: gs.bg || 'rgba(79,158,248,0.1)' }">
                 <text :class="'ph ' + gs.icon"></text>
               </view>
               <view class="gs-info">
@@ -491,14 +491,14 @@ export default {
 .game-stat-card {
   background: #FFFFFF; border-radius: 20rpx; padding: 20rpx 24rpx;
   display: flex; flex-direction: row; align-items: center;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
-  border-left: 6rpx solid var(--gc);
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
+  border: 2rpx solid rgba(0,0,0,0.04);
   width: 100%; box-sizing: border-box;
 }
 .gs-left { display: flex; align-items: center; gap: 16rpx; flex: 1; min-width: 0; }
 .gs-icon {
   width: 64rpx; height: 64rpx; border-radius: 16rpx;
-  background: rgba(0,0,0,0.04);
+  background: rgba(0,0,0,0.05);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .gs-icon .ph { font-size: 30rpx; color: var(--gc); }

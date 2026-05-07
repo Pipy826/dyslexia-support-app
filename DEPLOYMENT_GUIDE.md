@@ -1,27 +1,27 @@
-# 悦读小灯塔 · 部署指南
+# 悦读小灯�?· 部署指南
 
-> 完整的生产环境部署流程，涵盖 Docker、Nginx、HTTPS、数据库、短信、微信小程序等所有配置。
+> 完整的生产环境部署流程，涵盖 Docker、Nginx、HTTPS、数据库、短信、微信小程序等所有配置�?
 
 ---
 
 ## 部署架构
 
 ```
-用户设备（H5/小程序/App）
-    ↓
-Nginx（80/443）
-    ├── 静态文件（前端 H5）
-    ├── /api/* → FastAPI 后端（8000）
-    └── /uploads/* → 静态文件服务
-    ↓
-PostgreSQL（5432）
+用户设备（H5/小程�?App�?
+    �?
+Nginx�?0/443�?
+    ├── 静态文件（前端 H5�?
+    ├── /api/* �?FastAPI 后端�?000�?
+    └── /uploads/* �?静态文件服�?
+    �?
+PostgreSQL�?432�?
 ```
 
 ---
 
-## 一、快速部署（Docker Compose）
+## 一、快速部署（Docker Compose�?
 
-### 1.1 开发环境（本地测试）
+### 1.1 开发环境（本地测试�?
 
 ```bash
 # 1. 克隆代码
@@ -30,7 +30,7 @@ cd dyslexia-support-app
 
 # 2. 准备后端配置
 cp backend/.env.example backend/.env
-# 编辑 backend/.env，至少修改 SECRET_KEY
+# 编辑 backend/.env，至少修�?SECRET_KEY
 
 # 3. 一键启动（SQLite + 前后端分离）
 bash deploy.sh dev
@@ -41,22 +41,22 @@ bash deploy.sh dev
 # API 文档：http://localhost:8000/docs
 ```
 
-### 1.2 生产环境（PostgreSQL + Nginx）
+### 1.2 生产环境（PostgreSQL + Nginx�?
 
 ```bash
 # 1. 准备生产配置
 cp backend/.env.production backend/.env
-# 编辑 backend/.env，填写所有必填项：
-#   - SECRET_KEY（随机 64 位十六进制）
+# 编辑 backend/.env，填写所有必填项�?
+#   - SECRET_KEY（随�?64 位十六进制）
 #   - ALLOWED_ORIGINS（前端域名）
-#   - DATABASE_URL（自动从 docker-compose.prod.yml 注入）
+#   - DATABASE_URL（自动从 docker-compose.prod.yml 注入�?
 #   - AI_API_KEY（可选）
 #   - SMS_PROVIDER / SMS_ACCESS_KEY（可选）
 
-# 2. 设置数据库密码
+# 2. 设置数据库密�?
 export DB_PASSWORD="your_secure_password"
 
-# 3. 一键部署
+# 3. 一键部�?
 bash deploy.sh prod
 
 # 访问
@@ -66,7 +66,7 @@ bash deploy.sh prod
 
 ---
 
-## 二、手动部署（无 Docker）
+## 二、手动部署（�?Docker�?
 
 ### 2.1 后端部署
 
@@ -82,9 +82,9 @@ pip install -r requirements.txt
 
 # 3. 配置环境变量
 cp .env.production .env
-# 编辑 .env，填写所有配置
+# 编辑 .env，填写所有配�?
 
-# 4. 初始化数据库（PostgreSQL）
+# 4. 初始化数据库（PostgreSQL�?
 # 表结构会在首次启动时自动创建
 
 # 5. 启动服务（生产模式）
@@ -139,7 +139,7 @@ npm ci --legacy-peer-deps
 # 2. 构建 H5
 npm run build:h5
 
-# 3. 部署到 Nginx
+# 3. 部署�?Nginx
 sudo cp -r dist/build/h5/* /var/www/dyslexia-app/
 ```
 
@@ -152,7 +152,7 @@ server {
     root /var/www/dyslexia-app;
     index index.html;
 
-    # 前端静态文件
+    # 前端静态文�?
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -202,9 +202,9 @@ GRANT ALL PRIVILEGES ON DATABASE dyslexia TO dyslexia_user;
 DATABASE_URL=postgresql://dyslexia_user:your_secure_password@localhost:5432/dyslexia
 ```
 
-### 3.2 SQLite（开发/小规模）
+### 3.2 SQLite（开�?小规模）
 
-默认配置，无需额外设置。数据库文件位于 `backend/dyslexia.db`。
+默认配置，无需额外设置。数据库文件位于 `backend/dyslexia.db`�?
 
 **备份**
 
@@ -222,16 +222,16 @@ cp backend/dyslexia.db backend/dyslexia.db.backup.$(date +%Y%m%d)
 # 1. 安装 certbot
 sudo apt install certbot
 
-# 2. 申请证书（需先停止 Nginx）
+# 2. 申请证书（需先停�?Nginx�?
 sudo systemctl stop nginx
 sudo certbot certonly --standalone -d your-domain.com
 
-# 3. 复制证书到项目目录
+# 3. 复制证书到项目目�?
 sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem nginx/ssl/
 sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem nginx/ssl/
 sudo chmod 644 nginx/ssl/*.pem
 
-# 4. 取消 nginx/conf.d/app.conf 中 SSL 相关行的注释
+# 4. 取消 nginx/conf.d/app.conf �?SSL 相关行的注释
 
 # 5. 重启 Nginx
 docker compose -f docker-compose.prod.yml restart nginx
@@ -241,7 +241,7 @@ docker compose -f docker-compose.prod.yml restart nginx
 ### 4.2 自动续期
 
 ```bash
-# 添加 cron 任务（每月 1 号凌晨 2 点）
+# 添加 cron 任务（每�?1 号凌�?2 点）
 sudo crontab -e
 ```
 
@@ -251,26 +251,26 @@ sudo crontab -e
 
 ---
 
-## 五、短信服务配置
+## 五、短信服务配�?
 
-### 5.1 阿里云 SMS
+### 5.1 阿里�?SMS
 
 ```bash
 # 1. 安装 SDK
 pip install alibabacloud-dysmsapi20170525
 
 # 2. 在阿里云控制台申请短信签名和模板
-# 短信模板示例：您的验证码是${code}，5分钟内有效。
+# 短信模板示例：您的验证码�?{code}�?分钟内有效�?
 
 # 3. 配置 backend/.env
 SMS_PROVIDER=aliyun
 SMS_ACCESS_KEY=your_access_key_id
 SMS_SECRET_KEY=your_access_key_secret
-SMS_SIGN_NAME=悦读小灯塔
+SMS_SIGN_NAME=悦读小灯�?
 SMS_TEMPLATE_CODE=SMS_xxxxxxxxx
 ```
 
-### 5.2 腾讯云 SMS
+### 5.2 腾讯�?SMS
 
 ```bash
 # 1. 安装 SDK
@@ -283,7 +283,7 @@ SMS_PROVIDER=tencent
 SMS_ACCESS_KEY=your_secret_id
 SMS_SECRET_KEY=your_secret_key
 SMS_APP_ID=your_sms_app_id
-SMS_SIGN_NAME=悦读小灯塔
+SMS_SIGN_NAME=悦读小灯�?
 SMS_TEMPLATE_CODE=your_template_id
 ```
 
@@ -291,11 +291,11 @@ SMS_TEMPLATE_CODE=your_template_id
 
 ## 六、微信小程序配置
 
-### 6.1 申请小程序
+### 6.1 申请小程�?
 
 1. 访问 [微信公众平台](https://mp.weixin.qq.com/)
-2. 注册小程序账号
-3. 获取 AppID 和 AppSecret
+2. 注册小程序账�?
+3. 获取 AppID �?AppSecret
 
 ### 6.2 配置后端
 
@@ -319,24 +319,24 @@ WX_SECRET=your_wx_secret
 
 ### 6.4 申请订阅消息模板
 
-在微信公众平台 → 功能 → 订阅消息 中申请以下模板：
+在微信公众平�?�?功能 �?订阅消息 中申请以下模板：
 
-| 模板用途 | 关键词 |
+| 模板用�?| 关键�?|
 |---------|--------|
-| 训练提醒 | 任务名称、提醒时间、温馨提示 |
-| 复评提醒 | 孩子姓名、训练天数、建议内容 |
-| 报告生成 | 报告类型、生成时间、查看入口 |
+| 训练提醒 | 任务名称、提醒时间、温馨提�?|
+| 复评提醒 | 孩子姓名、训练天数、建议内�?|
+| 报告生成 | 报告类型、生成时间、查看入�?|
 
-获取模板 ID 后，在 `frontend/src/pages/parent/reminder/index.vue` 中替换占位符 `training_reminder_template_id`。
+获取模板 ID 后，�?`frontend/src/pages/parent/reminder/index.vue` 中替换占位符 `training_reminder_template_id`�?
 
 ### 6.5 编译上传
 
-使用 HBuilderX：
+使用 HBuilderX�?
 
 1. 导入 `frontend` 目录
-2. 运行 → 运行到小程序模拟器 → 微信开发者工具
+2. 运行 �?运行到小程序模拟�?�?微信开发者工�?
 3. 在微信开发者工具中点击"上传"
-4. 在微信公众平台提交审核
+4. 在微信公众平台提交审�?
 
 ---
 
@@ -367,9 +367,9 @@ AI_API_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 AI_MODEL=qwen-turbo
 ```
 
-### 7.4 无 AI Key（降级模式）
+### 7.4 �?AI Key（降级模式）
 
-不配置 `AI_API_KEY` 时，系统自动使用规则型回复模板，所有 AI 功能仍可正常演示。
+不配�?`AI_API_KEY` 时，系统自动使用规则型回复模板，所�?AI 功能仍可正常演示�?
 
 ---
 
@@ -386,7 +386,7 @@ docker compose logs -f frontend
 sudo journalctl -u dyslexia-backend -f
 ```
 
-### 8.2 健康检查
+### 8.2 健康检�?
 
 ```bash
 # 后端
@@ -398,20 +398,20 @@ curl http://localhost/health
 
 ### 8.3 性能监控（可选）
 
-推荐使用 Prometheus + Grafana 监控：
+推荐使用 Prometheus + Grafana 监控�?
 
 ```bash
 # 安装 prometheus-fastapi-instrumentator
 pip install prometheus-fastapi-instrumentator
 
-# 在 backend/app/main.py 中添加
+# �?backend/app/main.py 中添�?
 from prometheus_fastapi_instrumentator import Instrumentator
 Instrumentator().instrument(app).expose(app)
 ```
 
 ---
 
-## 九、数据备份
+## 九、数据备�?
 
 ### 9.1 SQLite 备份
 
@@ -419,7 +419,7 @@ Instrumentator().instrument(app).expose(app)
 # 手动备份
 cp backend/dyslexia.db backend/backup/dyslexia.db.$(date +%Y%m%d_%H%M%S)
 
-# 定时备份（cron）
+# 定时备份（cron�?
 0 2 * * * cp /opt/dyslexia-app/backend/dyslexia.db /opt/backups/dyslexia.db.$(date +\%Y\%m\%d)
 ```
 
@@ -429,50 +429,50 @@ cp backend/dyslexia.db backend/backup/dyslexia.db.$(date +%Y%m%d_%H%M%S)
 # 手动备份
 docker compose exec postgres pg_dump -U dyslexia_user dyslexia > backup.sql
 
-# 定时备份（cron）
+# 定时备份（cron�?
 0 2 * * * docker compose -f /opt/dyslexia-app/docker-compose.prod.yml exec -T postgres pg_dump -U dyslexia_user dyslexia | gzip > /opt/backups/dyslexia_$(date +\%Y\%m\%d).sql.gz
 ```
 
 ### 9.3 上传文件备份
 
 ```bash
-# 同步到对象存储（如阿里云 OSS）
+# 同步到对象存储（如阿里云 OSS�?
 ossutil cp -r backend/uploads/ oss://your-bucket/uploads/ --update
 ```
 
 ---
 
-## 十、常见问题
+## 十、常见问�?
 
 ### 10.1 前端无法连接后端
 
-**症状**：前端显示"网络错误"或"401 未授权"
+**症状**：前端显�?网络错误"�?401 未授�?
 
-**排查**：
+**排查**�?
 
 ```bash
-# 1. 检查后端是否启动
+# 1. 检查后端是否启�?
 curl http://localhost:8000/health
 
-# 2. 检查 CORS 配置
-# backend/.env 中 ALLOWED_ORIGINS 是否包含前端域名
+# 2. 检�?CORS 配置
+# backend/.env �?ALLOWED_ORIGINS 是否包含前端域名
 
-# 3. 检查前端 API 地址
-# frontend/src/api/index.js 中 BASE_URL 是否正确
+# 3. 检查前�?API 地址
+# frontend/src/api/index.js �?BASE_URL 是否正确
 ```
 
-### 10.2 数据库连接失败
+### 10.2 数据库连接失�?
 
-**症状**：后端启动报错 `could not connect to server`
+**症状**：后端启动报�?`could not connect to server`
 
-**排查**：
+**排查**�?
 
 ```bash
-# 1. 检查 PostgreSQL 是否启动
+# 1. 检�?PostgreSQL 是否启动
 docker compose ps postgres
 # 或：sudo systemctl status postgresql
 
-# 2. 检查 DATABASE_URL 格式
+# 2. 检�?DATABASE_URL 格式
 # postgresql://user:password@host:port/database
 
 # 3. 检查防火墙
@@ -481,32 +481,32 @@ sudo ufw allow 5432/tcp
 
 ### 10.3 上传文件 404
 
-**症状**：头像上传后显示不出来
+**症状**：头像上传后显示不出�?
 
-**排查**：
+**排查**�?
 
 ```bash
-# 1. 检查上传目录权限
+# 1. 检查上传目录权�?
 ls -la backend/uploads/
 
-# 2. 检查 Nginx 配置
-# nginx/conf.d/app.conf 中 /uploads/ 路径是否正确
+# 2. 检�?Nginx 配置
+# nginx/conf.d/app.conf �?/uploads/ 路径是否正确
 
-# 3. 检查 Docker 挂载
+# 3. 检�?Docker 挂载
 docker compose exec backend ls -la /app/uploads/
 ```
 
-### 10.4 AI 功能不可用
+### 10.4 AI 功能不可�?
 
-**症状**：AI 问答返回"服务暂时不可用"
+**症状**：AI 问答返回"服务暂时不可�?
 
-**排查**：
+**排查**�?
 
 ```bash
-# 1. 检查 AI_API_KEY 是否配置
+# 1. 检�?AI_API_KEY 是否配置
 grep AI_API_KEY backend/.env
 
-# 2. 测试 API 连通性
+# 2. 测试 API 连通�?
 curl -H "Authorization: Bearer $AI_API_KEY" \
   https://api.openai.com/v1/models
 
@@ -514,25 +514,25 @@ curl -H "Authorization: Bearer $AI_API_KEY" \
 docker compose logs backend | grep -i "ai\|openai"
 ```
 
-**降级方案**：不配置 `AI_API_KEY` 时，系统自动使用规则型回复，不影响功能演示。
+**降级方案**：不配置 `AI_API_KEY` 时，系统自动使用规则型回复，不影响功能演示�?
 
 ### 10.5 短信验证码收不到
 
-**症状**：点击"发送验证码"后手机未收到
+**症状**：点�?发送验证码"后手机未收到
 
-**排查**：
+**排查**�?
 
 ```bash
-# 1. 检查 DEBUG 模式
-# DEBUG=True 时验证码只打印到日志，不发送短信
-docker compose logs backend | grep "验证码"
+# 1. 检�?DEBUG 模式
+# DEBUG=True 时验证码只打印到日志，不发送短�?
+docker compose logs backend | grep "验证�?
 
-# 2. 检查 SMS 配置
+# 2. 检�?SMS 配置
 grep SMS_ backend/.env
 
-# 3. 测试短信服务商 API
-# 阿里云：登录控制台查看发送记录
-# 腾讯云：登录控制台查看发送记录
+# 3. 测试短信服务�?API
+# 阿里云：登录控制台查看发送记�?
+# 腾讯云：登录控制台查看发送记�?
 ```
 
 ---
@@ -542,7 +542,7 @@ grep SMS_ backend/.env
 ### 11.1 后端优化
 
 ```bash
-# 1. 增加 worker 数量（CPU 核心数 × 2 + 1）
+# 1. 增加 worker 数量（CPU 核心�?× 2 + 1�?
 gunicorn app.main:app -w 8 -k uvicorn.workers.UvicornWorker
 
 # 2. 启用 Redis 缓存（可选）
@@ -550,14 +550,14 @@ gunicorn app.main:app -w 8 -k uvicorn.workers.UvicornWorker
 # 配置：REDIS_URL=redis://localhost:6379/0
 
 # 3. 数据库连接池
-# backend/app/database.py 中调整 pool_size 和 max_overflow
+# backend/app/database.py 中调�?pool_size �?max_overflow
 ```
 
 ### 11.2 前端优化
 
 ```bash
-# 1. 启用 CDN 加速
-# 将 dist/build/h5/ 上传到阿里云 OSS / 腾讯云 COS
+# 1. 启用 CDN 加�?
+# �?dist/build/h5/ 上传到阿里云 OSS / 腾讯�?COS
 
 # 2. 图片压缩
 # 使用 TinyPNG / ImageOptim 压缩图片资源
@@ -572,11 +572,11 @@ gunicorn app.main:app -w 8 -k uvicorn.workers.UvicornWorker
 # 启用 HTTP/2
 listen 443 ssl http2;
 
-# 启用 Brotli 压缩（需安装模块）
+# 启用 Brotli 压缩（需安装模块�?
 brotli on;
 brotli_types text/plain text/css application/json application/javascript;
 
-# 静态文件缓存
+# 静态文件缓�?
 location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
     expires 1y;
     add_header Cache-Control "public, immutable";
@@ -585,28 +585,28 @@ location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
 
 ---
 
-## 十二、安全加固
+## 十二、安全加�?
 
-### 12.1 必做项
+### 12.1 必做�?
 
-- [x] 修改 `SECRET_KEY` 为随机 64 位十六进制
+- [x] 修改 `SECRET_KEY` 为随�?64 位十六进�?
 - [x] 设置 `DEBUG=False`
-- [x] 配置 `ALLOWED_ORIGINS` 为前端域名
-- [x] 使用 HTTPS（Let's Encrypt 免费证书）
-- [x] 数据库密码强度 ≥ 16 位
+- [x] 配置 `ALLOWED_ORIGINS` 为前端域�?
+- [x] 使用 HTTPS（Let's Encrypt 免费证书�?
+- [x] 数据库密码强�?�?16 �?
 - [x] 定期备份数据库和上传文件
 
-### 12.2 推荐项
+### 12.2 推荐�?
 
-- [ ] 启用 Nginx 限流（`limit_req_zone`）
-- [ ] 配置防火墙（只开放 80/443/22 端口）
+- [ ] 启用 Nginx 限流（`limit_req_zone`�?
+- [ ] 配置防火墙（只开�?80/443/22 端口�?
 - [ ] 使用 Fail2Ban 防止暴力破解
-- [ ] 定期更新依赖包（`pip list --outdated`）
-- [ ] 配置日志轮转（logrotate）
+- [ ] 定期更新依赖包（`pip list --outdated`�?
+- [ ] 配置日志轮转（logrotate�?
 
 ---
 
-## 十三、扩展部署
+## 十三、扩展部�?
 
 ### 13.1 微信小程序云托管
 
@@ -614,43 +614,43 @@ location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
 
 1. 在微信公众平台开通云托管
 2. 上传 `backend/Dockerfile`
-3. 配置环境变量（通过云托管控制台）
-4. 绑定域名并配置 HTTPS
+3. 配置环境变量（通过云托管控制台�?
+4. 绑定域名并配�?HTTPS
 
-### 13.2 阿里云 / 腾讯云部署
+### 13.2 阿里�?/ 腾讯云部�?
 
-**使用云服务器（ECS / CVM）**
+**使用云服务器（ECS / CVM�?*
 
 ```bash
-# 1. 购买服务器（2核4G起步）
-# 2. 安装 Docker 和 Docker Compose
-# 3. 克隆代码到 /opt/dyslexia-app
-# 4. 按本文档"一、快速部署"章节操作
+# 1. 购买服务器（2�?G起步�?
+# 2. 安装 Docker �?Docker Compose
+# 3. 克隆代码�?/opt/dyslexia-app
+# 4. 按本文档"一、快速部�?章节操作
 ```
 
-**使用容器服务（ACK / TKE）**
+**使用容器服务（ACK / TKE�?*
 
 ```bash
 # 1. 推送镜像到容器镜像服务
 docker tag dyslexia-backend:latest registry.cn-hangzhou.aliyuncs.com/your-namespace/dyslexia-backend:latest
 docker push registry.cn-hangzhou.aliyuncs.com/your-namespace/dyslexia-backend:latest
 
-# 2. 在 Kubernetes 中创建 Deployment 和 Service
+# 2. �?Kubernetes 中创�?Deployment �?Service
 kubectl apply -f k8s/
 ```
 
 ---
 
-## 十四、部署检查清单
+## 十四、部署检查清�?
 
-部署前请逐项确认：
+部署前请逐项确认�?
 
 **后端**
-- [ ] `SECRET_KEY` 已修改为随机值
+- [ ] `SECRET_KEY` 已修改为随机�?
 - [ ] `DEBUG=False`
-- [ ] `ALLOWED_ORIGINS` 已配置前端域名
-- [ ] 数据库连接正常（PostgreSQL 推荐）
-- [ ] `uploads/` 目录权限正确（755）
+- [ ] `ALLOWED_ORIGINS` 已配置前端域�?
+- [ ] 数据库连接正常（PostgreSQL 推荐�?
+- [ ] `uploads/` 目录权限正确�?55�?
 - [ ] AI_API_KEY 已配置（可选）
 - [ ] SMS 服务已配置（可选）
 
@@ -658,18 +658,18 @@ kubectl apply -f k8s/
 - [ ] `npm run build:h5` 构建成功
 - [ ] `dist/build/h5/` 目录存在
 - [ ] API 地址指向生产后端
-- [ ] 微信小程序 AppID 已配置（如需上线小程序）
+- [ ] 微信小程�?AppID 已配置（如需上线小程序）
 
 **Nginx**
-- [ ] 反向代理配置正确（`/api/` → 后端）
-- [ ] 静态文件路径正确
-- [ ] HTTPS 证书已配置（生产必须）
-- [ ] 上传文件路径已挂载
+- [ ] 反向代理配置正确（`/api/` �?后端�?
+- [ ] 静态文件路径正�?
+- [ ] HTTPS 证书已配置（生产必须�?
+- [ ] 上传文件路径已挂�?
 
-**数据库**
-- [ ] PostgreSQL 已创建数据库和用户
-- [ ] 数据库密码强度足够
-- [ ] 定时备份任务已配置
+**数据�?*
+- [ ] PostgreSQL 已创建数据库和用�?
+- [ ] 数据库密码强度足�?
+- [ ] 定时备份任务已配�?
 
 **安全**
 - [ ] 防火墙已配置（只开放必要端口）
@@ -678,11 +678,11 @@ kubectl apply -f k8s/
 
 ---
 
-## 十五、快速命令参考
+## 十五、快速命令参�?
 
 ```bash
 # ── 启动 ──────────────────────────────────────────────────────────────────
-bash deploy.sh dev                          # 开发环境
+bash deploy.sh dev                          # 开发环�?
 bash deploy.sh prod                         # 生产环境
 docker compose up -d --build                # 手动启动（开发）
 docker compose -f docker-compose.prod.yml up -d --build  # 手动启动（生产）
@@ -690,34 +690,34 @@ docker compose -f docker-compose.prod.yml up -d --build  # 手动启动（生产
 # ── 日志 ──────────────────────────────────────────────────────────────────
 docker compose logs -f backend              # 后端日志
 docker compose logs -f frontend             # 前端日志
-docker compose logs -f postgres             # 数据库日志
+docker compose logs -f postgres             # 数据库日�?
 
 # ── 重启 ──────────────────────────────────────────────────────────────────
 docker compose restart backend              # 重启后端
 docker compose restart nginx                # 重启 Nginx
 
 # ── 停止 ──────────────────────────────────────────────────────────────────
-docker compose down                         # 停止所有服务
-docker compose down -v                      # 停止并删除数据卷（危险！）
+docker compose down                         # 停止所有服�?
+docker compose down -v                      # 停止并删除数据卷（危险！�?
 
 # ── 备份 ──────────────────────────────────────────────────────────────────
 docker compose exec postgres pg_dump -U dyslexia_user dyslexia > backup.sql
 docker compose exec backend tar czf /app/uploads.tar.gz /app/uploads
 
 # ── 更新 ──────────────────────────────────────────────────────────────────
-git pull origin main                        # 拉取最新代码
-docker compose up -d --build                # 重新构建并启动
+git pull origin main                        # 拉取最新代�?
+docker compose up -d --build                # 重新构建并启�?
 ```
 
 ---
 
 ## 支持
 
-如有部署问题，请查看：
+如有部署问题，请查看�?
 - 项目 README.md
-- IMPLEMENTATION_STATUS.md（功能完成度）
+- IMPLEMENTATION_STATUS.md（功能完成度�?
 - 后端日志：`docker compose logs backend`
-- 前端控制台：浏览器 F12 → Console
+- 前端控制台：浏览�?F12 �?Console
 
 ---
 

@@ -34,7 +34,7 @@ export function generateShareCard(gameResult) {
   const namePrefix = childName ? `${childName}的` : '我家孩子的'
 
   const title = `${abilityEmoji || '🌟'} ${namePrefix}${gameName}能力：${abilityLabel || '小小探险家'}！`
-  const desc = `得了${score}分！快来测测你家孩子的读写能力～悦读小灯塔，趣味游戏发现成长潜力`
+  const desc = `得了${score}分！快来测测你家孩子的读写能力～悦读灯塔，趣味游戏发现成长潜力`
 
   return {
     title,
