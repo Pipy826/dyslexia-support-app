@@ -44,6 +44,15 @@ logger = logging.getLogger(__name__)
 
 from ..models.ai_chat import SavedMessage
 
+# AI 并发限制：最多同时处理 10 个 AI 请求，超出的排队等待
+import asyncio
+_ai_semaphore = asyncio.Semaphore(10)
+import asyncio
+
+# 限制同时进行的 AI 请求数，防止并发过高时拖垮服务
+# 20个并发：100人中最多20人同时等AI，其余立即收到友好提示
+_AI_SEMAPHORE = asyncio.Semaphore(20)
+
 
 # ── 联系方式配置接口 ──────────────────────────────────────────────────────────
 
@@ -189,8 +198,9 @@ async def chat(
     context = _build_child_context(data.child_id, db, current_user)
     history = _get_history_for_llm(data.child_id, db, current_user)
 
-    # 调用 LLM
-    reply = await get_ai_response(data.message, context, history)
+    # 调用 LLM（限制并发数，防止同时请求过多）
+    async with _ai_semaphore:
+        reply = await get_ai_response(data.message, context, history)
 
     # 检测是否需要跳转专业导师
     need_professional = "[NEED_PROFESSIONAL]" in reply
@@ -239,12 +249,12 @@ async def chat_stream(
 
     async def event_generator():
         full_reply = []
-        try:
-            async for chunk in get_ai_response_stream(data.message, context, history):
-                full_reply.append(chunk)
-                # SSE 格式
-                yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"
-        finally:
+        async with _ai_semaphore:
+            try:
+                async for chunk in get_ai_response_stream(data.message, context, history):
+                    full_reply.append(chunk)
+                    yield f"data: {json.dumps({'chunk': chunk}, ensure_ascii=False)}\n\n"
+            finally:
             # 流结束后保存完整回复
             complete_reply = "".join(full_reply)
             # 检测专业问题标记

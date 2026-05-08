@@ -1,66 +1,89 @@
 #!/bin/bash
-# ─────────────────────────────────────────────────────────────────────────────
-# 悦读小灯�?· 一键部署脚�?# 用法：bash deploy.sh [dev|prod]
-# ─────────────────────────────────────────────────────────────────────────────
+# ============================================================
+# 悦读灯塔 - 服务器首次部署脚本
+# 在服务器 64.83.16.195 上执行：
+#   bash deploy.sh
+# ============================================================
 set -e
 
-MODE=${1:-dev}
-echo "🚀 部署模式: $MODE"
+SERVER_IP="64.83.16.195"
+APP_DIR="/opt/dyslexia-app"
 
-# ── 检查依�?──────────────────────────────────────────────────────────────────
-check_cmd() {
-  if ! command -v "$1" &>/dev/null; then
-    echo "�?未找�?$1，请先安�?
-    exit 1
-  fi
-}
-check_cmd docker
-check_cmd docker-compose 2>/dev/null || check_cmd "docker compose"
+echo "======================================"
+echo "  悦读灯塔 - 服务器部署"
+echo "  服务器：$SERVER_IP"
+echo "======================================"
 
-# ── 检�?.env 文件 ────────────────────────────────────────────────────────────
-if [ ! -f backend/.env ]; then
-  echo "⚠️  未找�?backend/.env，正在从模板创建..."
-  if [ "$MODE" = "prod" ]; then
-    cp backend/.env.production backend/.env
-    echo "📝 请编�?backend/.env 填写生产配置后重新运�?
+# ── 1. 安装 Docker ──────────────────────────────────────────
+if ! command -v docker &>/dev/null; then
+    echo "▶ 安装 Docker..."
+    curl -fsSL https://get.docker.com | sh
+    systemctl enable docker && systemctl start docker
+fi
+echo "✓ Docker: $(docker --version)"
+
+# ── 2. 创建目录结构 ─────────────────────────────────────────
+mkdir -p $APP_DIR/backend
+mkdir -p $APP_DIR/frontend/dist/build/h5
+cd $APP_DIR
+
+# ── 3. 下载配置文件（如果没有）──────────────────────────────
+if [ ! -f "docker-compose.prod.yml" ]; then
+    echo "▶ 请先上传项目文件到 $APP_DIR"
+    echo "  在本地电脑执行："
+    echo "  scp docker-compose.prod.yml nginx.conf root@$SERVER_IP:$APP_DIR/"
+    echo "  scp -r backend/.env.example root@$SERVER_IP:$APP_DIR/backend/"
     exit 1
-  else
+fi
+
+# ── 4. 创建 .env 文件 ───────────────────────────────────────
+if [ ! -f "backend/.env" ]; then
+    echo ""
+    echo "▶ 创建后端配置文件..."
     cp backend/.env.example backend/.env
-    echo "�?已创建开发环�?.env"
-  fi
-fi
 
-# ── 生产模式：构建前�?────────────────────────────────────────────────────────
-if [ "$MODE" = "prod" ]; then
-  echo "📦 构建前端..."
-  cd frontend
-  npm ci --legacy-peer-deps
-  npm run build:h5
-  cd ..
-  echo "�?前端构建完成"
-fi
+    # 自动生成随机 SECRET_KEY
+    SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+    sed -i "s/CHANGE_ME_TO_A_RANDOM_SECRET_KEY/$SECRET/" backend/.env
 
-# ── 启动服务 ──────────────────────────────────────────────────────────────────
-if [ "$MODE" = "prod" ]; then
-  COMPOSE_FILE="docker-compose.prod.yml"
+    echo ""
+    echo "⚠️  请设置数据库密码："
+    read -p "   输入数据库密码（直接回车使用默认 Dyslexia2024）: " DB_PASS
+    DB_PASS=${DB_PASS:-Dyslexia2024}
+
+    sed -i "s/CHANGE_DB_PASSWORD/$DB_PASS/" backend/.env
+    export DB_PASSWORD=$DB_PASS
+    echo "DB_PASSWORD=$DB_PASS" >> /etc/environment
+    echo "✓ 配置文件已生成"
 else
-  COMPOSE_FILE="docker-compose.yml"
+    DB_PASSWORD=$(grep "^DATABASE_URL" backend/.env | sed 's/.*:\(.*\)@.*/\1/')
+    export DB_PASSWORD
 fi
 
-echo "🐳 启动 Docker 服务..."
-docker compose -f "$COMPOSE_FILE" pull 2>/dev/null || true
-docker compose -f "$COMPOSE_FILE" up -d --build
-
+# ── 5. 启动服务 ─────────────────────────────────────────────
 echo ""
-echo "�?部署完成�?
-if [ "$MODE" = "prod" ]; then
-  echo "   前端：http://your-domain.com"
-  echo "   后端：http://your-domain.com/api"
+echo "▶ 启动所有服务..."
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+
+echo "⏳ 等待服务启动（30秒）..."
+sleep 30
+
+# ── 6. 数据库迁移 ───────────────────────────────────────────
+echo "▶ 执行数据库迁移..."
+docker exec dyslexia-backend alembic upgrade head || echo "⚠ 迁移失败，稍后手动执行"
+
+# ── 7. 验证 ─────────────────────────────────────────────────
+echo ""
+if curl -sf "http://localhost:8000/health" | grep -q "healthy"; then
+    echo "======================================"
+    echo "  ✅ 部署成功！"
+    echo ""
+    echo "  🌐 访问地址：http://$SERVER_IP"
+    echo "  📱 扫码地址：http://$SERVER_IP"
+    echo "  � 后端健康：http://$SERVER_IP/health"
+    echo "======================================"
 else
-  echo "   前端：http://localhost"
-  echo "   后端：http://localhost:8000"
-  echo "   API 文档：http://localhost:8000/docs"
+    echo "❌ 后端未就绪，查看日志："
+    docker logs dyslexia-backend --tail 30
 fi
-echo ""
-echo "📋 查看日志：docker compose -f $COMPOSE_FILE logs -f"
-echo "🛑 停止服务：docker compose -f $COMPOSE_FILE down"

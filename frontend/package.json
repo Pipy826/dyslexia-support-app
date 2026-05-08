@@ -4,6 +4,8 @@
   "description": "悦读灯塔——面向家庭场景的儿童读写能力科普互动平台",
   "scripts": {
     "dev:h5": "uni --platform h5",
+    "dev:qr": "node dev-qr.js",
+    "dev:share": "node dev-qr.js --tunnel",
     "build:h5": "uni build --platform h5 && node sync-dist.js",
     "dev": "uni",
     "build": "uni build"

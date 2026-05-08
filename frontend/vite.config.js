@@ -17,18 +17,17 @@ export default defineConfig({
   // H5开发模式代理，解决跨域问题
   server: {
     port: 5173,
-    strictPort: false,  // 端口被占用时自动换端口
+    host: '0.0.0.0',           // 监听所有网卡，手机扫码可访问
+    strictPort: false,
     headers: {
       'Cache-Control': 'no-store',
     },
-    // 同时支持 HBuilderX 内置浏览器（8080）和 Vite 直接启动（5173）
-    // HBuilderX 用户：在 HBuilderX 运行配置中将端口改为 5173，或直接用 npm run dev:h5
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        timeout: 120000,        // 120秒，给AI接口足够时间
-        proxyTimeout: 120000,   // 代理到后端的超时
+        timeout: 120000,
+        proxyTimeout: 120000,
       },
       '/uploads': {
         target: 'http://localhost:8000',
